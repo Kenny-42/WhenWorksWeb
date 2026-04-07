@@ -32,7 +32,7 @@ WhenWorks is a web application designed to help groups coordinate availability f
 
 | Area | Technology |
 |------|------------|
-| Frontend | HTML5, CSS |
+| Frontend | HTML5, CSS, JavaScript |
 | Backend | C# with ASP.NET Core |
 | Authentication | Identity Framework |
 | Version Control | Git & GitHub |
