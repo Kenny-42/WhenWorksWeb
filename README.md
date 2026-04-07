@@ -36,7 +36,7 @@ WhenWorks is a web application designed to help groups coordinate availability f
 | Backend | C# with ASP.NET Core |
 | Authentication | Identity Framework |
 | Version Control | Git & GitHub |
-| Database | To be determined |
+| Database | SQL Server |
 
 ---
 
