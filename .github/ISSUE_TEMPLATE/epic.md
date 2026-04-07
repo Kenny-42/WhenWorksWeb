@@ -1,19 +1,20 @@
 ---
 name: Epic
-about: This template contains a user story format with space for sub-issues
+about: Contains a descriptive epic format with space for sub-issues
 title: "[EPIC] Short title"
 labels: epic
 assignees: ''
 
 ---
 
-<!-- Add your user story below -->
-As a [type of user], I want [goal or feature], so that [benefit or reason]
+## Description
+<!-- Provide an in‑depth explanation of what this epic covers.
+       Include the problem, the intended outcome, and any relevant context. -->
 
-## Acceptance Criteria:
-- [Condition or behavior that must be met]
-- [Edge case or alternate behavior]
-- [Performance or usability requirement]
+<!-- Acceptance Criteria: -->
+- [ ] [Condition or behavior that must be met]
+- [ ] [Edge case or alternate behavior]
+- [ ] [Performance or usability requirement]
 
 ### Notes:
-- [Optional design or technical notes]
+- [Optional: technical details, design thoughts, constraints, or references]
