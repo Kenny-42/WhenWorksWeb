@@ -1,7 +1,7 @@
 ---
 name: Epic
 about: This template contains a user story format with space for sub-issues
-title: "[EPIC] Short Title"
+title: "[EPIC] Short title"
 labels: epic
 assignees: ''
 
