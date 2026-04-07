@@ -10,6 +10,7 @@ assignees: ''
 ## Description
 <!-- Provide an in‑depth explanation of what this epic covers.
        Include the problem, the intended outcome, and any relevant context. -->
+[Description]
 
 <!-- Acceptance Criteria: -->
 - [ ] [Condition or behavior that must be met]
