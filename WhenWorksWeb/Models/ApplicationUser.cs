@@ -26,12 +26,14 @@ namespace WhenWorksWeb.Models
         /// <summary>
         /// Gets or sets the date and time when the user account was created.
         /// </summary>
+        [Required]
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
         /// Stores the last time the user was active in the application, such as logging in or performing any action. 
         /// This can be used for features like showing online status or for analytics purposes.
         /// </summary>
+        [Required]
         public DateTime LastActiveAt { get; set; }
     }
 }
