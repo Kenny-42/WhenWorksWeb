@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations;
 
 namespace WhenWorksWeb.Models
 {
@@ -14,26 +13,22 @@ namespace WhenWorksWeb.Models
         /// This allows users to have a more personalized and friendly name shown in the application, especially in event-related contexts. 
         /// The maximum length is set to 16 characters to ensure concise display names.
         /// </summary>
-        [MaxLength(16)]
         public string DisplayName { get; set; }
 
         /// <summary>
         /// Stores a hexadecimal color code (without the '#' symbol) that represents the user's preferred personal color for use in events.
         /// </summary>
-        [MaxLength(6)]
         public string Color { get; set; }
 
         /// <summary>
         /// Gets or sets the date and time when the user account was created.
         /// </summary>
-        [Required]
-        public DateTime CreatedAt { get; set; }
+        public required DateTime CreatedAt { get; set; }
 
         /// <summary>
         /// Stores the last time the user was active in the application, such as logging in or performing any action. 
         /// This can be used for features like showing online status or for analytics purposes.
         /// </summary>
-        [Required]
-        public DateTime LastActiveAt { get; set; }
+        public required DateTime LastActiveAt { get; set; }
     }
 }
