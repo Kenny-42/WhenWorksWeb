@@ -22,14 +22,14 @@ namespace WhenWorksWeb.Models
         /// The maximum length is set to 16 characters to ensure concise display names.
         /// </summary>
         [StringLength(DisplayNameMaxLength)]
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = "Nickname";
 
         /// <summary>
         /// Stores a hexadecimal color code (without the '#' symbol) that represents the user's preferred personal color for use in events.
         /// </summary>
         [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
         [StringLength(HexColorLength)]
-        public string Color { get; set; }
+        public string Color { get; set; } = "ff66c4";
 
         /// <summary>
         /// Gets or sets the date and time when the user account was created.
