@@ -17,15 +17,64 @@ namespace WhenWorksWeb.Models
         [StringLength(30, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
         public required string Title { get; set; }
 
-        // The username of the account that created the event. Usernames are limited to 20 characters.
+        // The username of the account that created the event. Usernames are limited to 450 characters.
         // This field is nullable as not all events will be created by a logged in user.
-        [StringLength(20)]
-        public string? CreatedBy { get; set; }
+        [StringLength(450)]
+        public string? CreatedByUserId { get; set; }
 
         // The date and time when the event was created.
-        public required DateTime CreatedAt { get; set; } = DateTime.Now;
+        public required DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
         // The date and time when the event was last active. This field is updated whenever the event is modified or interacted with.
-        public required DateTime LastActiveAt { get; set; } = DateTime.Now;
+        public required DateTimeOffset LastActiveAt { get; set; } = DateTimeOffset.UtcNow;
+
+        // Navigation
+        public ApplicationUser? CreatedByUser { get; set; }
+        public ICollection<Participant> Participants { get; set; } = new List<Participant>();
+        public ICollection<EventDate> Dates { get; set; } = new List<EventDate>();
+        public EventSettings? Settings { get; set; }
+        public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
+        public ICollection<UserEventBookmark> UserBookmarks { get; set; } = new List<UserEventBookmark>();
+    }
+
+    /// <summary>
+    /// Represents a specific date and time associated with an event, allowing for multiple potential occurrences of the
+    /// same event.
+    /// </summary>
+    public class EventDate
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
+        // Foreign key to the Event this date belongs to
+        public required int EventId { get; set; }
+
+        // The date and time of the event occurrence. This represents a potential date for the event,
+        // and multiple EventDate entries can exist for a single event to allow for scheduling flexibility.
+        public required DateTimeOffset Date { get; set; }
+
+        // Navigation
+        public Event Event { get; set; } = null!;
+    }
+
+    public class EventSettings
+    {
+        // Foreign key to the Event these settings belong to. This is also the primary key for this table,
+        // since each event can have at most one settings entry.
+        [Key]
+        public int EventId { get; set; }
+
+        // An emoji that represents the event, which can be used for display purposes.
+        // The maximum length is set to 20 characters to allow for a wide range of emojis while preventing excessively long strings.
+        [StringLength(20)]
+        public required string Emoji { get; set; } = "🎉";
+
+        // A description of the event, which can provide additional details or context. This field is optional.
+        [StringLength(1000)]
+        public string? Description { get; set; }
+
+        // Navigation
+        public Event Event { get; set; } = null!;
     }
 }

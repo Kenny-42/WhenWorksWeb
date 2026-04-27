@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WhenWorksWeb.Models
 {
@@ -30,5 +32,27 @@ namespace WhenWorksWeb.Models
         /// This can be used for features like showing online status or for analytics purposes.
         /// </summary>
         public required DateTime LastActiveAt { get; set; }
+
+        // Navigation
+        public ICollection<Participant> Participations { get; set; } = new List<Participant>();
+        public ICollection<UserEventBookmark> EventBookmarks { get; set; } = new List<UserEventBookmark>();
+        public ICollection<Event> CreatedEvents { get; set; } = new List<Event>();
+    }
+
+    /// <summary>
+    /// A class representing a bookmark that a user can set on an event. This allows users to mark events they are interested in for easy access later.
+    /// </summary>
+    public class UserEventBookmark
+    {
+        // Foreign key to the ApplicationUser who bookmarked the event.
+        [StringLength(450)]
+        public required string UserId { get; set; }
+
+        // Foreign key to the Event that is being bookmarked.
+        public required int EventId { get; set; }
+
+        // Navigation
+        public ApplicationUser User { get; set; } = null!;
+        public Event Event { get; set; } = null!;
     }
 }
