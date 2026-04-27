@@ -12,10 +12,17 @@ namespace WhenWorksWeb.Models
     {
         private const int TitleMaxLength = ModelConstants.EventTitleMaxLength;
         private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
+        private const int CodeLength = ModelConstants.EventCodeLength;
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+
+        // A unique 6-character alphanumeric code used to identify and share the event.
+        // The code is case-insensitive (stored and compared without regard to letter case).
+        [StringLength(CodeLength, MinimumLength = CodeLength, ErrorMessage = "Code must be exactly 6 alphanumeric characters.")]
+        [RegularExpression(ModelConstants.EventCodePattern, ErrorMessage = "Code must be alphanumeric.")]
+        public required string Code { get; set; }
 
         // The title of the event, with a maximum length of 30 characters and minimum of 1 character.
         [StringLength(TitleMaxLength, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]

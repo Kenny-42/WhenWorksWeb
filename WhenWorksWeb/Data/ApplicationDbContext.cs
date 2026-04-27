@@ -37,11 +37,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         // Configure the main Event table and its link to the user who created it.
         modelBuilder.Entity<Event>(entity =>
         {
+            entity.Property(e => e.Code)
+                .HasMaxLength(ModelConstants.EventCodeLength)
+                .UseCollation("SQL_Latin1_General_CP1_CI_AS");
+
             entity.HasOne(e => e.CreatedByUser)
                 .WithMany(u => u.CreatedEvents)
                 .HasForeignKey(e => e.CreatedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            entity.HasIndex(e => e.Code).IsUnique();
             entity.HasIndex(e => e.CreatedByUserId);
             entity.HasIndex(e => e.LastActiveAt);
         });
