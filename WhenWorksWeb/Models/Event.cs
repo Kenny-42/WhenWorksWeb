@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using WhenWorksWeb.Common;
 
 namespace WhenWorksWeb.Models
 {
@@ -9,17 +10,20 @@ namespace WhenWorksWeb.Models
     /// </summary>
     public class Event
     {
+        private const int TitleMaxLength = ModelConstants.EventTitleMaxLength;
+        private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
+
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         // The title of the event, with a maximum length of 30 characters and minimum of 1 character.
-        [StringLength(30, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
+        [StringLength(TitleMaxLength, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
         public required string Title { get; set; }
 
         // The username of the account that created the event. Usernames are limited to 450 characters.
         // This field is nullable as not all events will be created by a logged in user.
-        [StringLength(450)]
+        [StringLength(UserIdMaxLength)]
         public string? CreatedByUserId { get; set; }
 
         // The date and time when the event was created.
@@ -60,6 +64,9 @@ namespace WhenWorksWeb.Models
 
     public class EventSettings
     {
+        private const int EmojiMaxLength = ModelConstants.EventEmojiMaxLength;
+        private const int DescriptionMaxLength = ModelConstants.EventDescriptionMaxLength;
+
         // Foreign key to the Event these settings belong to. This is also the primary key for this table,
         // since each event can have at most one settings entry.
         [Key]
@@ -67,11 +74,11 @@ namespace WhenWorksWeb.Models
 
         // An emoji that represents the event, which can be used for display purposes.
         // The maximum length is set to 20 characters to allow for a wide range of emojis while preventing excessively long strings.
-        [StringLength(20)]
-        public required string Emoji { get; set; } = "🎉";
+        [StringLength(EmojiMaxLength)]
+        public required string Emoji { get; set; } = ModelConstants.DefaultEventEmoji;
 
         // A description of the event, which can provide additional details or context. This field is optional.
-        [StringLength(1000)]
+        [StringLength(DescriptionMaxLength)]
         public string? Description { get; set; }
 
         // Navigation

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Data;
@@ -27,8 +28,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         // Configure custom Identity user properties.
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
-            entity.Property(e => e.DisplayName).HasMaxLength(16).IsRequired();
-            entity.Property(e => e.Color).HasMaxLength(6).IsRequired();
+            entity.Property(e => e.DisplayName).HasMaxLength(ModelConstants.ApplicationUserDisplayNameMaxLength).IsRequired();
+            entity.Property(e => e.Color).HasMaxLength(ModelConstants.HexColorLength).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.LastActiveAt).IsRequired();
         });
