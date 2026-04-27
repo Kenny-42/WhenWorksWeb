@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WhenWorksWeb.Data;
 
@@ -11,13 +12,15 @@ using WhenWorksWeb.Data;
 namespace WhenWorksWeb.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426231148_AddedEvent")]
+    partial class AddedEvent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -248,21 +251,15 @@ namespace WhenWorksWeb.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)")
-                        .UseCollation("SQL_Latin1_General_CP1_CI_AS");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("CreatedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTimeOffset>("LastActiveAt")
-                        .HasColumnType("datetimeoffset");
+                    b.Property<DateTime>("LastActiveAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -271,163 +268,7 @@ namespace WhenWorksWeb.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("LastActiveAt");
-
                     b.ToTable("Events");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventDate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset>("Date")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("EventDates");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<DateTime?>("EditedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ParticipantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.HasIndex("ParticipantId");
-
-                    b.HasIndex("SentAt");
-
-                    b.HasIndex("EventId", "SentAt");
-
-                    b.ToTable("EventMessages");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventRole", b =>
-                {
-                    b.Property<int>("ParticipantId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.HasKey("ParticipantId");
-
-                    b.ToTable("EventRoles");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventSettings", b =>
-                {
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("Emoji")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.HasKey("EventId");
-
-                    b.ToTable("EventSettings");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.Participant", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Color")
-                        .IsRequired()
-                        .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("EventId", "DisplayName")
-                        .IsUnique();
-
-                    b.HasIndex("EventId", "UserId")
-                        .IsUnique()
-                        .HasFilter("[UserId] IS NOT NULL");
-
-                    b.ToTable("Participants");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.UserEventBookmark", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.HasKey("UserId", "EventId");
-
-                    b.HasIndex("EventId");
-
-                    b.ToTable("UserEventBookmarks");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -479,134 +320,6 @@ namespace WhenWorksWeb.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.Event", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.ApplicationUser", "CreatedByUser")
-                        .WithMany("CreatedEvents")
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CreatedByUser");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventDate", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Event", "Event")
-                        .WithMany("Dates")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventMessage", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Event", "Event")
-                        .WithMany("Messages")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WhenWorksWeb.Models.Participant", "Participant")
-                        .WithMany("Messages")
-                        .HasForeignKey("ParticipantId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("Participant");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventRole", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Participant", "Participant")
-                        .WithOne("Role")
-                        .HasForeignKey("WhenWorksWeb.Models.EventRole", "ParticipantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Participant");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.EventSettings", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Event", "Event")
-                        .WithOne("Settings")
-                        .HasForeignKey("WhenWorksWeb.Models.EventSettings", "EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.Participant", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Event", "Event")
-                        .WithMany("Participants")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WhenWorksWeb.Models.ApplicationUser", "User")
-                        .WithMany("Participations")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Event");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.UserEventBookmark", b =>
-                {
-                    b.HasOne("WhenWorksWeb.Models.Event", "Event")
-                        .WithMany("UserBookmarks")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WhenWorksWeb.Models.ApplicationUser", "User")
-                        .WithMany("EventBookmarks")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.ApplicationUser", b =>
-                {
-                    b.Navigation("CreatedEvents");
-
-                    b.Navigation("EventBookmarks");
-
-                    b.Navigation("Participations");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.Event", b =>
-                {
-                    b.Navigation("Dates");
-
-                    b.Navigation("Messages");
-
-                    b.Navigation("Participants");
-
-                    b.Navigation("Settings");
-
-                    b.Navigation("UserBookmarks");
-                });
-
-            modelBuilder.Entity("WhenWorksWeb.Models.Participant", b =>
-                {
-                    b.Navigation("Messages");
-
-                    b.Navigation("Role");
                 });
 #pragma warning restore 612, 618
         }
