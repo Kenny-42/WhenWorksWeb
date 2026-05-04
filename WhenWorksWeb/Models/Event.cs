@@ -33,11 +33,9 @@ namespace WhenWorksWeb.Models
         [StringLength(UserIdMaxLength)]
         public string? CreatedByUserId { get; set; }
 
-        // The date and time when the event was created.
-        public required DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-
-        // The date and time when the event was last active. This field is updated whenever the event is modified or interacted with.
-        public required DateTimeOffset LastActiveAt { get; set; } = DateTimeOffset.UtcNow;
+        // The timestamps for when the event was created and when it was last active.
+        public DateTimeOffset CreatedAt { get; internal set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset LastActiveAt { get; internal set; } = DateTimeOffset.UtcNow;
 
         // Navigation
         public ApplicationUser? CreatedByUser { get; set; }
@@ -46,6 +44,18 @@ namespace WhenWorksWeb.Models
         public EventSettings? Settings { get; set; }
         public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
         public ICollection<UserEventBookmark> UserBookmarks { get; set; } = new List<UserEventBookmark>();
+
+        // Factory method to create a new Event instance with the required properties.
+        // The CreatedAt and LastActiveAt timestamps are automatically set to the current time when the event is created.
+        public static Event Create(string code, string title, string? createdByUserId = null)
+        {
+            return new Event
+            {
+                Code = code,
+                Title = title,
+                CreatedByUserId = createdByUserId
+            };
+        }
     }
 
     /// <summary>

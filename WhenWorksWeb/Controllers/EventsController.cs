@@ -31,31 +31,30 @@ public class EventsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(IndexViewModel model)
     {
-        // Normalize the event name by trimming whitespace.
-        model.CreateEventName = model.CreateEventName.Trim();
+        // Remove the EventCode from model state validation since it's not relevant for event creation and may be empty.
+        ModelState.Remove(nameof(IndexViewModel.EventCode));
 
-        // Validate that the event name is not empty and that the model state is valid.
-        if (string.IsNullOrWhiteSpace(model.CreateEventName) || !ModelState.IsValid)
+        // Trim whitespace from the event name to ensure consistent validation and storage.
+        // This prevents issues with names that are only whitespace or have leading/trailing spaces.
+        model.CreateEventName = model.CreateEventName?.Trim();
+
+        // Validate the model state after adjusting the CreateEventName.
+        // If it's invalid (e.g., empty), redisplay the form with validation errors.
+        if (!ModelState.IsValid)
         {
-            // If validation fails, redisplay the form with the current model to show validation errors.
             return View("~/Views/Home/Index.cshtml", model);
         }
 
         // Generate a unique event code using the EventCodeGenerator service.
         var code = await _codeGenerator.GenerateUniqueCodeAsync();
+        // Create a new Event entity using the generated code and the provided event name from the view model.
+        var eventEntity = Event.Create(code, model.CreateEventName!);
 
-        // Create a new Event entity with the generated code and the provided event name.
-        var eventEntity = new Event
-        {
-            Code = code,
-            Title = model.CreateEventName
-        };
-
-        // Add the new event to the database context and save changes to persist it in the database.
+        // Add the new event entity to the database context and save changes to persist it in the database.
         _db.Events.Add(eventEntity);
         await _db.SaveChangesAsync();
 
-        // Redirect the user to the sign-in page for the newly created event using its unique code.
+        // Redirect the user to the event sign-in page for the newly created event using its unique code.
         return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
     }
 
@@ -70,29 +69,33 @@ public class EventsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Join(IndexViewModel model)
     {
-        // Validate that the event code is not empty and that the model state is valid.
+        // Remove the CreateEventName from model state validation since it's not relevant for joining an event and may be empty.
+        ModelState.Remove(nameof(IndexViewModel.CreateEventName));
+
+        // Normalize the event code by trimming whitespace and converting it to uppercase to ensure consistent lookup and visuals.
+        model.EventCode = model.EventCode?.Trim().ToUpperInvariant();
+
+        // Validate the model state after adjusting the EventCode.
+        // If it's invalid (e.g., empty), redisplay the form with validation errors.
         if (!ModelState.IsValid)
         {
-            // If validation fails, redisplay the form with the current model to show validation errors.
             return View("~/Views/Home/Index.cshtml", model);
         }
 
-        // Normalize the event code by trimming whitespace and converting to uppercase for consistent lookup.
-        var code = model.EventCode.Trim().ToUpperInvariant();
-
-        // Attempt to find an event in the database that matches the provided code, using AsNoTracking for read-only access.
+        // Query the database for an event that matches the normalized event code.
+        // AsNoTracking is used since we only need read access to check for existence.
         var eventEntity = await _db.Events
             .AsNoTracking()
-            .SingleOrDefaultAsync(e => e.Code == code);
+            .SingleOrDefaultAsync(e => e.Code == model.EventCode);
 
-        // If no event is found with the provided code, add a model error and redisplay the form.
+        // If no event is found with the provided code, add a model error to inform the user and redisplay the form.
         if (eventEntity is null)
         {
             ModelState.AddModelError(nameof(IndexViewModel.EventCode), "No event was found for that code.");
             return View("~/Views/Home/Index.cshtml", model);
         }
 
-        // Redirect the user to the sign-in page for the found event using its unique code.
+        // Redirect the user to the event sign-in page for the found event using its unique code.
         return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
     }
 
@@ -100,7 +103,7 @@ public class EventsController : Controller
     /// Displays the sign-in page for the event associated with the specified event code.
     /// </summary>
     [HttpGet("/event/{code}/signin", Name = "EventSignIn")]
-    public IActionResult SignIn(string code)
+    public async Task<IActionResult> SignIn(string code)
     {
         // Validate that the event code is not null, empty, or whitespace. If it is, return a 404 Not Found response.
         if (string.IsNullOrWhiteSpace(code))
@@ -108,13 +111,26 @@ public class EventsController : Controller
             return NotFound();
         }
 
-        // Create a view model for the event sign-in page, normalizing the event code to uppercase for display.
+        // Query the database for the event that matches the code from the URL.
+        // AsNoTracking is used because this action only needs read access to display the page.
+        var eventEntity = await _db.Events
+            .AsNoTracking()
+            .SingleOrDefaultAsync(e => e.Code == code);
+
+        // If no matching event exists, return a 404 response instead of showing the sign-in page.
+        if (eventEntity is null)
+        {
+            return NotFound();
+        }
+
+        // Build the view model with the event's code and title so the page can display them.
         var viewModel = new EventSignInViewModel
         {
-            Code = code.ToUpperInvariant()
+            Code = eventEntity.Code.ToUpperInvariant(),
+            EventName = eventEntity.Title
         };
 
-        // Return the view for the event sign-in page, passing the view model to it.
+        // Render the sign-in view using the populated view model.
         return View(viewModel);
     }
 }

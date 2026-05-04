@@ -28,6 +28,7 @@
 
             <!-- Field-specific validation messages appear below the controls -->
             <div>
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                 <span asp-validation-for="CreateEventName" class="text-danger d-block"></span>
             </div>
         </form>
