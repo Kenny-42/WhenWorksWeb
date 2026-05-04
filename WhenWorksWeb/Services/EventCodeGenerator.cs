@@ -4,6 +4,9 @@ using WhenWorksWeb.Data;
 
 namespace WhenWorksWeb.Services
 {
+    /// <summary>
+    /// Provides functionality to generate unique, human-readable event codes that do not already exist in the database.
+    /// </summary>
     public class EventCodeGenerator
     {
         // The length of the event code.

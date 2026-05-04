@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,10 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<ApplicationUser>(IdentityConfiguration.Configure)
     .AddRoles<IdentityRole>() // Add role support to Identity
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// Register the EventCodeGenerator as a scoped service, so it can be injected into controllers and other services.
+builder.Services.AddScoped<EventCodeGenerator>();
+
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
