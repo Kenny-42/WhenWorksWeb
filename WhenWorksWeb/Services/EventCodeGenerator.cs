@@ -1,5 +1,6 @@
-﻿using System.Security.Cryptography;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Data;
 
 namespace WhenWorksWeb.Services
@@ -10,14 +11,14 @@ namespace WhenWorksWeb.Services
     public class EventCodeGenerator
     {
         // The length of the event code.
-        private const int CodeLength = 6;
+        private const int CodeLength = ModelConstants.EventCodeLength;
 
         // The maximum number of attempts to generate a unique code before giving up.
         // This is a safeguard against infinite loops in the unlikely event of many collisions.
         private const int MaxAttempts = 50;
 
-        // A custom alphabet that excludes easily confused characters (A, E, I, L, O, U, 0, 1) to improve readability of codes.
-        private static readonly char[] Alphabet = "BCDFGHJKMNPQRSTVWXYZ23456789".ToCharArray();
+        // Shared source of truth for the event code alphabet.
+        private static readonly char[] Alphabet = ModelConstants.EventCodeAlphabet.ToCharArray();
 
         private readonly ApplicationDbContext _dbContext;
 
@@ -38,7 +39,7 @@ namespace WhenWorksWeb.Services
             {
                 var code = GenerateCode();
 
-                Boolean exists = await _dbContext.Events
+                bool exists = await _dbContext.Events
                     .AnyAsync(e => e.Code == code, cancellationToken);
 
                 if (!exists)
@@ -51,7 +52,7 @@ namespace WhenWorksWeb.Services
         }
 
         /// <summary>
-        /// Generates a random 6 character code using a predefined alphabet.
+        /// Generates a random event code using the shared alphabet and configured length.
         /// </summary>
         private static string GenerateCode()
         {
