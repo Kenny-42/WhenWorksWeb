@@ -72,29 +72,40 @@ public sealed class DevelopmentDataSeeder
             createdAt: DateTime.UtcNow.AddDays(-6),
             lastActiveAt: DateTime.UtcNow.AddHours(-1));
 
+        // For sample events, set CreatedAt to 5 days ago and LastActiveAt to now for all events to simulate
+        // active events with some history
+        var eventCreatedAt = DateTimeOffset.UtcNow.AddDays(-5);
+        var eventLastActiveAt = DateTimeOffset.UtcNow;
+
         // Create sample events
         var lunchEvent = new Event
         {
             Code = "LUNCH1",
             Title = "Team Lunch Poll",
-            CreatedByUserId = alice.Id
+            CreatedByUserId = alice.Id,
+            CreatedAt = eventCreatedAt,
+            LastActiveAt = eventLastActiveAt
         };
 
         var tripEvent = new Event
         {
             Code = "TRIP22",
             Title = "Weekend Trip",
-            CreatedByUserId = ben.Id
+            CreatedByUserId = ben.Id,
+            CreatedAt = eventCreatedAt,
+            LastActiveAt = eventLastActiveAt
         };
 
         var planningEvent = new Event
         {
             Code = "PLAN33",
             Title = "Sprint Planning",
-            CreatedByUserId = null
+            CreatedByUserId = null,
+            CreatedAt = eventCreatedAt,
+            LastActiveAt = eventLastActiveAt
         };
 
-        // Set CreatedAt and LastActiveAt to now for all events and save to generate IDs for the events
+        // Set CreatedAt and LastActiveAt to now for all events and save to generate IDs for participants
         _dbContext.Events.AddRange(lunchEvent, tripEvent, planningEvent);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
