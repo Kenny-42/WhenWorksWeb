@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Data;
+using WhenWorksWeb.Data.Seed;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Services;
 
@@ -18,6 +19,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(IdentityConfiguration.Confi
 
 // Register the EventCodeGenerator as a scoped service, so it can be injected into controllers and other services.
 builder.Services.AddScoped<EventCodeGenerator>();
+// Register the DevelopmentDataSeeder as a scoped service, so it can be injected and used during application startup.
+builder.Services.AddScoped<DevelopmentDataSeeder>();
 
 builder.Services.AddControllersWithViews();
 
@@ -55,6 +58,13 @@ using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentityRoleSeeder.SeedRolesAsync(roleManager);
+
+    // Seed development data only in the development environment to avoid polluting production databases with test data.
+    if (app.Environment.IsDevelopment())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
+        await seeder.SeedAsync();
+    }
 }
 
 app.Run();
