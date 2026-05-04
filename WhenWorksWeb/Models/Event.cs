@@ -18,10 +18,10 @@ namespace WhenWorksWeb.Models
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
-        // A unique 6-character alphanumeric code used to identify and share the event.
+        // A unique 6-character alphanumeric (excluding A,E,I,L,O,U,0,1) code used to identify and share the event.
         // The code is case-insensitive (stored and compared without regard to letter case).
-        [StringLength(CodeLength, MinimumLength = CodeLength, ErrorMessage = "Code must be exactly 6 alphanumeric characters.")]
-        [RegularExpression(ModelConstants.EventCodePattern, ErrorMessage = "Code must be alphanumeric.")]
+        [StringLength(CodeLength, MinimumLength = CodeLength, ErrorMessage = "Code must be exactly 6 characters.")]
+        [RegularExpression(ModelConstants.EventCodePattern, ErrorMessage = "Code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
         public required string Code { get; set; }
 
         // The title of the event, with a maximum length of 30 characters and minimum of 1 character.
