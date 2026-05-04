@@ -1,7 +1,7 @@
-﻿using System.Linq;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Data.Seed;
@@ -80,7 +80,7 @@ public sealed class DevelopmentDataSeeder
         // Create sample events
         var lunchEvent = new Event
         {
-            Code = "LUNCH1",
+            Code = "BRG7K2",
             Title = "Team Lunch Poll",
             CreatedByUserId = alice.Id,
             CreatedAt = eventCreatedAt,
@@ -89,7 +89,7 @@ public sealed class DevelopmentDataSeeder
 
         var tripEvent = new Event
         {
-            Code = "TRIP22",
+            Code = "TRP922",
             Title = "Weekend Trip",
             CreatedByUserId = ben.Id,
             CreatedAt = eventCreatedAt,
@@ -98,7 +98,7 @@ public sealed class DevelopmentDataSeeder
 
         var planningEvent = new Event
         {
-            Code = "PLAN33",
+            Code = "PRJ633",
             Title = "Sprint Planning",
             CreatedByUserId = null,
             CreatedAt = eventCreatedAt,
