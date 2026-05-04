@@ -11,22 +11,37 @@
     <div class="create-event-container d-flex flex-column align-items-center gap-2">
         <h1 class="display-4">CREATE A NEW EVENT</h1>
 
-        <!-- Event name input and submit button are aligned horizontally for a compact layout -->
-        <div class="d-flex align-items-start gap-2">
-            <input type="text"
-                   class="form-control form-control-sm text-center"
-                   style="width: 14rem;"
-                   placeholder="Event Name">
-            <button class="btn btn-primary">GO!</button>
-        </div>
+        <!-- Form posts the new event data to the Create action -->
+        <form asp-action="Create"
+              asp-controller="Events"
+              method="post"
+              class="d-flex flex-column align-items-center gap-2">
+
+            <!-- Event name input and submit button are aligned horizontally for a compact layout -->
+            <div class="d-flex align-items-start gap-2">
+                <input asp-for="CreateEventName"
+                       class="form-control form-control-sm text-center"
+                       style="width: 14rem;"
+                       placeholder="Event Name">
+                <button type="submit" class="btn btn-primary">GO!</button>
+            </div>
+
+            <!-- Field-specific validation messages appear below the controls -->
+            <div>
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <span asp-validation-for="CreateEventName" class="text-danger d-block"></span>
+            </div>
+        </form>
     </div>
 
     <!-- Join Event section -->
     <div class="join-event-container d-flex flex-column align-items-center gap-2">
         <h2 class="display-5">JOIN AN EVENT</h2>
 
-        <!-- Form posts the entered event code to the JoinEvent action -->
-        <form asp-action="JoinEvent" asp-controller="Home" method="post"
+        <!-- Form posts the entered event code to the Join action -->
+        <form asp-action="Join"
+              asp-controller="Events"
+              method="post"
               class="d-flex flex-column align-items-center gap-2">
 
             <!-- Event code input and submit button are aligned horizontally for a compact layout -->
@@ -47,12 +62,6 @@
             <div>
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                 <span asp-validation-for="EventCode" class="text-danger d-block"></span>
-
-                <!-- Success message is displayed after a valid event code submission -->
-                @if (ViewData["SuccessMessage"] is string successMessage)
-                {
-                    <div class="text-success">@successMessage</div>
-                }
             </div>
         </form>
     </div>
