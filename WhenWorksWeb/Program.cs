@@ -17,7 +17,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(IdentityConfiguration.Confi
     .AddRoles<IdentityRole>() // Add role support to Identity
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// Register the EventCodeGenerator as a scoped service, so it can be injected into controllers and other services.
+builder.Services.AddScoped<IEventCodeSource, RandomEventCodeSource>();
+builder.Services.AddScoped<IEventCodeLookup, EventCodeLookup>();
 builder.Services.AddScoped<EventCodeGenerator>();
 // Register the DevelopmentDataSeeder as a scoped service, so it can be injected and used during application startup.
 builder.Services.AddScoped<DevelopmentDataSeeder>();
