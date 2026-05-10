@@ -50,5 +50,5 @@ public sealed class EventSignInViewModel
     /// <summary>
     /// Gets or sets the list of available display names for selection in a user interface.
     /// </summary>
-    public List<SelectListItem> ExistingDisplayName { get; set; } = [];
+    public List<SelectListItem> ExistingDisplayNames { get; set; } = [];
 }

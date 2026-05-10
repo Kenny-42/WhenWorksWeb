@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
@@ -12,13 +14,17 @@ namespace WhenWorksWeb.Controllers;
 public class EventsController : Controller
 {
     private readonly ApplicationDbContext _db;
-    // Service responsible for generating unique event codes.
     private readonly EventCodeGenerator _codeGenerator;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public EventsController(ApplicationDbContext db, EventCodeGenerator codeGenerator)
+    public EventsController(
+        ApplicationDbContext db,
+        EventCodeGenerator codeGenerator,
+        UserManager<ApplicationUser> userManager)
     {
         _db = db;
         _codeGenerator = codeGenerator;
+        _userManager = userManager;
     }
 
     /// <summary>
@@ -123,11 +129,50 @@ public class EventsController : Controller
             return NotFound();
         }
 
-        // Build the view model with the event's code and title so the page can display them.
+        // Retrieve the list of existing participant display names for the event to populate the dropdown in the sign-in form.
+        var existingDisplayNames = await _db.Participants
+            .AsNoTracking()
+            .Where(p => p.EventId == eventEntity.Id)
+            .OrderBy(p => p.DisplayName)
+            .Select(p => p.DisplayName)
+            .ToListAsync();
+
+        // Attempt to retrieve the currently authenticated user, if any, to pre-populate the sign-in form with their information.
+        var user = await _userManager.GetUserAsync(User);
+
+        string displayName = user?.DisplayName ?? string.Empty;
+        string color = user?.Color ?? "ff66c4";
+        string? selectedDisplayName = null;
+
+        // If the current user is already registered for this event, load their saved participant details
+        // so the sign-in form can be pre-populated with their existing display name and color.
+        if (user is not null)
+        {
+            var existingParticipant = await _db.Participants
+                .AsNoTracking()
+                .SingleOrDefaultAsync(p => p.EventId == eventEntity.Id && p.UserId == user.Id);
+
+            // When a matching participant record exists, use it as the default sign-in state.
+            if (existingParticipant is not null)
+            {
+                displayName = existingParticipant.DisplayName;
+                color = existingParticipant.Color;
+                selectedDisplayName = existingParticipant.DisplayName;
+            }
+        }
+
+        // Build the sign-in view model with the event details, any known participant defaults,
+        // and a sorted list of existing display names so the UI can prefill and offer quick selection.
         var viewModel = new EventSignInViewModel
         {
             Code = eventEntity.Code.ToUpperInvariant(),
-            EventName = eventEntity.Title
+            EventName = eventEntity.Title,
+            DisplayName = displayName,
+            Color = color,
+            SelectedExistingDisplayName = selectedDisplayName,
+            ExistingDisplayNames = existingDisplayNames
+                .Select(name => new SelectListItem { Value = name, Text = name })
+                .ToList()
         };
 
         // Render the sign-in view using the populated view model.
