@@ -23,13 +23,13 @@ public sealed class EventSignInViewModel
     public required string EventName { get; init; }
 
     /// <summary>
-    /// Gets or sets the display nickname for the participant.
+    /// Gets or sets the display name for the participant.
     /// </summary>
     [Required]
     [StringLength(ModelConstants.ParticipantDisplayNameMaxLength, MinimumLength = 1,
-        ErrorMessage = "Nickname must be between 1 and 16 characters.")]
-    [Display(Name = "Nickname")]
-    public string Nickname { get; set; } = string.Empty;
+        ErrorMessage = "Display name must be between 1 and 16 characters.")]
+    [Display(Name = "Display Name")]
+    public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the color as a 6-character hexadecimal string.
@@ -43,12 +43,12 @@ public sealed class EventSignInViewModel
     public string Color { get; set; } = "ff66c4";
 
     /// <summary>
-    /// Gets or sets the nickname selected from the list of existing nicknames.
+    /// Gets or sets the display name selected from the list of existing display names.
     /// </summary>
-    public string? SelectedExistingNickname { get; set; }
+    public string? SelectedExistingDisplayName { get; set; }
 
     /// <summary>
-    /// Gets or sets the list of available nicknames for selection in a user interface.
+    /// Gets or sets the list of available display names for selection in a user interface.
     /// </summary>
-    public List<SelectListItem> ExistingNicknames { get; set; } = [];
+    public List<SelectListItem> ExistingDisplayName { get; set; } = [];
 }
