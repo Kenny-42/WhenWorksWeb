@@ -13,7 +13,7 @@ namespace WhenWorksWeb.Models
         public static void Configure(IdentityOptions options)
         {
             // Sign in settings
-            options.SignIn.RequireConfirmedAccount = true;
+            options.SignIn.RequireConfirmedAccount = false;
 
             // Password settings
             options.Password.RequireDigit = true;
