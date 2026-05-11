@@ -21,15 +21,18 @@
             <span asp-validation-for="DisplayName" class="text-danger"></span>
         </div>
 
-        <div>
-            <label class="form-label" for="existingDisplayNames">Returning users</label>
-            <select asp-for="SelectedExistingDisplayName"
-                    asp-items="Model.ExistingDisplayNames"
-                    class="form-select"
-                    id="existingDisplayNames">
-                <option value="">Choose a name already in this event</option>
-            </select>
-        </div>
+        @if (Model.ExistingDisplayNames.Count > 0)
+        {
+            <div>
+                <label class="form-label" for="existingDisplayNames">Returning users</label>
+                <select asp-for="SelectedExistingDisplayName"
+                        asp-items="Model.ExistingDisplayNames"
+                        class="form-select"
+                        id="existingDisplayNames">
+                    <option value="">Choose a name already in this event</option>
+                </select>
+            </div>
+        }
 
         <div>
             <label class="form-label" for="colorPicker">Color</label>
@@ -59,9 +62,11 @@
         const colorPicker = document.getElementById('colorPicker');
         const colorHidden = document.getElementById('Color');
 
-        displayNameSelect.addEventListener('change', () => {
-            displayNameInput.value = displayNameSelect.value.trim();
-        });
+        if (displayNameSelect) {
+            displayNameSelect.addEventListener('change', () => {
+                displayNameInput.value = displayNameSelect.value.trim();
+            });
+        }
 
         form.addEventListener('submit', () => {
             displayNameInput.value = displayNameInput.value.trim();
