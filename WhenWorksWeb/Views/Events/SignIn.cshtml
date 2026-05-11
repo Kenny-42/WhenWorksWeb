@@ -12,13 +12,12 @@
           asp-route-code="@Model.Code"
           method="post"
           class="d-grid gap-3">
-        @Html.AntiForgeryToken()
 
         <input type="hidden" asp-for="Code" />
 
         <div>
             <label asp-for="DisplayName" class="form-label"></label>
-            <input asp-for="DisplayName" class="form-control" id="displayNameInput" />
+            <input asp-for="DisplayName" class="form-control" />
             <span asp-validation-for="DisplayName" class="text-danger"></span>
         </div>
 
@@ -43,21 +42,29 @@
         </div>
 
         <button type="submit" class="btn btn-primary">Enter Event</button>
+
+        @if (ViewData["SuccessMessage"] is string successMessage)
+        {
+            <div class="text-success fw-semibold">@successMessage</div>
+        }
     </form>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        const displayNameInput = document.getElementById('displayNameInput');
+        const form = document.querySelector('form');
+        const displayNameInput = document.getElementById('DisplayName');
         const displayNameSelect = document.getElementById('existingDisplayNames');
         const colorPicker = document.getElementById('colorPicker');
         const colorHidden = document.getElementById('Color');
 
         displayNameSelect.addEventListener('change', () => {
-            if (displayNameSelect.value) {
-                displayNameInput.value = displayNameSelect.value;
-            }
+            displayNameInput.value = displayNameSelect.value.trim();
+        });
+
+        form.addEventListener('submit', () => {
+            displayNameInput.value = displayNameInput.value.trim();
         });
 
         function syncColor() {
