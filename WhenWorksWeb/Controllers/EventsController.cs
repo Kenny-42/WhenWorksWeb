@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Services;
@@ -12,13 +15,17 @@ namespace WhenWorksWeb.Controllers;
 public class EventsController : Controller
 {
     private readonly ApplicationDbContext _db;
-    // Service responsible for generating unique event codes.
     private readonly EventCodeGenerator _codeGenerator;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public EventsController(ApplicationDbContext db, EventCodeGenerator codeGenerator)
+    public EventsController(
+        ApplicationDbContext db,
+        EventCodeGenerator codeGenerator,
+        UserManager<ApplicationUser> userManager)
     {
         _db = db;
         _codeGenerator = codeGenerator;
+        _userManager = userManager;
     }
 
     /// <summary>
@@ -29,7 +36,7 @@ public class EventsController : Controller
     /// event.</remarks>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(IndexViewModel model)
+    public async Task<IActionResult> Create(IndexViewModel model, CancellationToken cancellationToken)
     {
         // Remove the EventCode from model state validation since it's not relevant for event creation and may be empty.
         ModelState.Remove(nameof(IndexViewModel.EventCode));
@@ -46,13 +53,13 @@ public class EventsController : Controller
         }
 
         // Generate a unique event code using the EventCodeGenerator service.
-        var code = await _codeGenerator.GenerateUniqueCodeAsync();
+        var code = await _codeGenerator.GenerateUniqueCodeAsync(cancellationToken);
         // Create a new Event entity using the generated code and the provided event name from the view model.
         var eventEntity = Event.Create(code, model.CreateEventName!);
 
         // Add the new event entity to the database context and save changes to persist it in the database.
         _db.Events.Add(eventEntity);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
 
         // Redirect the user to the event sign-in page for the newly created event using its unique code.
         return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
@@ -67,7 +74,7 @@ public class EventsController : Controller
     /// lookup.</remarks>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Join(IndexViewModel model)
+    public async Task<IActionResult> Join(IndexViewModel model, CancellationToken cancellationToken)
     {
         // Remove the CreateEventName from model state validation since it's not relevant for joining an event and may be empty.
         ModelState.Remove(nameof(IndexViewModel.CreateEventName));
@@ -86,7 +93,7 @@ public class EventsController : Controller
         // AsNoTracking is used since we only need read access to check for existence.
         var eventEntity = await _db.Events
             .AsNoTracking()
-            .SingleOrDefaultAsync(e => e.Code == model.EventCode);
+            .SingleOrDefaultAsync(e => e.Code == model.EventCode, cancellationToken);
 
         // If no event is found with the provided code, add a model error to inform the user and redisplay the form.
         if (eventEntity is null)
@@ -103,34 +110,141 @@ public class EventsController : Controller
     /// Displays the sign-in page for the event associated with the specified event code.
     /// </summary>
     [HttpGet("/event/{code}/signin", Name = "EventSignIn")]
-    public async Task<IActionResult> SignIn(string code)
+    public async Task<IActionResult> SignIn(string code, CancellationToken cancellationToken)
     {
-        // Validate that the event code is not null, empty, or whitespace. If it is, return a 404 Not Found response.
+        var viewModel = await BuildSignInViewModelAsync(code, cancellationToken);
+        return viewModel is null ? NotFound() : View(viewModel);
+    }
+
+    /// <summary>
+    /// Handles the sign-in form submission for an event, validating and processing the provided display name and color.
+    /// </summary>
+    [HttpPost("/event/{code}/signin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SignIn(string code, EventSignInViewModel model, CancellationToken cancellationToken)
+    {
+        // Check if the event code in the URL is valid and corresponds to an existing event.
+        // If not, return a 404 Not Found response.
+        var viewModel = await BuildSignInViewModelAsync(code, cancellationToken);
+        if (viewModel is null)
+        {
+            return NotFound();
+        }
+
+        // Normalize user input now, but do not persist anything yet.
+        model.DisplayName = model.DisplayName?.Trim() ?? string.Empty;
+        model.Color = model.Color?.Trim() ?? "ff66c4";
+
+        // Repopulate the page model so the dropdown and event data stay intact.
+        viewModel.DisplayName = model.DisplayName;
+        viewModel.Color = model.Color;
+        viewModel.SelectedExistingDisplayName = model.SelectedExistingDisplayName;
+
+        if (!ModelState.IsValid)
+        {
+            return View(viewModel);
+        }
+
+        // Display a success message to the user and redisplay the form.
+        // This is a placeholder for the sign-in logic that will be implemented in the future.
+        ViewData["SuccessMessage"] = "Success!";
+        return View(viewModel);
+    }
+
+    /// <summary>
+    /// Builds an event sign-in view model for the specified event code, including participant and display name
+    /// information.
+    /// </summary>
+    /// <remarks>If the specified event code does not correspond to an existing event, or if the code is null
+    /// or whitespace, the method returns null. The returned view model includes a list of existing participant display
+    /// names and pre-populates fields for the current user if available.</remarks>
+    private async Task<EventSignInViewModel?> BuildSignInViewModelAsync(string code, CancellationToken cancellationToken)
+    {
+        // Validate the event code input to ensure it's not null, empty, or whitespace.
+        // If it is, return null to indicate that the sign-in page cannot be built.
         if (string.IsNullOrWhiteSpace(code))
         {
-            return NotFound();
+            return null;
         }
 
-        // Query the database for the event that matches the code from the URL.
-        // AsNoTracking is used because this action only needs read access to display the page.
+        // Look up the event in the database using the provided code, ensuring that we do not track the entity
+        // since we only need read access.
         var eventEntity = await _db.Events
             .AsNoTracking()
-            .SingleOrDefaultAsync(e => e.Code == code);
+            .SingleOrDefaultAsync(e => e.Code == code, cancellationToken);
 
-        // If no matching event exists, return a 404 response instead of showing the sign-in page.
         if (eventEntity is null)
         {
-            return NotFound();
+            return null;
         }
 
-        // Build the view model with the event's code and title so the page can display them.
-        var viewModel = new EventSignInViewModel
+        // Retrieve a list of existing participant display names for the event, ordered alphabetically.
+        var existingDisplayNames = await _db.Participants
+            .AsNoTracking()
+            .Where(p => p.EventId == eventEntity.Id)
+            .Select(p => p.DisplayName)
+            .Distinct()
+            .OrderBy(name => name)
+            .ToListAsync(cancellationToken);
+
+        var user = await _userManager.GetUserAsync(User);
+
+        // Set default values for the display name and color.
+        var displayName = string.Empty;
+        var color = "ff66c4";
+        string? selectedDisplayName = null;
+
+        // If the user is logged in, attempt to pre-populate the display name and color based on their existing
+        // participant record for this event, if it exists.
+        if (user is not null)
+        {
+            // Look for an existing participant record for the current user and event.
+            var existingParticipant = await _db.Participants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    p => p.EventId == eventEntity.Id && p.UserId == user.Id,
+                    cancellationToken);
+
+            // If a participant record exists, use its display name and color to pre-populate the form.
+            // Also set the selected existing display name to match the participant's current display name.
+            if (existingParticipant is not null)
+            {
+                displayName = existingParticipant.DisplayName;
+                color = existingParticipant.Color;
+                selectedDisplayName = existingParticipant.DisplayName;
+            }
+            // If no participant record exists for the user and event, attempt to use the user's profile information
+            else
+            {
+                // If the user's display name is not null or whitespace, trim it and use it as the default display name,
+                if (!string.IsNullOrWhiteSpace(user.DisplayName))
+                {
+                    var trimmedDisplayName = user.DisplayName.Trim();
+                    if (trimmedDisplayName.Length <= ModelConstants.ParticipantDisplayNameMaxLength)
+                    {
+                        displayName = trimmedDisplayName;
+                    }
+                }
+
+                // If the user's color is not null or whitespace, trim it and use it as the default color.
+                if (!string.IsNullOrWhiteSpace(user.Color))
+                {
+                    color = user.Color.Trim();
+                }
+            }
+        }
+
+        // Construct and return the EventSignInViewModel with all the necessary data for rendering the sign-in page.
+        return new EventSignInViewModel
         {
             Code = eventEntity.Code.ToUpperInvariant(),
-            EventName = eventEntity.Title
+            EventName = eventEntity.Title,
+            DisplayName = displayName,
+            Color = color,
+            SelectedExistingDisplayName = selectedDisplayName,
+            ExistingDisplayNames = existingDisplayNames
+                .Select(name => new SelectListItem { Value = name, Text = name })
+                .ToList()
         };
-
-        // Render the sign-in view using the populated view model.
-        return View(viewModel);
     }
 }

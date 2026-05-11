@@ -4,8 +4,79 @@
     ViewData["Title"] = "Event Sign-In";
 }
 
-<div class="text-center">
-    <h1 class="display-3"><strong>@Model.EventName</strong></h1>
-    <p class="lead">Event code: <strong>@Model.Code</strong></p>
-    <p>EVENT SIGN-IN</p>
+<div class="container py-4" style="max-width: 32rem;">
+    <h1 class="h3 mb-3">@Model.EventName</h1>
+
+    <form asp-action="SignIn"
+          asp-controller="Events"
+          asp-route-code="@Model.Code"
+          method="post"
+          class="d-grid gap-3">
+
+        <input type="hidden" asp-for="Code" />
+
+        <div>
+            <label asp-for="DisplayName" class="form-label"></label>
+            <input asp-for="DisplayName" class="form-control" />
+            <span asp-validation-for="DisplayName" class="text-danger"></span>
+        </div>
+
+        @if (Model.ExistingDisplayNames.Count > 0)
+        {
+            <div>
+                <label class="form-label" for="existingDisplayNames">Returning users</label>
+                <select asp-for="SelectedExistingDisplayName"
+                        asp-items="Model.ExistingDisplayNames"
+                        class="form-select"
+                        id="existingDisplayNames">
+                    <option value="">Choose a name already in this event</option>
+                </select>
+            </div>
+        }
+
+        <div>
+            <label class="form-label" for="colorPicker">Color</label>
+            <input type="color"
+                   id="colorPicker"
+                   class="form-control form-control-color"
+                   value="#@Model.Color" />
+            <input asp-for="Color" type="hidden" id="Color" />
+            <span asp-validation-for="Color" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Enter Event</button>
+
+        @if (ViewData["SuccessMessage"] is string successMessage)
+        {
+            <div class="text-success fw-semibold">@successMessage</div>
+        }
+    </form>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const form = document.querySelector('form');
+        const displayNameInput = document.getElementById('DisplayName');
+        const displayNameSelect = document.getElementById('existingDisplayNames');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorHidden = document.getElementById('Color');
+
+        if (displayNameSelect) {
+            displayNameSelect.addEventListener('change', () => {
+                displayNameInput.value = displayNameSelect.value.trim();
+            });
+        }
+
+        form.addEventListener('submit', () => {
+            displayNameInput.value = displayNameInput.value.trim();
+        });
+
+        function syncColor() {
+            colorHidden.value = colorPicker.value.replace('#', '');
+        }
+
+        colorPicker.addEventListener('input', syncColor);
+        syncColor();
+    </script>
+}

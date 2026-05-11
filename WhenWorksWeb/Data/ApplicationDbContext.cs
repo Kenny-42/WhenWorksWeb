@@ -54,6 +54,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         // Configure participants and their relationships to events and users.
         modelBuilder.Entity<Participant>(entity =>
         {
+            entity.Property(p => p.DisplayName)
+                .HasMaxLength(ModelConstants.ParticipantDisplayNameMaxLength)
+                .UseCollation("SQL_Latin1_General_CP1_CS_AS");
+
+            entity.Property(p => p.Color)
+                .HasMaxLength(ModelConstants.HexColorLength);
+
             entity.HasOne(p => p.Event)
                 .WithMany(e => e.Participants)
                 .HasForeignKey(p => p.EventId)
@@ -70,6 +77,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.HasIndex(p => new { p.EventId, p.DisplayName })
                 .IsUnique();
+
+            entity.HasCheckConstraint(
+                "CK_Participants_DisplayName_Trimmed",
+                "[DisplayName] = LTRIM(RTRIM([DisplayName]))");
         });
 
         // Configure the one-to-one role record attached to a participant.
