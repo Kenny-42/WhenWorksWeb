@@ -1,0 +1,16 @@
+﻿@model WhenWorksWeb.Models.EventHomeViewModel
+
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["DisableTitleSuffix"] = true;
+}
+
+<!-- Event home container -->
+<div class="container py-4" style="max-width: 32rem;">
+    <div class="text-center">
+        <h1 class="h3 mb-3">@Model.Title</h1>
+        <p class="lead mb-1">You have entered the event successfully.</p>
+        <p class="text-muted mb-0">Event code: <strong>@Model.Code</strong></p>
+        <p class="text-muted mb-0">Rejoin code: <strong>@Model.RejoinCode</strong></p>
+    </div>
+</div>
