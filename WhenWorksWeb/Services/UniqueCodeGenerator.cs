@@ -42,9 +42,7 @@ namespace WhenWorksWeb.Services
         /// <summary>
         /// Asynchronously generates a unique participant rejoin code that does not already exist in the database.
         /// </summary>
-        /// <remarks>This method attempts to generate a unique code by checking for collisions in the
-        /// database. The number of attempts is limited by an internal maximum. If all attempts result in a collision,
-        /// the method throws an exception.</remarks>
+        /// <remarks>This method uses the exact same generation logic as event codes, with the same length and alphabet.</remarks>
         public Task<string> GenerateUniqueParticipantRejoinCodeAsync(CancellationToken cancellationToken = default)
         {
             return GenerateUniqueCodeAsync(
