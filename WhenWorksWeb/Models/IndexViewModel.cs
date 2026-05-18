@@ -19,7 +19,7 @@ public sealed class IndexViewModel
     /// Gets or sets the event code associated with the current operation.
     /// </summary>
     [Required(ErrorMessage = "Event code is required.")]
-    [StringLength(ModelConstants.EventCodeLength, MinimumLength = ModelConstants.EventCodeLength,
+    [StringLength(ModelConstants.UniqueCodeLength, MinimumLength = ModelConstants.UniqueCodeLength,
         ErrorMessage = "Event code must be exactly 6 characters.")]
     [RegularExpression(ModelConstants.EventCodePattern,
         ErrorMessage = "Event code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]

@@ -38,7 +38,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<Event>(entity =>
         {
             entity.Property(e => e.Code)
-                .HasMaxLength(ModelConstants.EventCodeLength)
+                .HasMaxLength(ModelConstants.UniqueCodeLength)
                 .UseCollation("SQL_Latin1_General_CP1_CI_AS");
 
             entity.HasOne(e => e.CreatedByUser)

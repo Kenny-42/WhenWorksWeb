@@ -15,12 +15,12 @@ namespace WhenWorksWeb.Controllers;
 public class EventsController : Controller
 {
     private readonly ApplicationDbContext _db;
-    private readonly EventCodeGenerator _codeGenerator;
+    private readonly UniqueCodeGenerator _codeGenerator;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public EventsController(
         ApplicationDbContext db,
-        EventCodeGenerator codeGenerator,
+        UniqueCodeGenerator codeGenerator,
         UserManager<ApplicationUser> userManager)
     {
         _db = db;

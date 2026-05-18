@@ -36,10 +36,10 @@
         public const string DefaultEventEmoji = "🎉";
 
         // The length of the event code used to uniquely identify an event.
-        public const int EventCodeLength = 6;
+        public const int UniqueCodeLength = 6;
 
         // Shared source of truth for event codes.
-        public const string EventCodeAlphabet = "BCDFGHJKMNPQRSTVWXYZ23456789";
+        public const string UniqueCodeAlphabet = "BCDFGHJKMNPQRSTVWXYZ23456789";
 
         // The regular expression pattern for validating event codes (6 alphanumeric characters).
         public const string EventCodePattern = @"^(?i:[BCDFGHJKMNPQRSTVWXYZ23456789]{6})$";

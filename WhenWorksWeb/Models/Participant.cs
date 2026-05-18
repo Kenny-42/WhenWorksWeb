@@ -36,6 +36,10 @@ namespace WhenWorksWeb.Models
         [StringLength(HexColorLength)]
         public required string Color { get; set; }
 
+        // A unique code that allows a participant to rejoin an event if they leave.
+        // This is especially important for guests who do not have an account.
+        public string? RejoinCode { get; set; }
+
         // Navigation
         public Event Event { get; set; } = null!;
         public ApplicationUser? User { get; set; }
