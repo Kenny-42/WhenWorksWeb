@@ -13,6 +13,8 @@ namespace WhenWorksWeb.Models
         private const int DisplayNameMaxLength = ModelConstants.ParticipantDisplayNameMaxLength;
         private const string HexColorPattern = ModelConstants.HexColorPattern;
         private const int HexColorLength = ModelConstants.HexColorLength;
+        private const int RejoinCodeLength = ModelConstants.UniqueCodeLength;
+        private const string RejoinCodePattern = ModelConstants.EventCodePattern;
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -36,8 +38,10 @@ namespace WhenWorksWeb.Models
         [StringLength(HexColorLength)]
         public required string Color { get; set; }
 
-        // A unique code that allows a participant to rejoin an event if they leave.
-        // This is especially important for guests who do not have an account.
+        // A unique 6-character code that allows the participant to rejoin the same event later.
+        // This uses the same format and generation rules as event codes for consistency.
+        [StringLength(RejoinCodeLength, MinimumLength = RejoinCodeLength, ErrorMessage = "Rejoin code must be exactly 6 characters.")]
+        [RegularExpression(RejoinCodePattern, ErrorMessage = "Rejoin code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
         public string? RejoinCode { get; set; }
 
         // Navigation

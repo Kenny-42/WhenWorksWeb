@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Rendering;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using WhenWorksWeb.Common;
 
 namespace WhenWorksWeb.Models;
@@ -17,10 +16,10 @@ public sealed class EventSignInViewModel
     public required string Code { get; init; }
 
     /// <summary>
-    /// Gets the name of the event associated with this instance.
+    /// Gets or sets the name of the event associated with this instance.
     /// </summary>
-    /// <remarks>The name has a maximum length of 30 characters and minimum of 1 character</remarks>
-    public required string EventName { get; init; }
+    /// <remarks>This is populated by the server for display only and is not validated as posted form input.</remarks>
+    public string EventName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the display name for the participant.
@@ -43,12 +42,52 @@ public sealed class EventSignInViewModel
     public string Color { get; set; } = "ff66c4";
 
     /// <summary>
-    /// Gets or sets the display name selected from the list of existing display names.
+    /// Gets or sets the display name selected from the list of existing participant names.
     /// </summary>
+    /// <remarks>An empty value means the user is creating a new participant.</remarks>
     public string? SelectedExistingDisplayName { get; set; }
 
     /// <summary>
-    /// Gets or sets the list of available display names for selection in a user interface.
+    /// Gets or sets the participant rejoin code.
     /// </summary>
-    public List<SelectListItem> ExistingDisplayNames { get; set; } = [];
+    /// <remarks>This value is hidden for signed-in users and shown only when a participant selection requires
+    /// reauthentication or rejoin verification.</remarks>
+    [StringLength(ModelConstants.UniqueCodeLength, MinimumLength = ModelConstants.UniqueCodeLength,
+        ErrorMessage = "Rejoin code must be exactly 6 characters.")]
+    [RegularExpression(ModelConstants.EventCodePattern,
+        ErrorMessage = "Rejoin code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
+    [Display(Name = "Rejoin Code")]
+    public string? RejoinCode { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value that determines whether the rejoin code input should be shown to the user.
+    /// </summary>
+    public bool ShowRejoinCodeInput { get; set; }
+
+    /// <summary>
+    /// Gets or sets the list of available participant options for the event.
+    /// </summary>
+    public List<ParticipantSelectionViewModel> ExistingParticipants { get; set; } = [];
+}
+
+/// <summary>
+/// Represents a participant option shown in the event sign-in dropdown.
+/// </summary>
+public sealed class ParticipantSelectionViewModel
+{
+    /// <summary>
+    /// Gets or sets the participant display name.
+    /// </summary>
+    public required string DisplayName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the participant color.
+    /// </summary>
+    public required string Color { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this participant is already associated with the current signed-in
+    /// account.
+    /// </summary>
+    public bool IsAssociatedWithCurrentUser { get; set; }
 }
