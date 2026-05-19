@@ -2,8 +2,11 @@
 
 @{
     ViewData["Title"] = "Event Sign-In";
+    var selectedExistingDisplayName = Model.SelectedExistingDisplayName ?? string.Empty;
+    var showRejoinCodeInput = Model.ShowRejoinCodeInput;
 }
 
+<!-- Event sign-in container -->
 <div class="container py-4" style="max-width: 32rem;">
     <h1 class="h3 mb-3">@Model.EventName</h1>
 
@@ -11,29 +14,60 @@
           asp-controller="Events"
           asp-route-code="@Model.Code"
           method="post"
-          class="d-grid gap-3">
+          class="d-grid gap-3"
+          id="eventSignInForm">
 
         <input type="hidden" asp-for="Code" />
 
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <!-- Participant name input -->
         <div>
             <label asp-for="DisplayName" class="form-label"></label>
             <input asp-for="DisplayName" class="form-control" />
             <span asp-validation-for="DisplayName" class="text-danger"></span>
         </div>
 
-        @if (Model.ExistingDisplayNames.Count > 0)
-        {
-            <div>
-                <label class="form-label" for="existingDisplayNames">Returning users</label>
-                <select asp-for="SelectedExistingDisplayName"
-                        asp-items="Model.ExistingDisplayNames"
-                        class="form-select"
-                        id="existingDisplayNames">
-                    <option value="">Choose a name already in this event</option>
-                </select>
-            </div>
-        }
+        <!-- Existing participant dropdown -->
+        <div>
+            <label class="form-label" for="existingDisplayNames">Participant</label>
+            <select asp-for="SelectedExistingDisplayName"
+                    class="form-select"
+                    id="existingDisplayNames">
+                @if (string.IsNullOrWhiteSpace(selectedExistingDisplayName))
+                {
+                    <option value="" selected="selected">New Participant</option>
+                }
+                else
+                {
+                    <option value="">New Participant</option>
+                }
 
+                @foreach (var participant in Model.ExistingParticipants)
+                {
+                    if (participant.DisplayName == selectedExistingDisplayName)
+                    {
+                        <option value="@participant.DisplayName"
+                                data-color="@participant.Color"
+                                data-associated-with-current-user="@participant.IsAssociatedWithCurrentUser.ToString().ToLowerInvariant()"
+                                selected="selected">
+                            @participant.DisplayName
+                        </option>
+                    }
+                    else
+                    {
+                        <option value="@participant.DisplayName"
+                                data-color="@participant.Color"
+                                data-associated-with-current-user="@participant.IsAssociatedWithCurrentUser.ToString().ToLowerInvariant()">
+                            @participant.DisplayName
+                        </option>
+                    }
+                }
+            </select>
+            <span asp-validation-for="SelectedExistingDisplayName" class="text-danger"></span>
+        </div>
+
+        <!-- Participant color input -->
         <div>
             <label class="form-label" for="colorPicker">Color</label>
             <input type="color"
@@ -44,39 +78,95 @@
             <span asp-validation-for="Color" class="text-danger"></span>
         </div>
 
-        <button type="submit" class="btn btn-primary">Enter Event</button>
+        <!-- Rejoin code input -->
+        <div id="rejoinCodeContainer" class="@(showRejoinCodeInput ? "" : "d-none")">
+            <label asp-for="RejoinCode" class="form-label"></label>
+            <input asp-for="RejoinCode"
+                   class="form-control"
+                   autocomplete="off"
+                   maxlength="@WhenWorksWeb.Common.ModelConstants.UniqueCodeLength"
+                   disabled="@(showRejoinCodeInput ? null : "disabled")" />
+            <span asp-validation-for="RejoinCode" class="text-danger"></span>
+        </div>
 
-        @if (ViewData["SuccessMessage"] is string successMessage)
-        {
-            <div class="text-success fw-semibold">@successMessage</div>
-        }
+        <button type="submit" class="btn btn-primary">Enter Event</button>
     </form>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        const form = document.querySelector('form');
+        const form = document.getElementById('eventSignInForm');
         const displayNameInput = document.getElementById('DisplayName');
         const displayNameSelect = document.getElementById('existingDisplayNames');
         const colorPicker = document.getElementById('colorPicker');
         const colorHidden = document.getElementById('Color');
+        const rejoinCodeContainer = document.getElementById('rejoinCodeContainer');
+        const rejoinCodeInput = document.getElementById('RejoinCode');
 
-        if (displayNameSelect) {
-            displayNameSelect.addEventListener('change', () => {
-                displayNameInput.value = displayNameSelect.value.trim();
-            });
-        }
+        // Keeps the initial server decision intact on page load, including browser autofill cases.
+        let keepRejoinCodeVisible = @showRejoinCodeInput.ToString().ToLowerInvariant();
 
-        form.addEventListener('submit', () => {
-            displayNameInput.value = displayNameInput.value.trim();
-        });
-
+        // Copies the visible color picker value into the hidden field that is posted to the server.
         function syncColor() {
             colorHidden.value = colorPicker.value.replace('#', '');
         }
 
+        // Shows the rejoin code input for every existing participant unless the currently signed-in account already
+        // owns that participant. Browser recognition may still prefill the input, but it does not hide it.
+        function setRejoinCodeVisibility() {
+            const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
+            const selectedDisplayName = displayNameSelect.value;
+            const isAssociatedWithCurrentUser = selectedOption?.dataset.associatedWithCurrentUser === 'true';
+            const showRejoinCode = keepRejoinCodeVisible || (!!selectedDisplayName && !isAssociatedWithCurrentUser);
+
+            rejoinCodeContainer.classList.toggle('d-none', !showRejoinCode);
+            rejoinCodeInput.disabled = !showRejoinCode;
+
+            if (!showRejoinCode) {
+                rejoinCodeInput.value = '';
+            }
+
+            keepRejoinCodeVisible = false;
+        }
+
+        // Synchronizes the display name and color when a participant is selected from the dropdown.
+        function syncSelectedParticipant() {
+            const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
+            const selectedDisplayName = displayNameSelect.value;
+
+            if (selectedDisplayName) {
+                displayNameInput.value = selectedDisplayName.trim();
+
+                const selectedColor = selectedOption.getAttribute('data-color');
+                if (selectedColor) {
+                    colorPicker.value = `#${selectedColor}`;
+                    syncColor();
+                }
+            }
+            else {
+                displayNameInput.value = '';
+            }
+
+            setRejoinCodeVisibility();
+        }
+
+        if (displayNameSelect) {
+            displayNameSelect.addEventListener('change', syncSelectedParticipant);
+        }
+
         colorPicker.addEventListener('input', syncColor);
+
+        form.addEventListener('submit', () => {
+            displayNameInput.value = displayNameInput.value.trim();
+            syncColor();
+        });
+
         syncColor();
+        setRejoinCodeVisibility();
+
+        if (displayNameSelect && displayNameSelect.value) {
+            syncSelectedParticipant();
+        }
     </script>
 }

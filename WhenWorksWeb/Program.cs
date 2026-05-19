@@ -18,7 +18,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(IdentityConfiguration.Confi
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 // Register the EventCodeGenerator as a scoped service, so it can be injected into controllers and other services.
-builder.Services.AddScoped<EventCodeGenerator>();
+builder.Services.AddScoped<UniqueCodeGenerator>();
 // Register the DevelopmentDataSeeder as a scoped service, so it can be injected and used during application startup.
 builder.Services.AddScoped<DevelopmentDataSeeder>();
 

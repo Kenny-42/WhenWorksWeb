@@ -12,7 +12,7 @@ namespace WhenWorksWeb.Models
     {
         private const int TitleMaxLength = ModelConstants.EventTitleMaxLength;
         private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
-        private const int CodeLength = ModelConstants.EventCodeLength;
+        private const int CodeLength = ModelConstants.UniqueCodeLength;
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

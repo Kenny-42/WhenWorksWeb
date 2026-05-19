@@ -18,7 +18,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<UserEventBookmark> UserEventBookmarks => Set<UserEventBookmark>();
 
     /// <summary>
-    /// This method is called by the Entity Framework when the model is being created. 
+    /// This method is called by the Entity Framework when the model is being created.
     /// It is used to configure the database schema and relationships between entities.
     /// </summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -38,7 +38,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<Event>(entity =>
         {
             entity.Property(e => e.Code)
-                .HasMaxLength(ModelConstants.EventCodeLength)
+                .HasMaxLength(ModelConstants.UniqueCodeLength)
                 .UseCollation("SQL_Latin1_General_CP1_CI_AS");
 
             entity.HasOne(e => e.CreatedByUser)
@@ -61,6 +61,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(p => p.Color)
                 .HasMaxLength(ModelConstants.HexColorLength);
 
+            entity.Property(p => p.RejoinCode)
+                .HasMaxLength(ModelConstants.UniqueCodeLength)
+                .UseCollation("SQL_Latin1_General_CP1_CI_AS");
+
             entity.HasOne(p => p.Event)
                 .WithMany(e => e.Participants)
                 .HasForeignKey(p => p.EventId)
@@ -71,12 +75,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasIndex(p => new { p.EventId, p.UserId })
-                .IsUnique()
-                .HasFilter("[UserId] IS NOT NULL");
+            entity.HasIndex(p => new { p.EventId, p.UserId });
 
             entity.HasIndex(p => new { p.EventId, p.DisplayName })
                 .IsUnique();
+
+            entity.HasIndex(p => new { p.EventId, p.Color })
+                .IsUnique();
+
+            entity.HasIndex(p => p.RejoinCode)
+                .IsUnique()
+                .HasFilter("[RejoinCode] IS NOT NULL");
 
             entity.HasCheckConstraint(
                 "CK_Participants_DisplayName_Trimmed",
@@ -150,8 +159,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     }
 
     /// <summary>
-    /// This method is called when changes to the database are being saved. 
-    /// It is overridden here to automatically update the CreatedAt and LastActiveAt timestamps for events whenever they are added or modified. 
+    /// This method is called when changes to the database are being saved.
+    /// It is overridden here to automatically update the CreatedAt and LastActiveAt timestamps for events whenever they are added or modified.
     /// This ensures that the event activity tracking is always up to date without requiring manual updates in the application code.
     /// </summary>
     public override int SaveChanges()
@@ -170,7 +179,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     }
 
     /// <summary>
-    /// This method iterates through all the tracked Event entities and updates their CreatedAt and LastActiveAt timestamps 
+    /// This method iterates through all the tracked Event entities and updates their CreatedAt and LastActiveAt timestamps
     /// based on their state (added or modified).
     /// </summary>
     private void ApplyEventTimestamps()
@@ -190,4 +199,4 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             }
         }
     }
-}           
+}

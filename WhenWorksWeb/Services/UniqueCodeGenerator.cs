@@ -1,0 +1,82 @@
+﻿using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using WhenWorksWeb.Common;
+using WhenWorksWeb.Data;
+
+namespace WhenWorksWeb.Services
+{
+    /// <summary>
+    /// Provides functionality to generate unique, human-readable codes that do not already exist in the database.
+    /// </summary>
+    public class UniqueCodeGenerator
+    {
+        // The length of the unique code.
+        private const int UniqueCodeLength = ModelConstants.UniqueCodeLength;
+
+        // The maximum number of attempts to generate a unique code before giving up.
+        // This is a safeguard against infinite loops in the unlikely event of many collisions.
+        private const int MaxAttempts = 50;
+
+        // Shared source of truth for the code alphabet.
+        private static readonly char[] Alphabet = ModelConstants.UniqueCodeAlphabet.ToCharArray();
+
+        private readonly ApplicationDbContext _dbContext;
+
+        public UniqueCodeGenerator(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        /// <summary>
+        /// Asynchronously generates a unique event code that does not already exist in the database.
+        /// </summary>
+        /// <remarks>This method attempts to generate a unique code by checking for collisions in the
+        /// database. The number of attempts is limited by an internal maximum. If all attempts result in a collision,
+        /// the method throws an exception.</remarks>
+        public Task<string> GenerateUniqueEventCodeAsync(CancellationToken cancellationToken = default)
+        {
+            return GenerateUniqueCodeAsync(
+                async code => await _dbContext.Events.AnyAsync(e => e.Code == code, cancellationToken));
+        }
+
+        /// <summary>
+        /// Asynchronously generates a unique participant rejoin code that does not already exist in the database.
+        /// </summary>
+        /// <remarks>This method uses the exact same generation logic as event codes, with the same length and alphabet.</remarks>
+        public Task<string> GenerateUniqueParticipantRejoinCodeAsync(CancellationToken cancellationToken = default)
+        {
+            return GenerateUniqueCodeAsync(
+                async code => await _dbContext.Participants.AnyAsync(p => p.RejoinCode == code, cancellationToken));
+        }
+
+        private static async Task<string> GenerateUniqueCodeAsync(Func<string, Task<bool>> existsAsync)
+        {
+            for (var attempt = 0; attempt < MaxAttempts; attempt++)
+            {
+                var code = GenerateCode();
+
+                if (!await existsAsync(code))
+                {
+                    return code;
+                }
+            }
+
+            throw new InvalidOperationException("Unable to generate a unique code.");
+        }
+
+        /// <summary>
+        /// Generates a random unique code using the shared alphabet and configured length.
+        /// </summary>
+        private static string GenerateCode()
+        {
+            Span<char> chars = stackalloc char[UniqueCodeLength];
+
+            for (var i = 0; i < UniqueCodeLength; i++)
+            {
+                chars[i] = Alphabet[RandomNumberGenerator.GetInt32(Alphabet.Length)];
+            }
+
+            return new string(chars);
+        }
+    }
+}
