@@ -2,12 +2,21 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
+@* Renders the navbar links for authentication state, including the My Events link for signed-in users. *@
 <ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
+    <!-- Link to the authenticated user's joined events page -->
+    <li class="nav-item">
+        <a class="nav-link text-dark" asp-controller="MyEvents" asp-action="Index">My Events</a>
+    </li>
+
+    <!-- Greeting / account management link -->
     <li class="nav-item">
         <a  class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @User.Identity?.Name!</a>
     </li>
+
+    <!-- Logout form -->
     <li class="nav-item">
         <form  class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
             <button  type="submit" class="nav-link btn btn-link text-dark">Logout</button>
@@ -16,9 +25,12 @@
 }
 else
 {
+    <!-- Registration link for anonymous users -->
     <li class="nav-item">
         <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Register">Register</a>
     </li>
+
+    <!-- Login link for anonymous users -->
     <li class="nav-item">
         <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">Login</a>
     </li>
