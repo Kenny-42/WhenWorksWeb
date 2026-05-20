@@ -4,54 +4,80 @@
     ViewData["Title"] = "Register";
 }
 
+<!-- Page heading -->
 <h1>@ViewData["Title"]</h1>
 
 <div class="row">
     <div class="col-md-4">
+        <!-- Registration form -->
         <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
             <h2>Create a new account.</h2>
             <hr />
+
+            <!-- Validation summary for form-wide errors -->
             <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+            <!-- Username input -->
             <div class="form-floating mb-3">
                 <input asp-for="Input.UserName" class="form-control" autocomplete="username" aria-required="true" placeholder="Your_UserName" />
                 <label asp-for="Input.UserName">User Name</label>
                 <span asp-validation-for="Input.UserName" class="text-danger"></span>
             </div>
+
+            <!-- Email input -->
             <div class="form-floating mb-3">
                 <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
                 <label asp-for="Input.Email">Email</label>
                 <span asp-validation-for="Input.Email" class="text-danger"></span>
             </div>
-            <div class="form-floating mb-3">
-                <input asp-for="Input.DisplayName" class="form-control" autocomplete="nickname" aria-required="true" placeholder="Your Nickname" />
-                <label asp-for="Input.DisplayName">Display Name</label>
-                <span asp-validation-for="Input.DisplayName" class="text-danger"></span>
-            </div>
-            <div class="form-floating mb-3">
-                <input asp-for="Input.Color" class="form-control" autocomplete="off" aria-required="true" placeholder="FFFFFF" />
-                <label asp-for="Input.Color">Color</label>
-                <span asp-validation-for="Input.Color" class="text-danger"></span>
-            </div>
+
+            <!-- Password input -->
             <div class="form-floating mb-3">
                 <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
                 <label asp-for="Input.Password">Password</label>
                 <span asp-validation-for="Input.Password" class="text-danger"></span>
             </div>
+
+            <!-- Confirm password input -->
             <div class="form-floating mb-3">
                 <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
                 <label asp-for="Input.ConfirmPassword">Confirm Password</label>
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
             </div>
+
+            <!-- Display name input -->
+            <div class="form-floating mb-3">
+                <input asp-for="Input.DisplayName" class="form-control" autocomplete="nickname" aria-required="true" placeholder="Your Nickname" />
+                <label asp-for="Input.DisplayName">Display Name</label>
+                <span asp-validation-for="Input.DisplayName" class="text-danger"></span>
+            </div>
+
+            <!-- Color picker input that stores a hex value -->
+            <div class="mb-3 d-flex flex-column align-items-center">
+                <label class="form-label text-center" for="colorPicker">Color</label>
+                <input type="color"
+                       id="colorPicker"
+                       class="form-control form-control-color mx-auto"
+                       value="#@Model.Input.Color" />
+                <input asp-for="Input.Color" type="hidden" id="Input_Color" />
+                <span asp-validation-for="Input.Color" class="text-danger text-center"></span>
+            </div>
+
+            <!-- Submit button -->
             <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </form>
     </div>
+
     <div class="col-md-6 col-md-offset-2">
+        <!-- External login section -->
         <section>
             <h3>Use another service to register.</h3>
             <hr />
+
             @{
                 if ((Model.ExternalLogins?.Count ?? 0) == 0)
                 {
+                    <!-- No external authentication providers configured -->
                     <div>
                         <p>
                             There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
@@ -61,6 +87,7 @@
                 }
                 else
                 {
+                    <!-- Render buttons for each external authentication provider -->
                     <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
                         <div>
                             <p>
@@ -78,5 +105,25 @@
 </div>
 
 @section Scripts {
+    <!-- Client-side validation scripts -->
     <partial name="_ValidationScriptsPartial" />
+
+    <!-- Synchronizes the visible color picker with the hidden posted value -->
+    <script>
+        const form = document.getElementById('registerForm');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorHidden = document.getElementById('Input_Color');
+
+        function syncColor() {
+            colorHidden.value = colorPicker.value.replace('#', '');
+        }
+
+        colorPicker.addEventListener('input', syncColor);
+
+        form.addEventListener('submit', () => {
+            syncColor();
+        });
+
+        syncColor();
+    </script>
 }

@@ -100,6 +100,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
 
             /// <summary>
             /// Stores a hexadecimal color code (without the '#' symbol) that represents the user's preferred personal color for use in events.
+            /// Has a default value of "ff66c4" (a shade of pink) to ensure that users have a color assigned even if they don't specify one
+            /// during registration.
             /// </summary>
             [Required]
             [RegularExpression(@"^[A-Fa-f0-9]{6}$", ErrorMessage = "The {0} must be a valid 6-character hexadecimal color code.")]
@@ -126,17 +128,44 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             public string ConfirmPassword { get; set; }
         }
 
-
+        /// <summary>
+        /// This method is called when the registration page is accessed via a GET request. It initializes the Input model 
+        /// with a default color value and retrieves the list of external authentication schemes to display on the registration page. 
+        /// The returnUrl parameter is used to redirect the user after successful registration.
+        /// </summary>
+        /// <param name="returnUrl"></param>
+        /// <returns></returns>
         public async Task OnGetAsync(string returnUrl = null)
         {
+            // Set the return URL to redirect the user after successful registration
             ReturnUrl = returnUrl;
+
+            // Set a default color value for the registration form
+            Input = new InputModel
+            {
+                Color = "ff66c4"
+            };
+
+            // Retrieve the list of external authentication schemes (e.g., Google, Facebook) to display on the registration page
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
         }
 
+        /// <summary>
+        /// This method is called when the registration form is submitted via a POST request. It validates the input, creates a 
+        /// new user with the provided information, and handles the registration process. If the registration is successful, 
+        /// it sends a confirmation email to the user and either redirects to a confirmation page or signs the user in directly 
+        /// based on the application's configuration. If there are errors during registration, it redisplays the form with error 
+        /// messages.
+        /// </summary>
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
+            // Set the return URL to redirect the user after successful registration
             returnUrl ??= Url.Content("~/");
+
+            // Retrieve the list of external authentication schemes (e.g., Google, Facebook) to display on the registration page
+            // in case of validation failure
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
@@ -150,6 +179,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
+                // If the user creation is successful, log the event and send a confirmation email.
+                // Depending on the application's configuration, either redirect to a confirmation page or sign the user in directly.
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User created a new account with password.");
@@ -166,16 +197,19 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                     await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",
                         $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
 
+                    // If the application requires confirmed accounts, redirect to the confirmation page.
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
                         return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl = returnUrl });
                     }
+                    // If account confirmation is not required, sign the user in directly and redirect to the return URL.
                     else
                     {
                         await _signInManager.SignInAsync(user, isPersistent: false);
                         return LocalRedirect(returnUrl);
                     }
                 }
+                // If there are errors during user creation, add them to the ModelState to display on the registration form.
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
@@ -186,6 +220,11 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             return Page();
         }
 
+        /// <summary>
+        /// This method creates a new instance of the ApplicationUser class. It uses Activator.CreateInstance to create the instance, 
+        /// which requires that the ApplicationUser class has a parameterless constructor and is not abstract. If the instance cannot
+        /// be created, it throws an InvalidOperationException with a message indicating the issue and suggesting how to resolve it.
+        /// </summary>
         private ApplicationUser CreateUser()
         {
             try
@@ -200,6 +239,12 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             }
         }
 
+        /// <summary>
+        /// This method retrieves the IUserEmailStore implementation from the user store. It checks if the user manager supports 
+        /// user email, and if not, it throws a NotSupportedException indicating that the default UI requires a user store with 
+        /// email support. If the user store does support email, it casts the user store to IUserEmailStore<ApplicationUser> and 
+        /// returns it for use in managing user email addresses during registration.
+        /// </summary>
         private IUserEmailStore<ApplicationUser> GetEmailStore()
         {
             if (!_userManager.SupportsUserEmail)
