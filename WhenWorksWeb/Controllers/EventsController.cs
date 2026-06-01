@@ -72,10 +72,12 @@ public class EventsController : Controller
             return View("~/Views/Home/Index.cshtml", model);
         }
 
+        var currentUser = await _userManager.GetUserAsync(User);
+
         // Generate a unique event code using the code generator service.
         var code = await _codeGenerator.GenerateUniqueEventCodeAsync(cancellationToken);
-        // Create a new Event entity using the generated code and the provided event name from the view model.
-        var eventEntity = Event.Create(code, model.CreateEventName!);
+        // Create a new Event entity using the generated code and the provided event name from the model.
+        var eventEntity = Event.Create(code, model.CreateEventName!, currentUser?.Id);
 
         // Add the new event entity to the database context and save changes to persist it in the database.
         _db.Events.Add(eventEntity);
