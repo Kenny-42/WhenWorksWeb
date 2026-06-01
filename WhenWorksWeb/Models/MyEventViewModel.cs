@@ -6,6 +6,26 @@
 public sealed class MyEventViewModel
 {
     /// <summary>
+    /// The database id for the event.
+    /// </summary>
+    public required int EventId { get; init; }
+
+    /// <summary>
+    /// The current user's participant id for this event, if they have one.
+    /// </summary>
+    public int? ParticipantId { get; init; }
+
+    /// <summary>
+    /// The current user's participant display name for this event, if they have one.
+    /// </summary>
+    public string ParticipantDisplayName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The user id of the account that created the event.
+    /// </summary>
+    public string? CreatedByUserId { get; init; }
+
+    /// <summary>
     /// The unique event code.
     /// </summary>
     public required string Code { get; init; }
