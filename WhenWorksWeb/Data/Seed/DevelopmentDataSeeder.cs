@@ -232,6 +232,8 @@ public sealed class DevelopmentDataSeeder
             {
                 EventId = lunchEvent.Id,
                 ParticipantId = lunchAlice.Id,
+                SenderDisplayName = lunchAlice.DisplayName,
+                SenderColor = lunchAlice.Color,
                 Body = "I can do 12:30.",
                 SentAt = DateTime.UtcNow.AddDays(-2)
             },
@@ -239,6 +241,8 @@ public sealed class DevelopmentDataSeeder
             {
                 EventId = lunchEvent.Id,
                 ParticipantId = lunchBen.Id,
+                SenderDisplayName = lunchBen.DisplayName,
+                SenderColor = lunchBen.Color,
                 Body = "1:00 works for me.",
                 SentAt = DateTime.UtcNow.AddDays(-2).AddMinutes(10)
             },
@@ -246,6 +250,8 @@ public sealed class DevelopmentDataSeeder
             {
                 EventId = tripEvent.Id,
                 ParticipantId = tripChloe.Id,
+                SenderDisplayName = tripChloe.DisplayName,
+                SenderColor = tripChloe.Color,
                 Body = "I am free all day Saturday.",
                 SentAt = DateTime.UtcNow.AddDays(-1)
             },
@@ -253,6 +259,8 @@ public sealed class DevelopmentDataSeeder
             {
                 EventId = planningEvent.Id,
                 ParticipantId = planningAlice.Id,
+                SenderDisplayName = planningAlice.DisplayName,
+                SenderColor = planningAlice.Color,
                 Body = "Agenda posted in the notes.",
                 SentAt = DateTime.UtcNow.AddHours(-6)
             });
