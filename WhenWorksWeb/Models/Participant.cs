@@ -76,6 +76,9 @@ namespace WhenWorksWeb.Models
     public class EventMessage
     {
         private const int MessageBodyMaxLength = ModelConstants.MessageBodyMaxLength;
+        private const int SenderDisplayNameMaxLength = ModelConstants.ParticipantDisplayNameMaxLength;
+        private const string HexColorPattern = ModelConstants.HexColorPattern;
+        private const int HexColorLength = ModelConstants.HexColorLength;
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -84,8 +87,20 @@ namespace WhenWorksWeb.Models
         // Foreign key to the Event this message belongs to
         public required int EventId { get; set; }
 
-        // Foreign key to the Participant who sent this message
-        public required int ParticipantId { get; set; }
+        // Foreign key to the Participant who sent this message.
+        // This is nullable so the participant can be deleted without losing chat history.
+        public int? ParticipantId { get; set; }
+
+        // Snapshot of the sender display name at the time the message was created.
+        // This is used only as a fallback if the participant row is later deleted.
+        [StringLength(SenderDisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 16 characters.")]
+        public required string SenderDisplayName { get; set; }
+
+        // Snapshot of the sender color at the time the message was created.
+        // This is used only as a fallback if the participant row is later deleted.
+        [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
+        [StringLength(HexColorLength)]
+        public required string SenderColor { get; set; }
 
         // The content of the message, with a maximum length of 160 characters and minimum of 1 character.
         [StringLength(MessageBodyMaxLength, MinimumLength = 1, ErrorMessage = "Message body must be between 1 and 160 characters.")]
@@ -99,6 +114,6 @@ namespace WhenWorksWeb.Models
 
         // Navigation
         public Event Event { get; set; } = null!;
-        public Participant Participant { get; set; } = null!;
+        public Participant? Participant { get; set; }
     }
 }

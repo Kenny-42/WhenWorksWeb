@@ -132,9 +132,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(m => m.Participant)
                 .WithMany(p => p.Messages)
                 .HasForeignKey(m => m.ParticipantId)
-                .OnDelete(DeleteBehavior.NoAction); // avoids multiple cascade paths
+                .OnDelete(DeleteBehavior.NoAction); // avoids SQL Server multiple cascade path errors; participant deletion is handled manually
 
             entity.HasIndex(m => m.EventId);
+            entity.HasIndex(m => m.ParticipantId);
             entity.HasIndex(m => m.SentAt);
             entity.HasIndex(m => new { m.EventId, m.SentAt });
         });
