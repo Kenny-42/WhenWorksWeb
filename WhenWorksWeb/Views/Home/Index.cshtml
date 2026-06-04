@@ -18,12 +18,13 @@
               class="d-flex flex-column align-items-center gap-2">
 
             <!-- Event name input and submit button are aligned horizontally for a compact layout -->
-            <div class="d-flex align-items-start gap-2">
-                <input asp-for="CreateEventName"
-                       class="form-control form-control-sm text-center"
-                       style="width: 14rem;"
-                       placeholder="Event Name">
-                <button type="submit" class="btn btn-primary">GO!</button>
+            <div class="input-action-row create-event-row">
+                <div class="input-action-group">
+                    <input asp-for="CreateEventName"
+                           class="form-control form-control-sm text-center"
+                           placeholder="Event Name">
+                    <button type="submit" class="btn btn-primary">GO!</button>
+                </div>
             </div>
 
             <!-- Field-specific validation messages appear below the controls -->
@@ -45,17 +46,17 @@
               class="d-flex flex-column align-items-center gap-2">
 
             <!-- Event code input and submit button are aligned horizontally for a compact layout -->
-            <div class="d-flex align-items-start gap-2">
-                <input asp-for="EventCode"
-                       class="form-control form-control-sm text-uppercase text-center"
-                       style="width: 13ch;"
-                       maxlength="6"
-                       autocomplete="off"
-                       autocapitalize="characters"
-                       oninput="this.value = this.value.toUpperCase();"
-                       placeholder="Event Code" />
-
-                <button type="submit" class="btn btn-primary">GO!</button>
+            <div class="input-action-row join-event-row">
+                <div class="input-action-group">
+                    <input asp-for="EventCode"
+                           class="form-control form-control-sm text-uppercase text-center"
+                           maxlength="6"
+                           autocomplete="off"
+                           autocapitalize="characters"
+                           oninput="this.value = this.value.toUpperCase();"
+                           placeholder="Event Code" />
+                    <button type="submit" class="btn btn-primary">GO!</button>
+                </div>
             </div>
 
             <!-- Validation summary and field-specific validation messages appear below the controls -->
