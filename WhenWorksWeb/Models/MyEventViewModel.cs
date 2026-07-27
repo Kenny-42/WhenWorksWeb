@@ -1,6 +1,22 @@
 ﻿namespace WhenWorksWeb.Models;
 
 /// <summary>
+/// Represents a single participant record the current user created for an event on the My Events page.
+/// </summary>
+public sealed class MyEventParticipantViewModel
+{
+    /// <summary>
+    /// The database id for the participant record.
+    /// </summary>
+    public required int ParticipantId { get; init; }
+
+    /// <summary>
+    /// The display name for the participant record.
+    /// </summary>
+    public required string DisplayName { get; init; }
+}
+
+/// <summary>
 /// Represents a single event row on the My Events page.
 /// </summary>
 public sealed class MyEventViewModel
@@ -11,14 +27,9 @@ public sealed class MyEventViewModel
     public required int EventId { get; init; }
 
     /// <summary>
-    /// The current user's participant id for this event, if they have one.
+    /// All of the current user's participant records for this event.
     /// </summary>
-    public int? ParticipantId { get; init; }
-
-    /// <summary>
-    /// The current user's participant display name for this event, if they have one.
-    /// </summary>
-    public string ParticipantDisplayName { get; init; } = string.Empty;
+    public required IReadOnlyList<MyEventParticipantViewModel> Participants { get; init; }
 
     /// <summary>
     /// The user id of the account that created the event.

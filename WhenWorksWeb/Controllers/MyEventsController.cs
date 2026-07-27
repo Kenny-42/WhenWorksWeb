@@ -54,14 +54,10 @@ public class MyEventsController : Controller
                 e.Title,
                 e.CreatedByUserId,
                 Emoji = e.Settings != null ? e.Settings.Emoji : ModelConstants.DefaultEventEmoji,
-                ParticipantId = e.Participants
+                Participants = e.Participants
                     .Where(p => p.UserId == currentUserId)
-                    .Select(p => (int?)p.Id)
-                    .FirstOrDefault(),
-                ParticipantDisplayName = e.Participants
-                    .Where(p => p.UserId == currentUserId)
-                    .Select(p => p.DisplayName)
-                    .FirstOrDefault() ?? string.Empty
+                    .Select(p => new { p.Id, p.DisplayName })
+                    .ToList()
             })
             .ToListAsync(cancellationToken);
 
@@ -72,8 +68,13 @@ public class MyEventsController : Controller
             .Select(myEvent => new MyEventViewModel
             {
                 EventId = myEvent.Id,
-                ParticipantId = myEvent.ParticipantId,
-                ParticipantDisplayName = myEvent.ParticipantDisplayName,
+                Participants = myEvent.Participants
+                    .Select(p => new MyEventParticipantViewModel
+                    {
+                        ParticipantId = p.Id,
+                        DisplayName = p.DisplayName
+                    })
+                    .ToList(),
                 CreatedByUserId = myEvent.CreatedByUserId,
                 Code = myEvent.Code,
                 Title = myEvent.Title,
