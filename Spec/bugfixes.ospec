@@ -1,0 +1,86 @@
+# WhenWorks Bugfix Specs
+
+This file tracks bug specifications for WhenWorks, following the same Spec/*.ospec
+convention referenced in CLAUDE.md (architecture.ospec, features.ospec, api-design.ospec).
+Each entry documents a reported bug, its root cause, and the agreed fix approach before
+implementation begins.
+
+---
+
+## BUG-52: Not all participants showing when deleting an event
+
+### Status
+Implemented.
+
+### GitHub Issue
+#52
+
+### Summary
+When a logged-in user opens the "My Events" page and attempts to delete a participant
+they created for an event, the "Delete Participant" dropdown only ever shows one
+participant, even if that user created multiple participant records for the same event.
+
+### Reported Behavior
+1. Go to "My Events" while logged in.
+2. Click the trash icon for an event.
+3. Click the "Delete Participant" radio button.
+4. Only the user's first participant for that event appears in the dropdown —
+   any additional participants they created for the same event are missing.
+
+### Expected Behavior
+All participant records that the current user has created for a given event should
+appear as options in the "Delete Participant" dropdown, so the user can choose which
+one to delete.
+
+### Root Cause
+`MyEventsController.Index` (WhenWorksWeb/Controllers/MyEventsController.cs:57-64) loads
+at most one participant per event for the current user:
+
+```csharp
+ParticipantId = e.Participants
+    .Where(p => p.UserId == currentUserId)
+    .Select(p => (int?)p.Id)
+    .FirstOrDefault(),
+ParticipantDisplayName = e.Participants
+    .Where(p => p.UserId == currentUserId)
+    .Select(p => p.DisplayName)
+    .FirstOrDefault() ?? string.Empty
+```
+
+`MyEventViewModel` only has singular `ParticipantId` / `ParticipantDisplayName` properties,
+and the view (WhenWorksWeb/Views/MyEvents/Index.cshtml) stores that single participant as
+`data-participant-id` / `data-participant-display-name` attributes on the event row
+(lines 40-42). `openDeleteModal()` in the page script (lines 217-239) then builds the
+"Delete Participant" `<select>` from just that one data attribute pair, so any additional
+participants the user created for the same event are never surfaced, regardless of how
+many actually exist in the database.
+
+### Proposed Fix
+- **Data layer**: Change the `MyEventsController.Index` query to project *all* of the
+  current user's participants per event (id + display name pairs), not just the first
+  one via `FirstOrDefault()`.
+- **View model**: Extend `MyEventViewModel` to carry a collection of the user's
+  participants for the event (e.g. `IReadOnlyList<(int Id, string DisplayName)>`) instead
+  of a single `ParticipantId`/`ParticipantDisplayName` pair.
+- **View/JS**: Update `Index.cshtml` to serialize the full participant list onto the event
+  row as a `data-participants` attribute, using `System.Text.Json.JsonSerializer.Serialize`
+  (not hand-built/concatenated JSON strings) so the value is valid JSON and safely HTML-attribute-encoded
+  by Razor regardless of characters in a participant's display name. Update `openDeleteModal()`
+  to parse that JSON and populate the `<select>` with one `<option>` per participant instead
+  of a single hard-coded option.
+- **Controller `Delete` action**: No change expected — it already accepts an explicit
+  `participantId` and verifies it belongs to the current user and event
+  (MyEventsController.cs:130-152), so it will work correctly once the dropdown offers the
+  full set of choices.
+
+### Acceptance Criteria
+- A user who has created 2+ participant records tied to their account for the same event
+  sees all of them listed in the "Delete Participant" dropdown on the My Events page.
+- Selecting any listed participant and confirming deletion removes only that participant
+  record (and nulls out its message references, per existing behavior).
+- Users with exactly one participant for an event see no change in behavior.
+- Users with zero participants for an event still see the "no participant to delete" state.
+
+### Out of Scope
+- Any change to how participants are created or associated with users.
+- Any change to the "Delete Event" flow.
