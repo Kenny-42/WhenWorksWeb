@@ -4,7 +4,7 @@
 WhenWorks is an ASP.NET Core MVC web application that helps groups coordinate availability for events. Users can create or join events, select a display name and color, view joined events, and interact with event-specific features. The project is actively evolving; architectural decisions are made collaboratively with the developer, not unilaterally.
 
 ## How to use these docs
-This file covers project context, planning process, and the boundaries Claude Code operates within. For the actual rules on how to write and refactor code — file/type organization, controllers vs. services, EF Core patterns, domain-specific gotchas, performance, tooling — see **[CODING_CONVENTIONS.md](./CODING_CONVENTIONS.md)**. Read both before writing or refactoring code; CODING_CONVENTIONS.md is the standard the in-progress project cleanup is measured against.
+This file covers project context, planning process, and the boundaries Claude Code operates within. For the actual rules on how to write and refactor code — file/type organization, controllers vs. services, EF Core patterns, domain-specific gotchas, performance, tooling — see **[CODING_CONVENTIONS.md](./CODING_CONVENTIONS.md)**. Read both before writing or refactoring code; CODING_CONVENTIONS.md is the standard all code in this repo is measured against.
 
 ---
 
@@ -26,7 +26,8 @@ dotnet test   # WhenWorksWeb.Tests (xUnit) doesn't exist yet — see Testing bel
 Areas/Admin/    Razor Pages, [Authorize(Roles="Admin")], manages the Admin role
 Areas/Identity/ Scaffolded Identity UI — don't modify without approval
 Common/         ModelConstants — single source of truth for lengths/patterns/alphabets
-Controllers/    Nearly all business logic lives here — intentional, see CODING_CONVENTIONS.md
+Controllers/    Nearly all business logic lives here — intentional, see CODING_CONVENTIONS.md.
+                Large controllers split into partial-class files by subject (e.g. `EventsController.SignIn.cs`).
 Data/           ApplicationDbContext, Migrations/ (CLI-generated only), Seed/ (dev-only sample data)
 Models/         EF entities AND view models together — no separate ViewModels/ folder
 Services/       Small, single-purpose, reusable utilities (e.g. UniqueCodeGenerator)
@@ -84,4 +85,4 @@ Claude Code must:
 ---
 
 ## Summary
-WhenWorks requires Claude Code to act as a collaborative assistant, not an autonomous agent. All major architectural, database, Identity, or feature decisions are approved by the developer first. Code itself should follow CODING_CONVENTIONS.md exactly — that document is intentionally decisive, not a set of loose defaults, so the codebase stays consistent as it's cleaned up and grows.
+WhenWorks requires Claude Code to act as a collaborative assistant, not an autonomous agent. All major architectural, database, Identity, or feature decisions are approved by the developer first. Code itself should follow CODING_CONVENTIONS.md exactly — that document is intentionally decisive, not a set of loose defaults, so the codebase stays consistent as it grows.

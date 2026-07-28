@@ -5,8 +5,8 @@ This is the technical reference for writing and refactoring code in this repo �
 ---
 
 ## File & Type Organization
-- **One type per file**, named to match the type (`EventDate.cs`, `EventSettings.cs`, `EventRole.cs`, `EventMessage.cs`, `UserEventBookmark.cs`). Several existing files still group multiple types (`Event.cs`, `Participant.cs`, `ApplicationUser.cs`) — these are grandfathered, not the target. Split them fully the next time one is touched; don't leave a file half-migrated.
-- **Namespaces are file-scoped** (`namespace WhenWorksWeb.X;`) in all new or substantially-edited files. Several older files still use block-scoped (`namespace X { }`) — migrate a file's namespace when you're already editing it meaningfully, not as a drive-by change to an otherwise-untouched file.
+- **One type per file**, named to match the type (`EventDate.cs`, `EventSettings.cs`, `EventRole.cs`, `EventMessage.cs`, `UserEventBookmark.cs`). `Event.cs`, `Participant.cs`, and `ApplicationUser.cs` are the exception, each grouping their entity with closely related nested types (e.g. `EventSettings`, `EventDate` inside `Event.cs`) — don't split those further without discussing it first, and don't group unrelated types elsewhere.
+- **Namespaces are file-scoped** (`namespace WhenWorksWeb.X;`) everywhere except CLI-generated `Data/Migrations/` files and scaffolded `Areas/Identity` code, which follow their generator's own style — don't hand-edit those to match.
 
 ## Controllers vs. Services
 This is a deliberate architectural split, not size-based:
@@ -25,7 +25,7 @@ This codebase comments more heavily than typical minimal-comment guidance, on pu
 - View models: `public sealed class XyzViewModel` with `required ... { get; init; }` properties, each with its own one-line XML doc comment (see `MyEventViewModel`, `EventHomeViewModel`). New view models follow this shape, not a plain mutable POCO.
 
 ## Constructors
-- **Default to primary constructors** (`public class Foo(Dependency dep)`) — most classes here are simple DI containers with no constructor logic, and this is more concise.
+- **Default to primary constructors** (`public class Foo(Dependency dep)`) — most classes here are simple DI containers with no constructor logic, and this is more concise (see `MyEventsController`, `UniqueCodeGenerator`).
 - **Use a classic constructor** when the constructor needs to do real work: validate or transform an argument, throw on invalid input, run setup beyond a direct field assignment, or support multiple constructor overloads.
 - Judge per class rather than applying one form mechanically; default to primary when in doubt.
 
@@ -74,7 +74,7 @@ No known performance problems today — this is proactive, so the app doesn't ac
 - **Never** hand-write or hand-edit the contents of a migration file or `ApplicationDbContextModelSnapshot.cs` — those only ever come from the CLI.
 
 ## Tooling
-- **`.editorconfig`** (repo root) encodes indentation, Allman brace style (matching existing code), and the namespace/primary-constructor preferences above as IDE-level suggestions — not build-breaking, since many existing files haven't been migrated yet.
+- **`.editorconfig`** (repo root) encodes indentation, Allman brace style (matching existing code), and the namespace/primary-constructor preferences above as IDE-level suggestions, not build-breaking rules.
 - **Built-in .NET analyzers** are enabled in `WhenWorksWeb.csproj` (`EnableNETAnalyzers`, `EnforceCodeStyleInBuild`) so `dotnet build` / `dotnet format` surface convention violations. These ship with the .NET SDK — no extra package or download required.
 - Run `dotnet format` before committing substantial changes to auto-fix formatting-level violations.
 
