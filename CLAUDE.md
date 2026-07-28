@@ -49,13 +49,33 @@ Both should be designed collaboratively (discuss the approach together) before i
 ---
 
 ## Specs (Bug & Feature Planning)
-`Spec/bugfixes.ospec` is the active spec convention — append new entries using this template (see the existing BUG-52 entry):
+Each planned unit of work gets its **own file** — one `.ospec` per item, not one growing file per category — under a category subfolder of `Spec/`, named with the category prefix and a short kebab-case slug of the title:
 ```
-## BUG-<number>: <short title>
+Spec/Bugs/BUGS-<slug>.ospec
+Spec/Features/FEATURES-<slug>.ospec
+Spec/Refactors/REFACTOR-<slug>.ospec
+```
+**No sequence number, in the filename or the `##` heading inside the file** — the category prefix (`BUGS-`/`FEATURES-`/`REFACTOR-`) is never followed by a number (not `BUGS-52-<slug>.ospec`), and the heading inside the file is just `## <Title>`. A GitHub issue's number is assigned by GitHub whenever the issue happens to be created, which usually isn't in step with when the spec file is written or how many bugs/features preceded it — an internal counter would either drift from the real issue number or require renaming files to keep chasing it. The issue number, once one exists, lives only in the `### GitHub Issue` field described below.
+
+Bug entries use:
+```
+## <Title>
 ### Status / GitHub Issue / Summary / Reported Behavior / Expected Behavior
 ### Root Cause / Proposed Fix / Acceptance Criteria / Out of Scope
 ```
-Wait for explicit instruction before creating or modifying a Spec file — don't add a bugfix entry unprompted just because a bug came up in conversation. There's no separate `architecture.ospec`/`features.ospec`/`api-design.ospec` yet — that content now lives in these two docs and can be split out later if needed.
+Feature and refactor entries use:
+```
+## <Title>
+### Status / GitHub Issue / Summary / Motivation
+### Proposed Changes / Acceptance Criteria / Out of Scope
+```
+`### GitHub Issue` holds the issue number (`#52`) once one exists, or `None yet.` before it does — see GitHub Integration below for how issue creation and this field connect. Add an optional `### Dependencies` section when an entry only makes sense after another one has landed.
+
+**Exception — staged milestones of one initiative share a file.** When a single piece of work is deliberately split into ordered, dependent steps (e.g. a multi-phase cleanup where step 2 depends on step 1's file layout), put all of that initiative's steps together in one file (e.g. `Spec/Refactors/REFACTOR-coding-convention-alignment.ospec`), each step as its own `## Step <N>: <Title>` heading separated by `---`, with a short shared intro above the first step giving the overall motivation and ordering.
+
+This exception is scoped to *that one initiative only* — it is not "cleanups share a file" or "features share a file" as a general rule. A later, unrelated piece of work never gets appended to an existing grouped file just because it's the same category (e.g. a new, separate refactor idea does **not** become "Step 5" in `REFACTOR-coding-convention-alignment.ospec`) — it gets its own new file. If new work is later discovered that's genuinely a continuation of an already-completed initiative's steps, treat that as a judgment call to raise with the developer rather than silently appending.
+
+Wait for explicit instruction before creating or modifying a Spec file — don't add an entry unprompted just because a bug or feature idea came up in conversation.
 
 ## Testing
 - Framework and structure are decided (xUnit, `WhenWorksWeb.Tests` — see CODING_CONVENTIONS.md).
@@ -68,7 +88,9 @@ Wait for explicit instruction before creating or modifying a Spec file — don't
 ---
 
 ## GitHub Integration (MCP) & Git Conventions
-Claude Code may use the GitHub MCP server to browse files, inspect PRs, read issues, suggest issue creation, and review Actions logs — but must never push commits, create branches, or open PRs without explicit approval, and must always describe a proposed GitHub action before performing it.
+Claude Code may use the GitHub MCP server (or `gh` CLI, whichever is available) to browse files, inspect PRs, read issues, create issues, and review Actions logs — but must never push commits, create branches, or open PRs without explicit approval, and must always describe a proposed GitHub action before performing it.
+
+Issue templates live in `.github/ISSUE_TEMPLATE/` (`bug_report.md`, `feature_request.md`, `epic.md`). The `create-issue` skill runs a conversation to gather the detail those templates expect, drafts the issue body, and creates the matching `Spec/` entry (see Specs above) referencing the resulting issue number.
 
 Commit/PR titles follow the existing history's pattern: `Issue#<N> <description> (#<PR>)` when tied to a tracked issue (e.g. `Issue#38 add delete workflow to my events (#39)`).
 
