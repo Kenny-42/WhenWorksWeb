@@ -134,7 +134,7 @@ to `Common/Constants.cs`; replace the independent `"ff66c4"` literals in `Models
 ## CLEANUP-2: Split `EventsController` into partial-class files
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 None yet.
