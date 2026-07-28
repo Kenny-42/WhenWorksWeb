@@ -1,31 +1,36 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: "[BUG] Bug title"
-labels: bug, epic
+about: Report unexpected or incorrect behavior
+title: "[BUG] <short, specific title>"
+labels: bug
 assignees: ''
 
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A precise, one- or two-sentence description of what's wrong.
+
+**Where it happens**
+The page, route, or flow this occurs in (e.g. `/event/{code}/signin`, "My Events" delete modal).
 
 **To Reproduce**
 Steps to reproduce the behavior:
 1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+2. Click on '...'
+3. See error
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What should happen instead.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Actual behavior**
+What actually happens instead — wrong value, error text, nothing happening, etc.
 
-**Desktop (please complete the following information):**
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**Screenshots** (delete this section if not applicable)
+Visual evidence of the bug.
 
-**Additional context**
-Add any other context about the problem here.
+**Environment** (delete this section if not applicable)
+- Browser:
+- Version:
+
+**Additional context** (delete this section if not applicable — free-form: paragraph, bullets, whatever fits)
+Frequency (always / intermittent / one-time), console/log errors, known workarounds, or anything else relevant.

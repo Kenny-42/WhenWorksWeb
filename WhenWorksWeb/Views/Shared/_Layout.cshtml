@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
 </head>
 <body>
+    <!-- Site header: brand link, Admin nav item (shown only to Admins), and the login/logout partial -->
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
@@ -35,17 +36,22 @@
             </div>
         </nav>
     </header>
+
+    <!-- Main content area: renders whichever view is being displayed -->
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
+    <!-- Site footer -->
     <footer class="border-top footer text-muted">
         <div class="container">
             &copy; 2026 - WhenWorksWeb - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+
+    <!-- Shared scripts: jQuery, Bootstrap bundle, site-wide JS, then any per-view Scripts section -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

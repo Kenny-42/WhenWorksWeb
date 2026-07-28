@@ -1,4 +1,4 @@
-﻿@model WhenWorksWeb.Models.ErrorViewModel
+@model WhenWorksWeb.Models.ErrorViewModel
 @{
     ViewData["Title"] = Model.Title;
 }
@@ -6,6 +6,7 @@
 <div class="container py-4" style="max-width: 42rem;">
     @if (!string.IsNullOrWhiteSpace(Model.Message))
     {
+        <!-- Friendly error variant: used for expected error conditions (e.g. event not found), with a custom message and return link -->
         <div class="text-center">
             <h1 class="h3 mb-3">@Model.Title</h1>
             <p class="lead mb-4">@Model.Message</p>
@@ -17,16 +18,19 @@
     }
     else
     {
+        <!-- Generic error variant: used for unhandled exceptions, shown by HomeController.Error -->
         <h1 class="text-danger">Error.</h1>
         <h2 class="text-danger">An error occurred while processing your request.</h2>
 
         @if (Model.ShowRequestId)
         {
+            <!-- Request ID, shown only when one is available, to help correlate with server-side logs -->
             <p>
                 <strong>Request ID:</strong> <code>@Model.RequestId</code>
             </p>
         }
 
+        <!-- Guidance for enabling the Development environment to see full exception details locally -->
         <h3>Development Mode</h3>
         <p>
             Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.

@@ -1,104 +1,173 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using WhenWorksWeb.Common;
 
-namespace WhenWorksWeb.Models
+namespace WhenWorksWeb.Models;
+
+/// <summary>
+/// Represents an event in the WhenWorks application. Events are created by users and can be interacted with by other users.
+/// Each event has a title, a creator (optional), a creation timestamp, and a last active timestamp.
+/// </summary>
+public class Event
+{
+    /// <summary>The maximum length of <see cref="Title"/>.</summary>
+    private const int TitleMaxLength = ModelConstants.EventTitleMaxLength;
+
+    /// <summary>The maximum length of <see cref="CreatedByUserId"/>.</summary>
+    private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
+
+    /// <summary>The required length of <see cref="Code"/>.</summary>
+    private const int CodeLength = ModelConstants.UniqueCodeLength;
+
+    /// <summary>
+    /// The database id for the event.
+    /// </summary>
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
+
+    /// <summary>
+    /// A unique 6-character alphanumeric (excluding A,E,I,L,O,U,0,1) code used to identify and share the event.
+    /// The code is case-insensitive (stored and compared without regard to letter case).
+    /// </summary>
+    [StringLength(CodeLength, MinimumLength = CodeLength, ErrorMessage = "Code must be exactly 6 characters.")]
+    [RegularExpression(ModelConstants.EventCodePattern, ErrorMessage = "Code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
+    public required string Code { get; set; }
+
+    /// <summary>
+    /// The title of the event, with a maximum length of 30 characters and minimum of 1 character.
+    /// </summary>
+    [StringLength(TitleMaxLength, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
+    public required string Title { get; set; }
+
+    /// <summary>
+    /// The username of the account that created the event. Usernames are limited to 450 characters.
+    /// This field is nullable as not all events will be created by a logged in user.
+    /// </summary>
+    [StringLength(UserIdMaxLength)]
+    public string? CreatedByUserId { get; set; }
+
+    /// <summary>
+    /// The date and time when the event was created.
+    /// </summary>
+    public DateTimeOffset CreatedAt { get; internal set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The date and time when the event was last active.
+    /// </summary>
+    public DateTimeOffset LastActiveAt { get; internal set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The user who created the event, if any.
+    /// </summary>
+    public ApplicationUser? CreatedByUser { get; set; }
+
+    /// <summary>
+    /// The participants who have joined the event.
+    /// </summary>
+    public ICollection<Participant> Participants { get; set; } = new List<Participant>();
+
+    /// <summary>
+    /// The candidate dates proposed for the event.
+    /// </summary>
+    public ICollection<EventDate> Dates { get; set; } = new List<EventDate>();
+
+    /// <summary>
+    /// The optional display settings (emoji, description) for the event.
+    /// </summary>
+    public EventSettings? Settings { get; set; }
+
+    /// <summary>
+    /// The chat messages posted within the event.
+    /// </summary>
+    public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
+
+    /// <summary>
+    /// The bookmarks users have saved on the event.
+    /// </summary>
+    public ICollection<UserEventBookmark> UserBookmarks { get; set; } = new List<UserEventBookmark>();
+
+    /// <summary>
+    /// Creates a new <see cref="Event"/> instance with the required properties. The CreatedAt and LastActiveAt
+    /// timestamps are automatically set to the current time when the event is created.
+    /// </summary>
+    /// <param name="code">The unique event code.</param>
+    /// <param name="title">The event title.</param>
+    /// <param name="createdByUserId">The id of the user creating the event, or null for a guest-created event.</param>
+    public static Event Create(string code, string title, string? createdByUserId = null)
+    {
+        return new Event
+        {
+            Code = code,
+            Title = title,
+            CreatedByUserId = createdByUserId
+        };
+    }
+}
+
+/// <summary>
+/// Represents a specific date and time associated with an event, allowing for multiple potential occurrences of the
+/// same event.
+/// </summary>
+public class EventDate
 {
     /// <summary>
-    /// Represents an event in the WhenWorks application. Events are created by users and can be interacted with by other users. 
-    /// Each event has a title, a creator (optional), a creation timestamp, and a last active timestamp.
+    /// The database id for the event date.
     /// </summary>
-    public class Event
-    {
-        private const int TitleMaxLength = ModelConstants.EventTitleMaxLength;
-        private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
-        private const int CodeLength = ModelConstants.UniqueCodeLength;
-
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
-
-        // A unique 6-character alphanumeric (excluding A,E,I,L,O,U,0,1) code used to identify and share the event.
-        // The code is case-insensitive (stored and compared without regard to letter case).
-        [StringLength(CodeLength, MinimumLength = CodeLength, ErrorMessage = "Code must be exactly 6 characters.")]
-        [RegularExpression(ModelConstants.EventCodePattern, ErrorMessage = "Code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
-        public required string Code { get; set; }
-
-        // The title of the event, with a maximum length of 30 characters and minimum of 1 character.
-        [StringLength(TitleMaxLength, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
-        public required string Title { get; set; }
-
-        // The username of the account that created the event. Usernames are limited to 450 characters.
-        // This field is nullable as not all events will be created by a logged in user.
-        [StringLength(UserIdMaxLength)]
-        public string? CreatedByUserId { get; set; }
-
-        // The timestamps for when the event was created and when it was last active.
-        public DateTimeOffset CreatedAt { get; internal set; } = DateTimeOffset.UtcNow;
-        public DateTimeOffset LastActiveAt { get; internal set; } = DateTimeOffset.UtcNow;
-
-        // Navigation
-        public ApplicationUser? CreatedByUser { get; set; }
-        public ICollection<Participant> Participants { get; set; } = new List<Participant>();
-        public ICollection<EventDate> Dates { get; set; } = new List<EventDate>();
-        public EventSettings? Settings { get; set; }
-        public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
-        public ICollection<UserEventBookmark> UserBookmarks { get; set; } = new List<UserEventBookmark>();
-
-        // Factory method to create a new Event instance with the required properties.
-        // The CreatedAt and LastActiveAt timestamps are automatically set to the current time when the event is created.
-        public static Event Create(string code, string title, string? createdByUserId = null)
-        {
-            return new Event
-            {
-                Code = code,
-                Title = title,
-                CreatedByUserId = createdByUserId
-            };
-        }
-    }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
 
     /// <summary>
-    /// Represents a specific date and time associated with an event, allowing for multiple potential occurrences of the
-    /// same event.
+    /// Foreign key to the Event this date belongs to.
     /// </summary>
-    public class EventDate
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+    public required int EventId { get; set; }
 
-        // Foreign key to the Event this date belongs to
-        public required int EventId { get; set; }
+    /// <summary>
+    /// The date and time of the event occurrence. This represents a potential date for the event,
+    /// and multiple EventDate entries can exist for a single event to allow for scheduling flexibility.
+    /// </summary>
+    public required DateTimeOffset Date { get; set; }
 
-        // The date and time of the event occurrence. This represents a potential date for the event,
-        // and multiple EventDate entries can exist for a single event to allow for scheduling flexibility.
-        public required DateTimeOffset Date { get; set; }
+    /// <summary>
+    /// The event this date belongs to.
+    /// </summary>
+    public Event Event { get; set; } = null!;
+}
 
-        // Navigation
-        public Event Event { get; set; } = null!;
-    }
+/// <summary>
+/// Represents optional display settings for an event, such as its emoji and description.
+/// </summary>
+public class EventSettings
+{
+    /// <summary>The maximum length of <see cref="Emoji"/>.</summary>
+    private const int EmojiMaxLength = ModelConstants.EventEmojiMaxLength;
 
-    public class EventSettings
-    {
-        private const int EmojiMaxLength = ModelConstants.EventEmojiMaxLength;
-        private const int DescriptionMaxLength = ModelConstants.EventDescriptionMaxLength;
+    /// <summary>The maximum length of <see cref="Description"/>.</summary>
+    private const int DescriptionMaxLength = ModelConstants.EventDescriptionMaxLength;
 
-        // Foreign key to the Event these settings belong to. This is also the primary key for this table,
-        // since each event can have at most one settings entry.
-        [Key]
-        public int EventId { get; set; }
+    /// <summary>
+    /// Foreign key to the Event these settings belong to. This is also the primary key for this table,
+    /// since each event can have at most one settings entry.
+    /// </summary>
+    [Key]
+    public int EventId { get; set; }
 
-        // An emoji that represents the event, which can be used for display purposes.
-        // The maximum length is set to 20 characters to allow for a wide range of emojis while preventing excessively long strings.
-        [StringLength(EmojiMaxLength)]
-        public required string Emoji { get; set; } = ModelConstants.DefaultEventEmoji;
+    /// <summary>
+    /// An emoji that represents the event, which can be used for display purposes.
+    /// The maximum length is set to 20 characters to allow for a wide range of emojis while preventing excessively long strings.
+    /// </summary>
+    [StringLength(EmojiMaxLength)]
+    public required string Emoji { get; set; }
 
-        // A description of the event, which can provide additional details or context. This field is optional.
-        [StringLength(DescriptionMaxLength)]
-        public string? Description { get; set; }
+    /// <summary>
+    /// A description of the event, which can provide additional details or context. This field is optional.
+    /// </summary>
+    [StringLength(DescriptionMaxLength)]
+    public string? Description { get; set; }
 
-        // Navigation
-        public Event Event { get; set; } = null!;
-    }
+    /// <summary>
+    /// The event these settings belong to.
+    /// </summary>
+    public Event Event { get; set; } = null!;
 }

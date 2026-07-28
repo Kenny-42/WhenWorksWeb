@@ -1,0 +1,295 @@
+# Coding Convention Alignment
+
+This file tracks a set of four related refactor/cleanup steps, kept together in one file
+rather than split across `Spec/refactor/` because they're staged parts of a single
+initiative rather than independent items — see CLAUDE.md's Specs section for when grouped
+entries like this are appropriate vs. one file per item. This file is scoped to these four
+steps only; a later, unrelated refactor idea gets its own new file, not a fifth step here.
+
+None of these entries address broken behavior — the app works correctly throughout. They
+bring the existing code in line with `CODING_CONVENTIONS.md`, which was written after most
+of the code, so a gap had built up between the documented standard and what's actually in
+the files.
+
+The four steps are staged as independently reviewable milestones, in the order they're
+meant to be implemented (Step 2 depends on Step 1 being done first for the files it
+touches; Step 3 is written against the file layout Step 2 produces). No step changes
+the database schema, modifies `Areas/Identity` scaffolding, or adds any new user-facing
+functionality (availability voting / chat) — those are all explicitly out of scope, per
+CLAUDE.md's boundaries.
+
+---
+
+## Step 1: Mechanical & low-risk convention cleanup (Controllers/Services/Models/Data)
+
+### Status
+Implemented.
+
+### GitHub Issue
+None yet.
+
+### Summary
+Bring the C# code in `Controllers/`, `Services/`, `Models/`, and `Data/` in line with
+`CODING_CONVENTIONS.md` on namespace style, constructor style, magic-value centralization, and a
+few EF/logic issues — without any structural reorganization (that's Step 2) or doc-comment
+backfill (that's Step 3).
+
+### Motivation
+A full codebase review (see conversation history) found: block-scoped namespaces in files that
+have since had substantive edits; classic constructors on several DI-only classes that do no real
+work in the constructor; the literal `"ff66c4"` default participant color duplicated
+independently in four places; one hardcoded field-length magic number that should reference
+`ModelConstants`; two `required` properties that also carry a now-unreachable default value; one
+confirmed-dead method; and a couple of EF/logic issues (`MyEventsController.Index` sorting an
+already-materialized list in memory instead of in the query; `EventsController` computing the
+"does this participant need a rejoin code" rule two different ways instead of reusing its own
+`RequiresRejoinCode` helper).
+
+Two judgment calls inform several of the changes below, so they're not silent departures from the
+convention text:
+- **`required`/`init` applies to controller-constructed display view models, not form-bound
+  ones.** `MyEventViewModel`/`EventHomeViewModel` are built directly by controller code
+  (`new Foo { ... }`), so the compiler enforces `required` there. `IndexViewModel` and
+  `EventSignInViewModel` are constructed by the MVC model binder via reflection, which bypasses
+  that compile-time check — `required` on a bound property doesn't actually stop the binder from
+  leaving it unset; `[Required]` + `ModelState` (already used correctly on both) is the real
+  enforcement. So the shape tightening below only applies `required`/`init` to properties that are
+  always set by controller code and never touched by binding.
+- **EF navigation properties keep `= null!;`.** The seven occurrences across
+  `Event.cs`/`Participant.cs`/`ApplicationUser.cs` look like the "don't add `!` to silence a real
+  null case" rule, but they're the standard EF Core idiom: EF always populates them on
+  `.Include()`, and app code intentionally constructs these entities by FK id only (e.g.
+  `TryCreateNewParticipantAsync`'s `new Participant { EventId = ..., ... }` never sets the `Event`
+  nav property). Making them `required` would break that FK-only construction pattern; making them
+  nullable would misrepresent the domain. These are explicitly **not** part of this cleanup.
+
+### Proposed Changes
+
+**Namespaces → file-scoped** (`namespace WhenWorksWeb.X;`):
+`Controllers/HomeController.cs`, `Services/UniqueCodeGenerator.cs`, `Common/Constants.cs`,
+`Models/ApplicationUser.cs`, `Models/Event.cs`, `Models/Participant.cs`, `Models/IdentityConfiguration.cs`.
+
+**Primary constructors** (pure field-assignment constructors → primary constructor syntax):
+`Controllers/MyEventsController.cs`, `Services/UniqueCodeGenerator.cs`,
+`Areas/Admin/Pages/Users/ManageUsers.cshtml.cs` (`ManageUsersModel`), `Data/Seed/DevelopmentDataSeeder.cs`.
+(`EventsController` and `ApplicationDbContext` are already correct as-is and are not touched.)
+
+**Centralize the duplicated default color:** add `ModelConstants.DefaultParticipantColor = "ff66c4"`
+to `Common/Constants.cs`; replace the independent `"ff66c4"` literals in `Models/ApplicationUser.cs:32`,
+`Models/EventSignInViewModel.cs:42`, `Controllers/EventsController.cs:290`, and
+`Data/Seed/DevelopmentDataSeeder.cs:55` with a reference to it.
+
+**Fix the remaining magic number:** `Models/IndexViewModel.cs:15`'s `StringLength(30, ...)` →
+`ModelConstants.EventTitleMaxLength`.
+
+**View model shape tightening:**
+- `Models/ErrorViewModel.cs` — make `sealed`; `Title`/`ReturnButtonText` → `required ... { get; init; }`;
+  `Message`/`ReturnUrl` stay nullable `init` (genuinely optional).
+- `ParticipantSelectionViewModel` (in `Models/EventSignInViewModel.cs`) — `DisplayName`/`Color`
+  from `required ... { get; set; }` to `required ... { get; init; }`; `IsAssociatedWithCurrentUser`
+  from `set` to `init`.
+- `Models/EventSignInViewModel.cs` — `EventName` and `ExistingParticipants` (only ever set once,
+  by `BuildSignInViewModelAsync`) become `required string EventName { get; init; }` and
+  `required IReadOnlyList<ParticipantSelectionViewModel> ExistingParticipants { get; init; }`.
+  `DisplayName`, `Color`, `SelectedExistingDisplayName`, `RejoinCode`, `ShowRejoinCodeInput` stay
+  mutable `set` (reassigned post-construction by `NormalizeSignInModel`/`ApplySignInViewModelState`).
+  Add a one-line comment on the class explaining the mixed shape.
+- `Models/IndexViewModel.cs` — leave `{ get; set; }` + `[Required]` as-is (fully bound); just make
+  the class `sealed` and apply the magic-number fix above.
+
+**Dead/redundant value cleanup:**
+- Remove the now-unreachable default initializers on `EventSettings.Emoji` (`Models/Event.cs:95`)
+  and `EventMessage.SentAt` (`Models/Participant.cs:110`) — both are `required`, so the default can
+  never be observed through normal construction.
+- Remove `Models/IdentityRoleSeeder.cs`'s `AddUserToRoleByEmailAsync` — confirmed unused anywhere
+  in the repo.
+- `Services/UniqueCodeGenerator.cs` — drop the local `UniqueCodeLength` const alias; reference
+  `ModelConstants.UniqueCodeLength` directly in `GenerateCode`.
+- `Models/IdentityConfiguration.cs` — change from `public class` with one static method to
+  `public static class`, matching `IdentityRoleSeeder`'s pattern.
+
+**EF Core / logic fixes:**
+- `Controllers/MyEventsController.cs` `Index` (lines 47-67) — move `.OrderBy(e => e.Title).ThenBy(e => e.Code)`
+  into the query before `.ToListAsync()` instead of sorting the materialized list afterward.
+- `Controllers/EventsController.cs` `BuildSignInViewModelAsync` (lines 296-298) — replace the
+  duplicated inline `showRejoinCodeInput` computation with a call to the existing
+  `RequiresRejoinCode(currentParticipant, currentUser?.Id)` helper.
+- `Controllers/MyEventsController.cs` — extract the repeated "must be authenticated, else
+  `Challenge()`" block (lines 36-41 and 97-101) into one private helper used by both `Index` and `Delete`.
+- `Controllers/MyEventsController.cs` `Delete`'s `"participant"` branch — add an explicit
+  `await transaction.RollbackAsync(cancellationToken);` before the early `NotFound()` return inside
+  the `try`, matching the explicit rollback the `catch` block already does.
+
+### Acceptance Criteria
+- `dotnet build` succeeds with no new warnings from `EnableNETAnalyzers`/`EnforceCodeStyleInBuild`.
+- `dotnet format` reports no outstanding style violations in the touched files.
+- Manual click-through (create event, join event, sign in as new participant, sign in as existing
+  participant via rejoin code, event home, My Events list, delete participant, delete event) behaves
+  identically to before the change — this is a pure refactor, no behavior change expected anywhere.
+- No `.cs` file outside the list above is modified.
+
+### Out of Scope
+- The `EventsController` partial-class split (Step 2).
+- Any doc-comment additions (Step 3).
+- Any view/JS changes (Step 4).
+- The `= null!;` EF navigation-property pattern (see Motivation — intentionally not touched).
+- Any database schema or migration change.
+
+---
+
+## Step 2: Split `EventsController` into partial-class files
+
+### Status
+Implemented.
+
+### GitHub Issue
+None yet.
+
+### Summary
+Split `Controllers/EventsController.cs` (755 lines) into the partial-class structure
+`CODING_CONVENTIONS.md` already prescribes by name, with zero behavior change.
+
+### Motivation
+`EventsController` is by far the largest file in the codebase and covers several distinguishable
+subjects (create/join, sign-in, the event home page, browser-cookie access management).
+`CODING_CONVENTIONS.md`'s "Controllers vs. Services" section names the exact target split for this
+file as its own worked example, specifically to keep routes, DI registration, and shared private
+helpers working with zero behavior change (as opposed to splitting into separate controller
+classes, which risks silently changing a URL).
+
+### Proposed Changes
+Same class name, marked `partial` in every file, same route attributes, same constructor/DI
+(constructor and fields stay in the core file only):
+
+- **`Controllers/EventsController.cs`** (core) — constructor, fields, `EventAccessCookiePrefix`,
+  `Create`, `Join`, and the shared private helpers `GetEventAsync`/`CreateEventNotFoundResult`.
+- **`Controllers/EventsController.SignIn.cs`** — both `SignIn` overloads,
+  `BuildSignInViewModelAsync`, `NormalizeSignInModel`, `ApplySignInViewModelState`,
+  `GetSelectedExistingParticipantAsync`, `TryCreateNewParticipantAsync`,
+  `TryUpdateExistingParticipantAsync`, `ValidateParticipantUniquenessAsync`, `RequiresRejoinCode`,
+  `HasConflictingAccountOwner`, `NormalizeColor`.
+- **`Controllers/EventsController.Home.cs`** — `Home`.
+- **`Controllers/EventsController.AccessCookie.cs`** — `GetAuthorizedParticipantAsync`,
+  `GetCurrentParticipantAsync`, `SetEventAccessCookie`, `GetEventAccessCookieName`.
+
+### Acceptance Criteria
+- All existing routes (`EventSignIn` GET/POST, `EventHome` GET, `Create` POST, `Join` POST) resolve
+  identically — verified by hitting each one manually.
+- `dotnet build` succeeds; no route-attribute duplication or DI registration change needed.
+- Manual click-through of the full create → join → sign-in → event home flow behaves identically.
+- No method signature or route attribute changes — this is a pure file reorganization.
+
+### Out of Scope
+- Any separate controller classes (explicitly rejected per `CODING_CONVENTIONS.md` — risks
+  silently changing a URL).
+- Any logic change beyond Step 1's `RequiresRejoinCode` dedup, which should land before this split.
+
+---
+
+## Step 3: Comment-density backfill
+
+### Status
+Implemented.
+
+### GitHub Issue
+None yet.
+
+### Summary
+Bring doc-comment coverage up to what `CODING_CONVENTIONS.md` calls for — `///` on essentially
+every class and on both public and private methods, denser than typical minimal-comment style, and
+matching HTML comment density (`<!-- ... -->`) on the view side.
+
+### Motivation
+This convention is intentionally the opposite of typical minimal-comment guidance, and the current
+codebase has real gaps against it: undocumented constructors/fields on most controllers/services,
+systemic use of `//` instead of `///` on nearly every property in `Event.cs`/`Participant.cs`/
+`ApplicationUser.cs`, an entirely undocumented `IdentityRoleSeeder.cs`, zero `///` comments
+anywhere in `ManageUsers.cshtml.cs` (the single largest gap found), an undocumented
+`ApplicationDbContext` class and its seven `DbSet<T>` properties, and three views
+(`Home/Privacy.cshtml`, `Shared/Error.cshtml`, `Shared/_Layout.cshtml`) with zero HTML section
+comments despite comparable views being heavily commented.
+
+Sequenced after Step 2 so comments land on `EventsController`'s final split file layout rather
+than the monolithic file that's about to be reorganized.
+
+### Proposed Changes
+Pattern applied throughout: add a missing class/type `///` summary; add missing `///` method
+summaries (public and private alike); convert systemic `//` property comments to proper `///`
+`<summary>` blocks; add HTML `<!-- -->` section comments to views currently missing them.
+
+- **Controllers**: `EventsController.*.cs` (post-split) and `MyEventsController.cs` — document
+  fields/constructors; fix `MyEventsController`'s inconsistent doc style between `Index` (empty
+  `<param>`/`<returns>` tags) and `Delete` (no tags at all). `HomeController.cs` is already fully
+  compliant — no change needed.
+- **Services**: `UniqueCodeGenerator.cs` — document the constructor and the private
+  `GenerateUniqueCodeAsync`.
+- **Models**: `Event.cs`, `Participant.cs`, `ApplicationUser.cs` — convert `//` to `///` on
+  properties, document private consts and `Id` properties, add `EventSettings`'s missing class
+  summary. Document `IdentityConfiguration.Configure` and all of `IdentityRoleSeeder.cs`.
+- **Data**: `ApplicationDbContext.cs` — document the class and each of the seven `DbSet<T>`
+  properties individually (replacing the single collective `//` comment).
+- **Razor Pages**: `Areas/Admin/Pages/Users/ManageUsers.cshtml.cs` — document the class,
+  constructor, and all six methods.
+- **Views**: `Home/Privacy.cshtml`, `Shared/Error.cshtml`, `Shared/_Layout.cshtml` — add HTML
+  section comments matching `Home/Index.cshtml`'s and `MyEvents/Index.cshtml`'s density.
+
+### Acceptance Criteria
+- `dotnet build` succeeds with no new warnings.
+- Every class/type in the touched files has a `///` summary; every public and private method has one.
+- No logic, signature, or markup structure changes — comments only.
+
+### Out of Scope
+- Any code/logic changes (that's Step 1/Step 2/Step 4).
+- Comment backfill on files not listed above, if any were missed in review — flag separately rather
+  than expanding this entry's scope mid-implementation.
+
+---
+
+## Step 4: View/JS consistency fixes
+
+### Status
+Implemented.
+
+### GitHub Issue
+None yet.
+
+### Summary
+Bring `Events/SignIn.cshtml`'s inline script in line with the established
+`Views/MyEvents/Index.cshtml` reference pattern, and clean up a couple of small dead-CSS/magic-number
+inconsistencies elsewhere.
+
+### Motivation
+`CODING_CONVENTIONS.md` specifies vanilla JS in an IIFE per view, with every queried element
+null-guarded before wiring listeners — `MyEvents/Index.cshtml` follows this correctly and is the
+named reference; `SignIn.cshtml` is the only other view with real inline script logic, and follows
+neither part of the pattern (no IIFE wrapper; only 1 of ~7 queried elements is guarded). Separately,
+`Home/Index.cshtml` hardcodes `maxlength="6"` where `SignIn.cshtml` already correctly references
+`ModelConstants.UniqueCodeLength` for the equivalent field, and has two CSS classes
+(`create-event-container`, `join-event-container`) confirmed unstyled anywhere in the project.
+`Program.cs` has a stale comment referencing a type name (`EventCodeGenerator`) that was renamed to
+`UniqueCodeGenerator`, plus mixed tabs/spaces indentation.
+
+### Proposed Changes
+- **`Views/Events/SignIn.cshtml`** — wrap the script body in an IIFE; add a null-guard on every
+  queried element before wiring its listener(s), matching `MyEvents/Index.cshtml`'s pattern.
+- **`Views/Home/Index.cshtml`** — replace `maxlength="6"` with
+  `@WhenWorksWeb.Common.ModelConstants.UniqueCodeLength`; remove the unstyled
+  `create-event-container`/`join-event-container` CSS classes (confirm with the developer first if
+  styling was actually intended for these rather than dropping them).
+- **`Program.cs`** — fix the stale "EventCodeGenerator" comment to say `UniqueCodeGenerator`;
+  normalize mixed tabs/spaces indentation to match `.editorconfig`.
+- Optional/low priority: `Views/MyEvents/Index.cshtml`'s `.selected` CSS class has no stylesheet
+  rule behind it (toggled but has no visible effect) — either add a style or drop the toggle;
+  `Views/Shared/_LoginPartial.cshtml` has a few double-space attribute typos.
+
+### Acceptance Criteria
+- Sign-in page behaves identically for all flows (new participant, existing participant, rejoin
+  code) with no JS console errors, verified manually in a browser.
+- No element-not-found script errors on any page state (e.g. rejoin code input hidden/shown).
+- `dotnet build` succeeds; no markup/route changes.
+
+### Out of Scope
+- Any change to `Views/MyEvents/Index.cshtml`'s already-compliant IIFE/JSON pattern beyond the
+  optional `.selected` note above.
+- Any new CSS framework, shared JS bundle, or build tooling — the project deliberately stays with
+  per-view vanilla JS and direct Bootstrap utility classes.

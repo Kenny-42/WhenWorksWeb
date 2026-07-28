@@ -1,10 +1,12 @@
 ﻿@using System.Security.Claims
+@using System.Text.Json
 @model IReadOnlyList<WhenWorksWeb.Models.MyEventViewModel>
 
 @* Displays the signed-in user's joined events, allows event selection, and routes the user to the event sign-in page. *@
 @{
     ViewData["Title"] = "My Events";
     var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+    var participantsJsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 }
 
 <!-- Page container -->
@@ -30,6 +32,7 @@
                     @foreach (var myEvent in Model)
                     {
                         var isCreatedByCurrentUser = string.Equals(myEvent.CreatedByUserId, currentUserId, StringComparison.Ordinal);
+                        var participantsJson = JsonSerializer.Serialize(myEvent.Participants, participantsJsonOptions);
 
                         <!-- Clickable event row -->
                         <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 my-event-item"
@@ -37,9 +40,8 @@
                              tabindex="0"
                              data-signin-url="@myEvent.SignInUrl"
                              data-event-id="@myEvent.EventId"
-                             data-participant-id="@(myEvent.ParticipantId?.ToString() ?? string.Empty)"
-                             data-participant-display-name="@myEvent.ParticipantDisplayName"
-                             data-has-participant="@myEvent.ParticipantId.HasValue.ToString().ToLowerInvariant()"
+                             data-participants="@participantsJson"
+                             data-has-participant="@((myEvent.Participants.Count > 0).ToString().ToLowerInvariant())"
                              data-created-by-current-user="@isCreatedByCurrentUser.ToString().ToLowerInvariant()">
                             <!-- Event emoji -->
                             <span class="fs-4">@myEvent.Emoji</span>
@@ -220,18 +222,27 @@
                 deleteEventIdInput.value = item.dataset.eventId || '';
                 deleteModalTitle.textContent = 'Delete Confirmation';
 
-                const participantId = item.dataset.participantId || '';
-                const participantDisplayName = item.dataset.participantDisplayName || '';
-                const hasParticipant = item.dataset.hasParticipant === 'true';
+                let participants = [];
+                try {
+                    participants = JSON.parse(item.dataset.participants || '[]');
+                }
+                catch {
+                    participants = [];
+                }
+
+                const hasParticipant = item.dataset.hasParticipant === 'true' && participants.length > 0;
                 const isCreatedByCurrentUser = item.dataset.createdByCurrentUser === 'true';
 
                 if (hasParticipant) {
                     participantSelect.innerHTML = '';
-                    const participantOption = document.createElement('option');
-                    participantOption.value = participantId;
-                    participantOption.textContent = participantDisplayName || 'Participant';
-                    participantOption.selected = true;
-                    participantSelect.appendChild(participantOption);
+
+                    participants.forEach(function (participant, index) {
+                        const participantOption = document.createElement('option');
+                        participantOption.value = participant.participantId;
+                        participantOption.textContent = participant.displayName || 'Participant';
+                        participantOption.selected = index === 0;
+                        participantSelect.appendChild(participantOption);
+                    });
 
                     participantUnavailableText.classList.add('d-none');
                     participantDeleteContainer.classList.remove('d-none');
@@ -252,7 +263,7 @@
                     eventUnavailableText.classList.remove('d-none');
                 }
 
-                deleteParticipantIdInput.value = hasParticipant ? participantId : '';
+                deleteParticipantIdInput.value = hasParticipant ? participantSelect.value : '';
                 deleteSubmitButton.disabled = true;
 
                 deleteModal.show();

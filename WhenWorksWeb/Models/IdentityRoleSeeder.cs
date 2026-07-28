@@ -1,11 +1,22 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 
 namespace WhenWorksWeb.Models;
 
+/// <summary>
+/// Ensures the application's Identity roles exist in the database.
+/// </summary>
 public static class IdentityRoleSeeder
 {
+    /// <summary>
+    /// The roles created by default when no explicit role list is supplied to <see cref="SeedRolesAsync"/>.
+    /// </summary>
     public static readonly string[] DefaultRoles = ["Admin", "User"];
 
+    /// <summary>
+    /// Creates any of the given roles that do not already exist.
+    /// </summary>
+    /// <param name="roleManager">The Identity role manager used to check for and create roles.</param>
+    /// <param name="roles">The roles to ensure exist, or null to use <see cref="DefaultRoles"/>.</param>
     public static async Task SeedRolesAsync(
         RoleManager<IdentityRole> roleManager,
         IEnumerable<string>? roles = null)
@@ -18,23 +29,6 @@ public static class IdentityRoleSeeder
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
             }
-        }
-    }
-
-    public static async Task AddUserToRoleByEmailAsync(
-        UserManager<ApplicationUser> userManager,
-        string email,
-        string roleName)
-    {
-        var user = await userManager.FindByEmailAsync(email);
-        if (user is null)
-        {
-            return;
-        }
-
-        if (!await userManager.IsInRoleAsync(user, roleName))
-        {
-            await userManager.AddToRoleAsync(user, roleName);
         }
     }
 }

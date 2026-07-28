@@ -6,28 +6,43 @@ using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Areas.Admin.Pages.Users;
 
+/// <summary>
+/// Admin-only page for granting and revoking the "Admin" role. Only the hardcoded root admin account
+/// (kenny@mail.com) is allowed to promote or demote other accounts, and that account can never be demoted.
+/// </summary>
+/// <param name="userManager">Resolves and modifies role membership for application users.</param>
 [Authorize(Roles = "Admin")]
-public class ManageUsersModel : PageModel
+public class ManageUsersModel(UserManager<ApplicationUser> userManager) : PageModel
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-
-    public ManageUsersModel(UserManager<ApplicationUser> userManager)
-    {
-        _userManager = userManager;
-    }
-
+    /// <summary>
+    /// The email address entered in the "add admin" form.
+    /// </summary>
     [BindProperty]
     public string? Email { get; set; }
 
+    /// <summary>
+    /// A status or error message to display after a form submission.
+    /// </summary>
     public string? StatusMessage { get; set; }
 
+    /// <summary>
+    /// The users currently in the "Admin" role, for display in the admin list.
+    /// </summary>
     public IList<ApplicationUser> AdminUsers { get; set; } = [];
 
+    /// <summary>
+    /// Loads the current list of admin users for the initial page render.
+    /// </summary>
     public async Task OnGetAsync()
     {
-        AdminUsers = await _userManager.GetUsersInRoleAsync("Admin");
+        AdminUsers = await userManager.GetUsersInRoleAsync("Admin");
     }
 
+    /// <summary>
+    /// Grants the "Admin" role to the user with the submitted <see cref="Email"/>, if the current
+    /// user is the protected root admin account.
+    /// </summary>
+    /// <returns>The page, redisplayed with a status message describing the result.</returns>
     public async Task<IActionResult> OnPostAddAdminAsync()
     {
         var currentEmail = await GetCurrentUserEmailAsync();
@@ -53,7 +68,7 @@ public class ManageUsersModel : PageModel
             return Page();
         }
 
-        var user = await _userManager.FindByEmailAsync(Email);
+        var user = await userManager.FindByEmailAsync(Email);
         if (user == null)
         {
             StatusMessage = "User not found.";
@@ -61,14 +76,14 @@ public class ManageUsersModel : PageModel
             return Page();
         }
 
-        if (await _userManager.IsInRoleAsync(user, "Admin"))
+        if (await userManager.IsInRoleAsync(user, "Admin"))
         {
             StatusMessage = "User is already an admin.";
             await LoadAdminsAsync();
             return Page();
         }
 
-        var result = await _userManager.AddToRoleAsync(user, "Admin");
+        var result = await userManager.AddToRoleAsync(user, "Admin");
 
         StatusMessage = result.Succeeded
             ? $"User {Email} was added as an admin."
@@ -78,6 +93,12 @@ public class ManageUsersModel : PageModel
         return Page();
     }
 
+    /// <summary>
+    /// Revokes the "Admin" role from the given user, if the current user is the protected root admin
+    /// account and the target is not that same protected account.
+    /// </summary>
+    /// <param name="email">The email address of the admin to demote.</param>
+    /// <returns>The page, redisplayed with a status message describing the result.</returns>
     public async Task<IActionResult> OnPostRemoveAdminAsync(string? email)
     {
         var currentEmail = await GetCurrentUserEmailAsync();
@@ -101,7 +122,7 @@ public class ManageUsersModel : PageModel
             return Page();
         }
 
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await userManager.FindByEmailAsync(email);
         if (user == null)
         {
             StatusMessage = "User not found.";
@@ -109,7 +130,7 @@ public class ManageUsersModel : PageModel
             return Page();
         }
 
-        if (!await _userManager.IsInRoleAsync(user, "Admin"))
+        if (!await userManager.IsInRoleAsync(user, "Admin"))
         {
             StatusMessage = "User is not an admin.";
             await LoadAdminsAsync();
@@ -123,7 +144,7 @@ public class ManageUsersModel : PageModel
             return Page();
         }
 
-        var result = await _userManager.RemoveFromRoleAsync(user, "Admin");
+        var result = await userManager.RemoveFromRoleAsync(user, "Admin");
         StatusMessage = result.Succeeded
             ? $"User {email} was removed from admin."
             : string.Join("; ", result.Errors.Select(e => e.Description));
@@ -132,19 +153,25 @@ public class ManageUsersModel : PageModel
         return Page();
     }
 
+    /// <summary>
+    /// Returns the email address of the currently signed-in user, or null if none is signed in.
+    /// </summary>
     private async Task<string?> GetCurrentUserEmailAsync()
     {
-        var currentUser = await _userManager.GetUserAsync(User);
+        var currentUser = await userManager.GetUserAsync(User);
         if (currentUser is null)
         {
             return null;
         }
 
-        return await _userManager.GetEmailAsync(currentUser);
+        return await userManager.GetEmailAsync(currentUser);
     }
 
+    /// <summary>
+    /// Refreshes <see cref="AdminUsers"/> from the current role membership.
+    /// </summary>
     private async Task LoadAdminsAsync()
     {
-        AdminUsers = await _userManager.GetUsersInRoleAsync("Admin");
+        AdminUsers = await userManager.GetUsersInRoleAsync("Admin");
     }
 }

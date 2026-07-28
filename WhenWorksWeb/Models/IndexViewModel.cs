@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using WhenWorksWeb.Common;
 
 namespace WhenWorksWeb.Models;
@@ -12,7 +12,7 @@ public sealed class IndexViewModel
     /// Gets or sets the name of the event to be created.
     /// </summary>
     [Required(ErrorMessage = "Event name is required.")]
-    [StringLength(30, MinimumLength = 1, ErrorMessage = "Event name must be 30 characters or fewer.")]
+    [StringLength(ModelConstants.EventTitleMaxLength, MinimumLength = 1, ErrorMessage = "Event name must be 30 characters or fewer.")]
     public string? CreateEventName { get; set; }
 
     /// <summary>
