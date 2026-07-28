@@ -1,136 +1,87 @@
 # Project: WhenWorks Web Application
 
 ## Overview
-WhenWorks is an ASP.NET Core MVC web application that helps groups coordinate availability for events. Users can create or join events, select a display name and color, view joined events, and interact with event-specific features. The project is actively evolving, and architectural decisions should always be made collaboratively with the developer.
+WhenWorks is an ASP.NET Core MVC web application that helps groups coordinate availability for events. Users can create or join events, select a display name and color, view joined events, and interact with event-specific features. The project is actively evolving; architectural decisions are made collaboratively with the developer, not unilaterally.
+
+## How to use these docs
+This file covers project context, planning process, and the boundaries Claude Code operates within. For the actual rules on how to write and refactor code — file/type organization, controllers vs. services, EF Core patterns, domain-specific gotchas, performance, tooling — see **[CODING_CONVENTIONS.md](./CODING_CONVENTIONS.md)**. Read both before writing or refactoring code; CODING_CONVENTIONS.md is the standard the in-progress project cleanup is measured against.
 
 ---
 
 ## Tech Stack
-- .NET 10
-- ASP.NET Core MVC
-- C#
-- Entity Framework Core (code-first)
-- SQL Server
-- Identity Framework (default scaffolding + custom user model)
-- Bootstrap + custom CSS
-- GitHub for version control
+- .NET 10, ASP.NET Core MVC (plus Razor Pages for Identity and the Admin area)
+- Entity Framework Core (code-first), primary provider SQL Server
+- ASP.NET Core Identity (default scaffolding + a custom `ApplicationUser`)
+- Bootstrap 5 + minimal custom CSS, vanilla JS (no frontend framework)
 
----
-
-## Build & Run Commands
-commands:
-  build: "dotnet build"
-  run: "dotnet run"
-  test: "dotnet test"   # Only when tests exist
-
----
+## Build & Run
+```
+dotnet build
+dotnet run
+dotnet test   # WhenWorksWeb.Tests (xUnit) doesn't exist yet — see Testing below
+```
 
 ## Project Structure
-src: "./"
-
-backend:
-  controllers: "./Controllers"
-  models: "./Models"
-  services: "./Services"
-  data: "./Data"
-  identity: "./Areas/Identity"
-
-frontend:
-  static: "./wwwroot"
-  views: "./Views"
-
-notes:
-  - Controllers currently contain most business logic.
-  - Services folder is used for small, isolated functionality (e.g., UniqueCodeGenerator).
-  - Future refactors may move some controller logic into services, but only with explicit approval.
+```
+Areas/Admin/    Razor Pages, [Authorize(Roles="Admin")], manages the Admin role
+Areas/Identity/ Scaffolded Identity UI — don't modify without approval
+Common/         ModelConstants — single source of truth for lengths/patterns/alphabets
+Controllers/    Nearly all business logic lives here — intentional, see CODING_CONVENTIONS.md
+Data/           ApplicationDbContext, Migrations/ (CLI-generated only), Seed/ (dev-only sample data)
+Models/         EF entities AND view models together — no separate ViewModels/ folder
+Services/       Small, single-purpose, reusable utilities (e.g. UniqueCodeGenerator)
+Views/          Razor views (Home, Events, MyEvents, Shared)
+wwwroot/        css/site.css, js/site.js
+```
 
 ---
 
-## Permissions
-allow:
-  - read
-  - write
-  - edit
-  - bash
+## Architecture & Roadmap
+Current flow: `Home/Index` (create/join by code) → `EventsController.Create`/`Join` → `EventsController.SignIn` → `EventsController.Home` (landing page). `MyEventsController` lists/deletes events and participants.
 
-deny:
-  - autonomous architectural changes
-  - modifying Identity files without explicit approval
-  - creating or modifying database schema unless requested
+**Modeled but not built yet:**
+- Availability system — `EventDate` (candidate dates) exists in the schema with no voting UI/logic yet.
+- Chat system — `EventMessage` has a full data model with no controller actions/views yet; the event home page is currently just a confirmation screen.
+
+Both should be designed collaboratively (discuss the approach together) before implementation begins, not built ahead of that conversation.
 
 ---
 
-## Development Workflow Expectations
-Claude Code must:
-- Propose improvements but **never implement changes without explicit approval**.
-- Follow MVC conventions and existing naming patterns.
-- Maintain compatibility with Bootstrap and the existing stylesheet.
-- Respect the current controller-heavy architecture unless instructed otherwise.
-- Use EF Core code-first patterns consistent with ApplicationDbContext.
-- Avoid modifying Identity scaffolding unless explicitly told to.
-- Avoid generating deployment scripts or Azure configuration unless asked.
-- Use GitHub workflows appropriately when interacting with MCP (issues, PRs, etc.).
+## Specs (Bug & Feature Planning)
+`Spec/bugfixes.ospec` is the active spec convention — append new entries using this template (see the existing BUG-52 entry):
+```
+## BUG-<number>: <short title>
+### Status / GitHub Issue / Summary / Reported Behavior / Expected Behavior
+### Root Cause / Proposed Fix / Acceptance Criteria / Out of Scope
+```
+Wait for explicit instruction before creating or modifying a Spec file — don't add a bugfix entry unprompted just because a bug came up in conversation. There's no separate `architecture.ospec`/`features.ospec`/`api-design.ospec` yet — that content now lives in these two docs and can be split out later if needed.
+
+## Testing
+- Framework and structure are decided (xUnit, `WhenWorksWeb.Tests` — see CODING_CONVENTIONS.md).
+- Claude may help create the test project and propose coverage improvements, but must not add or modify tests unless explicitly requested.
+
+## Database & Schema
+- Schema changes require an explicit request — don't add/change EF model configuration speculatively.
+- Execution rules (CLI-only, never hand-edit migrations) are in CODING_CONVENTIONS.md.
 
 ---
 
-## GitHub Integration (MCP)
-Claude Code may use the GitHub MCP server to:
-- Browse repository files
-- Inspect pull requests
-- Read issues
-- Suggest issue creation
-- Review GitHub Actions logs
+## GitHub Integration (MCP) & Git Conventions
+Claude Code may use the GitHub MCP server to browse files, inspect PRs, read issues, suggest issue creation, and review Actions logs — but must never push commits, create branches, or open PRs without explicit approval, and must always describe a proposed GitHub action before performing it.
 
-Claude Code must:
-- Never push commits, create branches, or open PRs without explicit approval.
-- Always describe proposed GitHub actions before performing them.
-
----
-
-## Specs (OpenSpec Integration)
-Spec:
-  - Spec/architecture.ospec
-  - Spec/features.ospec
-  - Spec/api-design.ospec
-
-Guidance:
-- Specs should be used when planning new features or refactoring major components.
-- Availability system and chat system should be designed collaboratively using OpenSpec when the time comes.
-- Claude Code should wait for explicit instruction before generating or modifying Spec files.
-
----
-
-## Feature Development Guidelines
-
-### Services Layer
-- Controllers currently contain most logic.
-- Services are used for small, isolated functionality.
-- Claude Code may suggest service extraction when controllers become too large, but must not implement without approval.
-
-### Unit Testing -- edit
-- Claude Code should help locate or generate a test project when asked.
-- Claude Code may propose test coverage improvements.
-- Claude Code must not create or modify tests unless explicitly requested.
-
----
-
-## UI/Frontend Guidelines
-Claude Code should:
-- Generate Bootstrap-compatible HTML.
-- Use existing CSS conventions.
-- Maintain responsiveness and cross-device compatibility.
-- Avoid introducing new frontend frameworks unless explicitly approved.
+Commit/PR titles follow the existing history's pattern: `Issue#<N> <description> (#<PR>)` when tied to a tracked issue (e.g. `Issue#38 add delete workflow to my events (#39)`).
 
 ---
 
 ## Decision-Making Boundaries
 Claude Code must:
-- Always ask for confirmation before making structural changes.
-- Never act autonomously.
-- Provide suggestions, options, and tradeoffs rather than unilateral decisions.
+- Always ask for confirmation before structural or architectural changes; never act autonomously; offer suggestions and tradeoffs rather than unilateral decisions.
+- Propose improvements but **never implement changes without explicit approval**.
+- Not modify Identity scaffolding (`Areas/Identity`) without explicit approval.
+- Not generate deployment scripts or Azure configuration unless asked.
+- **Before suggesting or adding any new tool, package, extension, or framework, explain what it is and why it's actually needed** — never introduce one silently or assume familiarity.
 
 ---
 
 ## Summary
-This project requires Claude Code to act as a collaborative assistant, not an autonomous agent. All major architectural, database, Identity, or feature decisions must be approved by the developer. Claude Code should enhance productivity, generate code when asked, help with planning, and support GitHub workflows — always under explicit direction.
-
+WhenWorks requires Claude Code to act as a collaborative assistant, not an autonomous agent. All major architectural, database, Identity, or feature decisions are approved by the developer first. Code itself should follow CODING_CONVENTIONS.md exactly — that document is intentionally decisive, not a set of loose defaults, so the codebase stays consistent as it's cleaned up and grows.
