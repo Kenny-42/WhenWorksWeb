@@ -96,77 +96,82 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        const form = document.getElementById('eventSignInForm');
-        const displayNameInput = document.getElementById('DisplayName');
-        const displayNameSelect = document.getElementById('existingDisplayNames');
-        const colorPicker = document.getElementById('colorPicker');
-        const colorHidden = document.getElementById('Color');
-        const rejoinCodeContainer = document.getElementById('rejoinCodeContainer');
-        const rejoinCodeInput = document.getElementById('RejoinCode');
+        (function () {
+            const form = document.getElementById('eventSignInForm');
+            const displayNameInput = document.getElementById('DisplayName');
+            const displayNameSelect = document.getElementById('existingDisplayNames');
+            const colorPicker = document.getElementById('colorPicker');
+            const colorHidden = document.getElementById('Color');
+            const rejoinCodeContainer = document.getElementById('rejoinCodeContainer');
+            const rejoinCodeInput = document.getElementById('RejoinCode');
 
-        // Keeps the initial server decision intact on page load, including browser autofill cases.
-        let keepRejoinCodeVisible = @showRejoinCodeInput.ToString().ToLowerInvariant();
-
-        // Copies the visible color picker value into the hidden field that is posted to the server.
-        function syncColor() {
-            colorHidden.value = colorPicker.value.replace('#', '');
-        }
-
-        // Shows the rejoin code input for every existing participant unless the currently signed-in account already
-        // owns that participant. Browser recognition may still prefill the input, but it does not hide it.
-        function setRejoinCodeVisibility() {
-            const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
-            const selectedDisplayName = displayNameSelect.value;
-            const isAssociatedWithCurrentUser = selectedOption?.dataset.associatedWithCurrentUser === 'true';
-            const showRejoinCode = keepRejoinCodeVisible || (!!selectedDisplayName && !isAssociatedWithCurrentUser);
-
-            rejoinCodeContainer.classList.toggle('d-none', !showRejoinCode);
-            rejoinCodeInput.disabled = !showRejoinCode;
-
-            if (!showRejoinCode) {
-                rejoinCodeInput.value = '';
+            if (!form || !displayNameInput || !displayNameSelect || !colorPicker || !colorHidden ||
+                !rejoinCodeContainer || !rejoinCodeInput) {
+                return;
             }
 
-            keepRejoinCodeVisible = false;
-        }
+            // Keeps the initial server decision intact on page load, including browser autofill cases.
+            let keepRejoinCodeVisible = @showRejoinCodeInput.ToString().ToLowerInvariant();
 
-        // Synchronizes the display name and color when a participant is selected from the dropdown.
-        function syncSelectedParticipant() {
-            const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
-            const selectedDisplayName = displayNameSelect.value;
+            // Copies the visible color picker value into the hidden field that is posted to the server.
+            function syncColor() {
+                colorHidden.value = colorPicker.value.replace('#', '');
+            }
 
-            if (selectedDisplayName) {
-                displayNameInput.value = selectedDisplayName.trim();
+            // Shows the rejoin code input for every existing participant unless the currently signed-in account already
+            // owns that participant. Browser recognition may still prefill the input, but it does not hide it.
+            function setRejoinCodeVisibility() {
+                const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
+                const selectedDisplayName = displayNameSelect.value;
+                const isAssociatedWithCurrentUser = selectedOption?.dataset.associatedWithCurrentUser === 'true';
+                const showRejoinCode = keepRejoinCodeVisible || (!!selectedDisplayName && !isAssociatedWithCurrentUser);
 
-                const selectedColor = selectedOption.getAttribute('data-color');
-                if (selectedColor) {
-                    colorPicker.value = `#${selectedColor}`;
-                    syncColor();
+                rejoinCodeContainer.classList.toggle('d-none', !showRejoinCode);
+                rejoinCodeInput.disabled = !showRejoinCode;
+
+                if (!showRejoinCode) {
+                    rejoinCodeInput.value = '';
                 }
-            }
-            else {
-                displayNameInput.value = '';
+
+                keepRejoinCodeVisible = false;
             }
 
-            setRejoinCodeVisibility();
-        }
+            // Synchronizes the display name and color when a participant is selected from the dropdown.
+            function syncSelectedParticipant() {
+                const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
+                const selectedDisplayName = displayNameSelect.value;
 
-        if (displayNameSelect) {
+                if (selectedDisplayName) {
+                    displayNameInput.value = selectedDisplayName.trim();
+
+                    const selectedColor = selectedOption.getAttribute('data-color');
+                    if (selectedColor) {
+                        colorPicker.value = `#${selectedColor}`;
+                        syncColor();
+                    }
+                }
+                else {
+                    displayNameInput.value = '';
+                }
+
+                setRejoinCodeVisibility();
+            }
+
             displayNameSelect.addEventListener('change', syncSelectedParticipant);
-        }
 
-        colorPicker.addEventListener('input', syncColor);
+            colorPicker.addEventListener('input', syncColor);
 
-        form.addEventListener('submit', () => {
-            displayNameInput.value = displayNameInput.value.trim();
+            form.addEventListener('submit', () => {
+                displayNameInput.value = displayNameInput.value.trim();
+                syncColor();
+            });
+
             syncColor();
-        });
+            setRejoinCodeVisibility();
 
-        syncColor();
-        setRejoinCodeVisibility();
-
-        if (displayNameSelect && displayNameSelect.value) {
-            syncSelectedParticipant();
-        }
+            if (displayNameSelect.value) {
+                syncSelectedParticipant();
+            }
+        })();
     </script>
 }

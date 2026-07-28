@@ -6,26 +6,29 @@ namespace WhenWorksWeb.Models;
 /// <summary>
 /// View model for the event sign-in page.
 /// </summary>
-/// <remarks>This is a mixed-shape view model: it doubles as a form-bound POST target (DisplayName, Color,
-/// SelectedExistingDisplayName, RejoinCode, ShowRejoinCodeInput are reassigned in place by NormalizeSignInModel/
-/// ApplySignInViewModelState after model binding) and as a display model built once by BuildSignInViewModelAsync
-/// (Code, EventName, ExistingParticipants). Only the latter group uses required/init — the bound properties stay
-/// mutable since the model binder bypasses compile-time required enforcement anyway, and [Required] already does
-/// the real validation.</remarks>
+/// <remarks>This type is both the MVC model binder's POST target for the sign-in form and a display model
+/// built once by BuildSignInViewModelAsync. That means every property must tolerate being constructed by the
+/// model binder with no corresponding form field — including EventName and ExistingParticipants, which have
+/// no form input at all. Neither of those two can be `required`/non-nullable-without-a-default: the model
+/// binder bypasses the compiler's `required` enforcement (it isn't built via `new { ... }` syntax), so a
+/// `required` property with no default is left null after binding, which trips ASP.NET Core's automatic
+/// non-nullable-reference-type validation and silently fails the whole POST. DisplayName, Color,
+/// SelectedExistingDisplayName, RejoinCode, and ShowRejoinCodeInput are also reassigned in place by
+/// NormalizeSignInModel/ApplySignInViewModelState after binding, so they stay mutable regardless.</remarks>
 public sealed class EventSignInViewModel
 {
     /// <summary>
     /// Gets the code used to identify the event.
     /// </summary>
     /// <remarks>The code consists of exactly six alphanumeric characters, excluding the letters A, E, I,
-    /// L, O, U and the digits 0 and 1.</remarks>
+    /// L, O, U and the digits 0 and 1. This is posted via a hidden form field, so it's safe to require.</remarks>
     public required string Code { get; init; }
 
     /// <summary>
     /// Gets or sets the name of the event associated with this instance.
     /// </summary>
     /// <remarks>This is populated by the server for display only and is not validated as posted form input.</remarks>
-    public required string EventName { get; init; }
+    public string EventName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the display name for the participant.
@@ -73,7 +76,7 @@ public sealed class EventSignInViewModel
     /// <summary>
     /// Gets or sets the list of available participant options for the event.
     /// </summary>
-    public required IReadOnlyList<ParticipantSelectionViewModel> ExistingParticipants { get; init; }
+    public IReadOnlyList<ParticipantSelectionViewModel> ExistingParticipants { get; set; } = [];
 }
 
 /// <summary>

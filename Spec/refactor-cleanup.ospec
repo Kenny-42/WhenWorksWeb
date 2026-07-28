@@ -242,7 +242,7 @@ summaries (public and private alike); convert systemic `//` property comments to
 ## CLEANUP-4: View/JS consistency fixes
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 None yet.
