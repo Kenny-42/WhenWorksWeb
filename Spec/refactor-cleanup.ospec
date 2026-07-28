@@ -183,7 +183,7 @@ Same class name, marked `partial` in every file, same route attributes, same con
 ## CLEANUP-3: Comment-density backfill
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 None yet.

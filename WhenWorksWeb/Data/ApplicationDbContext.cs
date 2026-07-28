@@ -1,20 +1,50 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Data;
 
+/// <summary>
+/// The Entity Framework Core database context for the application, combining ASP.NET Core Identity's
+/// user/role tables with the application's own event, participant, and messaging tables.
+/// </summary>
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : IdentityDbContext<ApplicationUser>(options)
 {
-    // Database tables used by the application.
+    /// <summary>
+    /// Events created or joined by users.
+    /// </summary>
     public DbSet<Event> Events => Set<Event>();
+
+    /// <summary>
+    /// Participant records linking users (or guests) to events.
+    /// </summary>
     public DbSet<Participant> Participants => Set<Participant>();
+
+    /// <summary>
+    /// Roles assigned to participants within an event.
+    /// </summary>
     public DbSet<EventRole> EventRoles => Set<EventRole>();
+
+    /// <summary>
+    /// Chat messages posted within an event.
+    /// </summary>
     public DbSet<EventMessage> EventMessages => Set<EventMessage>();
+
+    /// <summary>
+    /// Candidate dates proposed for an event.
+    /// </summary>
     public DbSet<EventDate> EventDates => Set<EventDate>();
+
+    /// <summary>
+    /// Optional display settings (emoji, description) for an event.
+    /// </summary>
     public DbSet<EventSettings> EventSettings => Set<EventSettings>();
+
+    /// <summary>
+    /// Bookmarks users have saved on events.
+    /// </summary>
     public DbSet<UserEventBookmark> UserEventBookmarks => Set<UserEventBookmark>();
 
     /// <summary>

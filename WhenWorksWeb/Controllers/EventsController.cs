@@ -20,8 +20,19 @@ public partial class EventsController : Controller
     /// creating, reading, or deleting event access cookies to ensure consistent naming.</remarks>
     private const string EventAccessCookiePrefix = "WhenWorksWeb.EventAccess.";
 
+    /// <summary>
+    /// The database context used to read and persist events and participants.
+    /// </summary>
     private readonly ApplicationDbContext _db;
+
+    /// <summary>
+    /// Generates unique event codes and participant rejoin codes.
+    /// </summary>
     private readonly UniqueCodeGenerator _codeGenerator;
+
+    /// <summary>
+    /// Resolves the currently signed-in application user, if any.
+    /// </summary>
     private readonly UserManager<ApplicationUser> _userManager;
 
     /// <summary>
@@ -32,6 +43,10 @@ public partial class EventsController : Controller
     /// protection algorithm and scope.</remarks>
     private readonly IDataProtector _eventAccessProtector;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EventsController"/> class and creates the event-access
+    /// data protector used to secure event access cookies.
+    /// </summary>
     public EventsController(
         ApplicationDbContext db,
         UniqueCodeGenerator codeGenerator,

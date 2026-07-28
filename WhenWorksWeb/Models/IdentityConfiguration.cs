@@ -10,6 +10,10 @@ namespace WhenWorksWeb.Models;
 /// Identity behavior across the application.</remarks>
 public static class IdentityConfiguration
 {
+    /// <summary>
+    /// Applies the application's sign-in, password, lockout, and username policies to the given Identity options.
+    /// </summary>
+    /// <param name="options">The Identity options to configure, typically supplied by <c>AddIdentity</c>.</param>
     public static void Configure(IdentityOptions options)
     {
         // Sign in settings

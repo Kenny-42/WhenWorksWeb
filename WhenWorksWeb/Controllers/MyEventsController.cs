@@ -11,6 +11,8 @@ namespace WhenWorksWeb.Controllers;
 /// <summary>
 /// Provides access to the My Events page for authenticated users.
 /// </summary>
+/// <param name="db">The database context used to read and persist events and participants.</param>
+/// <param name="userManager">Resolves the currently signed-in application user.</param>
 [Authorize]
 public class MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager) : Controller
 {
@@ -19,8 +21,8 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
     /// The events are ordered alphabetically by title and then by code. Each event's emoji is also included for display.
     /// If the user is not authenticated, they will be challenged to log in.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">Token used to cancel the database query.</param>
+    /// <returns>The My Events view, or a challenge result if the user is not authenticated.</returns>
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -79,6 +81,11 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
     /// <summary>
     /// Deletes either the current user's participant record for an event or the entire event.
     /// </summary>
+    /// <param name="eventId">The id of the event to delete or leave.</param>
+    /// <param name="participantId">The id of the current user's participant record, required when <paramref name="deleteMode"/> is "participant".</param>
+    /// <param name="deleteMode">Either "event" to delete the entire event, or "participant" to leave it.</param>
+    /// <param name="cancellationToken">Token used to cancel the database operations.</param>
+    /// <returns>A redirect to the My Events list on success, or an error result otherwise.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int eventId, int? participantId, string deleteMode, CancellationToken cancellationToken)

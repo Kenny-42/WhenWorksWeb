@@ -8,6 +8,7 @@ namespace WhenWorksWeb.Services;
 /// <summary>
 /// Provides functionality to generate unique, human-readable codes that do not already exist in the database.
 /// </summary>
+/// <param name="dbContext">The database context used to check generated codes for collisions.</param>
 public class UniqueCodeGenerator(ApplicationDbContext dbContext)
 {
     // The maximum number of attempts to generate a unique code before giving up.
@@ -39,6 +40,11 @@ public class UniqueCodeGenerator(ApplicationDbContext dbContext)
             async code => await dbContext.Participants.AnyAsync(p => p.RejoinCode == code, cancellationToken));
     }
 
+    /// <summary>
+    /// Generates codes until one is found that <paramref name="existsAsync"/> reports as not already in use,
+    /// or throws if <see cref="MaxAttempts"/> is exceeded.
+    /// </summary>
+    /// <param name="existsAsync">Checks whether a candidate code already exists in the database.</param>
     private static async Task<string> GenerateUniqueCodeAsync(Func<string, Task<bool>> existsAsync)
     {
         for (var attempt = 0; attempt < MaxAttempts; attempt++)

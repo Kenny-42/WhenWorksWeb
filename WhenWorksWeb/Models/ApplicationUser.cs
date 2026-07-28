@@ -11,9 +11,16 @@ namespace WhenWorksWeb.Models;
 /// <remarks> Use this class to store and manage user-specific data beyond the default identity fields. </remarks>
 public class ApplicationUser : IdentityUser
 {
+    /// <summary>The maximum length of <see cref="DisplayName"/>.</summary>
     private const int DisplayNameMaxLength = ModelConstants.ApplicationUserDisplayNameMaxLength;
+
+    /// <summary>The regular expression <see cref="Color"/> must match.</summary>
     private const string HexColorPattern = ModelConstants.HexColorPattern;
+
+    /// <summary>The required length of <see cref="Color"/>.</summary>
     private const int HexColorLength = ModelConstants.HexColorLength;
+
+    /// <summary>The maximum length of a foreign key referencing this user's id.</summary>
     private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
 
     /// <summary>
@@ -42,9 +49,19 @@ public class ApplicationUser : IdentityUser
     /// </summary>
     public required DateTime LastActiveAt { get; set; }
 
-    // Navigation
+    /// <summary>
+    /// The event participant records this user has created across all events.
+    /// </summary>
     public ICollection<Participant> Participations { get; set; } = new List<Participant>();
+
+    /// <summary>
+    /// The events this user has bookmarked.
+    /// </summary>
     public ICollection<UserEventBookmark> EventBookmarks { get; set; } = new List<UserEventBookmark>();
+
+    /// <summary>
+    /// The events this user has created.
+    /// </summary>
     public ICollection<Event> CreatedEvents { get; set; } = new List<Event>();
 }
 
@@ -53,16 +70,27 @@ public class ApplicationUser : IdentityUser
 /// </summary>
 public class UserEventBookmark
 {
+    /// <summary>The maximum length of <see cref="UserId"/>.</summary>
     private const int UserIdMaxLength = ModelConstants.UserIdMaxLength;
 
-    // Foreign key to the ApplicationUser who bookmarked the event.
+    /// <summary>
+    /// Foreign key to the ApplicationUser who bookmarked the event.
+    /// </summary>
     [StringLength(UserIdMaxLength)]
     public required string UserId { get; set; }
 
-    // Foreign key to the Event that is being bookmarked.
+    /// <summary>
+    /// Foreign key to the Event that is being bookmarked.
+    /// </summary>
     public required int EventId { get; set; }
 
-    // Navigation
+    /// <summary>
+    /// The user who bookmarked the event.
+    /// </summary>
     public ApplicationUser User { get; set; } = null!;
+
+    /// <summary>
+    /// The event that was bookmarked.
+    /// </summary>
     public Event Event { get; set; } = null!;
 }
