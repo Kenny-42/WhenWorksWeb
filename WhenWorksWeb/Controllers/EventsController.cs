@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.DataProtection;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
@@ -287,15 +287,13 @@ public class EventsController : Controller
 
         // Set default values for the display name and color.
         var displayName = string.Empty;
-        var color = "ff66c4";
+        var color = ModelConstants.DefaultParticipantColor;
         string? selectedDisplayName = null;
         string? rejoinCode = null;
 
         // Show the rejoin code when a participant is already selected, unless the signed-in account owns that participant.
         // Guest browser recognition may still pre-fill the inputs, but it does not hide the rejoin code.
-        var showRejoinCodeInput =
-            currentParticipant is not null &&
-            (currentUser is null || !string.Equals(currentParticipant.UserId, currentUser.Id, StringComparison.Ordinal));
+        var showRejoinCodeInput = RequiresRejoinCode(currentParticipant, currentUser?.Id);
 
         // If a current participant is known from the access cookie or the signed-in user's existing event participation,
         // use it to pre-populate the form.

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,20 +12,11 @@ namespace WhenWorksWeb.Controllers;
 /// Provides access to the My Events page for authenticated users.
 /// </summary>
 [Authorize]
-public class MyEventsController : Controller
+public class MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager) : Controller
 {
-    private readonly ApplicationDbContext _db;
-    private readonly UserManager<ApplicationUser> _userManager;
-
-    public MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
-    {
-        _db = db;
-        _userManager = userManager;
-    }
-
     /// <summary>
-    /// This action retrieves the list of events the current user has joined or created and displays them on the My Events page. 
-    /// The events are ordered alphabetically by title and then by code. Each event's emoji is also included for display. 
+    /// This action retrieves the list of events the current user has joined or created and displays them on the My Events page.
+    /// The events are ordered alphabetically by title and then by code. Each event's emoji is also included for display.
     /// If the user is not authenticated, they will be challenged to log in.
     /// </summary>
     /// <param name="cancellationToken"></param>
@@ -33,8 +24,7 @@ public class MyEventsController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        // Only allow access to this action if the user is authenticated.
-        var currentUser = await _userManager.GetUserAsync(User);
+        var currentUser = await GetAuthenticatedUserAsync();
         if (currentUser is null)
         {
             return Challenge();
@@ -44,9 +34,11 @@ public class MyEventsController : Controller
 
         // Load all events the current user has joined or created in a single query shape.
         // The participant details are pulled with correlated subqueries so the page does not need a second merge step.
-        var events = await _db.Events
+        var events = await db.Events
             .AsNoTracking()
             .Where(e => e.CreatedByUserId == currentUserId || e.Participants.Any(p => p.UserId == currentUserId))
+            .OrderBy(e => e.Title)
+            .ThenBy(e => e.Code)
             .Select(e => new
             {
                 e.Id,
@@ -61,10 +53,8 @@ public class MyEventsController : Controller
             })
             .ToListAsync(cancellationToken);
 
-        // Map the events to the view model, ordering them by title and then by code for display on the My Events page.
+        // Map the events to the view model for display on the My Events page.
         var viewModel = events
-            .OrderBy(myEvent => myEvent.Title)
-            .ThenBy(myEvent => myEvent.Code)
             .Select(myEvent => new MyEventViewModel
             {
                 EventId = myEvent.Id,
@@ -93,8 +83,7 @@ public class MyEventsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int eventId, int? participantId, string deleteMode, CancellationToken cancellationToken)
     {
-        // Only allow access to this action if the user is authenticated.
-        var currentUser = await _userManager.GetUserAsync(User);
+        var currentUser = await GetAuthenticatedUserAsync();
         if (currentUser is null)
         {
             return Challenge();
@@ -106,7 +95,7 @@ public class MyEventsController : Controller
         // Handle deletion based on the specified mode: "event" for deleting the entire event, "participant" for leaving the event.
         if (normalizedDeleteMode == "event")
         {
-            var eventEntity = await _db.Events
+            var eventEntity = await db.Events
                 .SingleOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
             // Only the creator of the event can delete it, so check if the current user is the creator.
@@ -121,9 +110,9 @@ public class MyEventsController : Controller
                 return Forbid();
             }
 
-            _db.Events.Remove(eventEntity);
+            db.Events.Remove(eventEntity);
 
-            await _db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
             return RedirectToAction(nameof(Index));
         }
 
@@ -135,12 +124,12 @@ public class MyEventsController : Controller
                 return BadRequest();
             }
 
-            using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
             // Verify that the participant record exists and belongs to the current user for the specified event.
             try
             {
-                var participantEntity = await _db.Participants
+                var participantEntity = await db.Participants
                     .SingleOrDefaultAsync(
                         p => p.Id == participantId.Value &&
                              p.EventId == eventId &&
@@ -149,19 +138,20 @@ public class MyEventsController : Controller
 
                 if (participantEntity is null)
                 {
+                    await transaction.RollbackAsync(cancellationToken);
                     return NotFound();
                 }
 
                 // Set the ParticipantId to null for all messages associated with this participant to preserve
                 // message history without orphaned foreign keys.
-                await _db.EventMessages
+                await db.EventMessages
                     .Where(m => m.ParticipantId == participantEntity.Id)
                     .ExecuteUpdateAsync(
                         setters => setters.SetProperty(m => m.ParticipantId, (int?)null),
                         cancellationToken);
 
-                _db.Participants.Remove(participantEntity);
-                await _db.SaveChangesAsync(cancellationToken);
+                db.Participants.Remove(participantEntity);
+                await db.SaveChangesAsync(cancellationToken);
 
                 await transaction.CommitAsync(cancellationToken);
                 return RedirectToAction(nameof(Index));
@@ -174,5 +164,13 @@ public class MyEventsController : Controller
         }
 
         return BadRequest();
+    }
+
+    /// <summary>
+    /// Returns the currently authenticated application user, or null if no user is signed in.
+    /// </summary>
+    private async Task<ApplicationUser?> GetAuthenticatedUserAsync()
+    {
+        return await userManager.GetUserAsync(User);
     }
 }

@@ -17,7 +17,7 @@ schema, modifies `Areas/Identity` scaffolding, or adds any new user-facing funct
 ## CLEANUP-1: Mechanical & low-risk convention cleanup (Controllers/Services/Models/Data)
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 None yet.

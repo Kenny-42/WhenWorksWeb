@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
 
@@ -13,46 +14,31 @@ namespace WhenWorksWeb.Data.Seed;
 /// users, events, participants, roles, dates, settings, messages, and bookmarks are created only if the database does
 /// not already contain event data. Using this seeder in production environments is not recommended, as it may introduce
 /// test data into live systems.</remarks>
-public sealed class DevelopmentDataSeeder
+public sealed class DevelopmentDataSeeder(
+    ApplicationDbContext dbContext,
+    UserManager<ApplicationUser> userManager,
+    ILogger<DevelopmentDataSeeder> logger)
 {
-    private readonly ApplicationDbContext _dbContext;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly ILogger<DevelopmentDataSeeder> _logger;
-
-    /// <summary>
-    /// Initializes a new instance of the DevelopmentDataSeeder class with the specified database context, user manager,
-    /// and logger.
-    /// </summary>
-    public DevelopmentDataSeeder(
-        ApplicationDbContext dbContext,
-        UserManager<ApplicationUser> userManager,
-        ILogger<DevelopmentDataSeeder> logger)
-    {
-        _dbContext = dbContext;
-        _userManager = userManager;
-        _logger = logger;
-    }
-
     /// <summary>
     /// Asynchronously seeds the database with initial development data if no events exist.
     /// </summary>
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         // Check if any events exist to avoid seeding duplicate data
-        if (await _dbContext.Events.AnyAsync(cancellationToken))
+        if (await dbContext.Events.AnyAsync(cancellationToken))
         {
             return;
         }
 
         // Use a transaction to ensure all seed data is inserted atomically
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         // Create sample users
         var alice = await EnsureUserAsync(
             userName: "dev_alice",
             email: "alice.dev@local.test",
             displayName: "Alice Dev",
-            color: "ff66c4",
+            color: ModelConstants.DefaultParticipantColor,
             createdAt: DateTime.UtcNow.AddDays(-10),
             lastActiveAt: DateTime.UtcNow.AddHours(-2));
 
@@ -106,8 +92,8 @@ public sealed class DevelopmentDataSeeder
         };
 
         // Set CreatedAt and LastActiveAt to now for all events and save to generate IDs for participants
-        _dbContext.Events.AddRange(lunchEvent, tripEvent, planningEvent);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.Events.AddRange(lunchEvent, tripEvent, planningEvent);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         // Create participants for the events
         var lunchAlice = new Participant
@@ -115,7 +101,7 @@ public sealed class DevelopmentDataSeeder
             EventId = lunchEvent.Id,
             UserId = alice.Id,
             DisplayName = "Alice Dev",
-            Color = "ff66c4"
+            Color = ModelConstants.DefaultParticipantColor
         };
 
         var lunchBen = new Participant
@@ -163,7 +149,7 @@ public sealed class DevelopmentDataSeeder
             EventId = planningEvent.Id,
             UserId = alice.Id,
             DisplayName = "Alice Dev",
-            Color = "ff66c4"
+            Color = ModelConstants.DefaultParticipantColor
         };
 
         var planningChloe = new Participant
@@ -183,22 +169,22 @@ public sealed class DevelopmentDataSeeder
         };
 
         // Set CreatedAt and LastActiveAt to now for all participants
-        _dbContext.Participants.AddRange(
+        dbContext.Participants.AddRange(
             lunchAlice, lunchBen, lunchGuest,
             tripBen, tripChloe, tripGuest,
             planningAlice, planningChloe, planningGuest);
 
         // Save participants to generate IDs for the roles
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         // Create roles for participants
-        _dbContext.EventRoles.AddRange(
+        dbContext.EventRoles.AddRange(
             new EventRole { ParticipantId = lunchAlice.Id, Name = "Organizer" },
             new EventRole { ParticipantId = tripBen.Id, Name = "Planner" },
             new EventRole { ParticipantId = planningChloe.Id, Name = "Host" });
 
         // Create event dates for the events
-        _dbContext.EventDates.AddRange(
+        dbContext.EventDates.AddRange(
             new EventDate { EventId = lunchEvent.Id, Date = DateTimeOffset.UtcNow.AddDays(2).AddHours(12).AddMinutes(30) },
             new EventDate { EventId = lunchEvent.Id, Date = DateTimeOffset.UtcNow.AddDays(2).AddHours(13).AddMinutes(0) },
             new EventDate { EventId = tripEvent.Id, Date = DateTimeOffset.UtcNow.AddDays(7).AddHours(9) },
@@ -206,7 +192,7 @@ public sealed class DevelopmentDataSeeder
             new EventDate { EventId = planningEvent.Id, Date = DateTimeOffset.UtcNow.AddDays(1).AddHours(14) });
 
         // Create event settings for the events
-        _dbContext.EventSettings.AddRange(
+        dbContext.EventSettings.AddRange(
             new EventSettings
             {
                 EventId = lunchEvent.Id,
@@ -227,7 +213,7 @@ public sealed class DevelopmentDataSeeder
             });
 
         // Create event messages for the events
-        _dbContext.EventMessages.AddRange(
+        dbContext.EventMessages.AddRange(
             new EventMessage
             {
                 EventId = lunchEvent.Id,
@@ -266,18 +252,18 @@ public sealed class DevelopmentDataSeeder
             });
 
         // Create user event bookmarks
-        _dbContext.UserEventBookmarks.AddRange(
+        dbContext.UserEventBookmarks.AddRange(
             new UserEventBookmark { UserId = alice.Id, EventId = tripEvent.Id },
             new UserEventBookmark { UserId = alice.Id, EventId = planningEvent.Id },
             new UserEventBookmark { UserId = ben.Id, EventId = lunchEvent.Id },
             new UserEventBookmark { UserId = chloe.Id, EventId = tripEvent.Id });
 
         // Save all changes to the database
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
         // Commit the transaction
         await transaction.CommitAsync(cancellationToken);
 
-        _logger.LogInformation("Development seed data inserted.");
+        logger.LogInformation("Development seed data inserted.");
     }
 
     /// <summary>
@@ -300,7 +286,7 @@ public sealed class DevelopmentDataSeeder
         DateTime lastActiveAt)
     {
         // Check if a user with the specified user name already exists and return it if found
-        var existingUser = await _userManager.FindByNameAsync(userName);
+        var existingUser = await userManager.FindByNameAsync(userName);
         if (existingUser is not null)
         {
             return existingUser;
@@ -319,8 +305,8 @@ public sealed class DevelopmentDataSeeder
         };
 
         // Attempt to create the user and handle any errors that may occur during creation. The default password "Dev123" is used
-        var result = await _userManager.CreateAsync(user, "Dev123");
-        
+        var result = await userManager.CreateAsync(user, "Dev123");
+
         if (!result.Succeeded)
         {
             var errors = string.Join("; ", result.Errors.Select(error => error.Description));

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using WhenWorksWeb.Common;
 
 namespace WhenWorksWeb.Models;
@@ -6,6 +6,12 @@ namespace WhenWorksWeb.Models;
 /// <summary>
 /// View model for the event sign-in page.
 /// </summary>
+/// <remarks>This is a mixed-shape view model: it doubles as a form-bound POST target (DisplayName, Color,
+/// SelectedExistingDisplayName, RejoinCode, ShowRejoinCodeInput are reassigned in place by NormalizeSignInModel/
+/// ApplySignInViewModelState after model binding) and as a display model built once by BuildSignInViewModelAsync
+/// (Code, EventName, ExistingParticipants). Only the latter group uses required/init — the bound properties stay
+/// mutable since the model binder bypasses compile-time required enforcement anyway, and [Required] already does
+/// the real validation.</remarks>
 public sealed class EventSignInViewModel
 {
     /// <summary>
@@ -19,7 +25,7 @@ public sealed class EventSignInViewModel
     /// Gets or sets the name of the event associated with this instance.
     /// </summary>
     /// <remarks>This is populated by the server for display only and is not validated as posted form input.</remarks>
-    public string EventName { get; set; } = string.Empty;
+    public required string EventName { get; init; }
 
     /// <summary>
     /// Gets or sets the display name for the participant.
@@ -39,7 +45,7 @@ public sealed class EventSignInViewModel
     [RegularExpression(ModelConstants.HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
     [StringLength(ModelConstants.HexColorLength)]
     [Display(Name = "Color")]
-    public string Color { get; set; } = "ff66c4";
+    public string Color { get; set; } = ModelConstants.DefaultParticipantColor;
 
     /// <summary>
     /// Gets or sets the display name selected from the list of existing participant names.
@@ -67,7 +73,7 @@ public sealed class EventSignInViewModel
     /// <summary>
     /// Gets or sets the list of available participant options for the event.
     /// </summary>
-    public List<ParticipantSelectionViewModel> ExistingParticipants { get; set; } = [];
+    public required IReadOnlyList<ParticipantSelectionViewModel> ExistingParticipants { get; init; }
 }
 
 /// <summary>
@@ -78,16 +84,16 @@ public sealed class ParticipantSelectionViewModel
     /// <summary>
     /// Gets or sets the participant display name.
     /// </summary>
-    public required string DisplayName { get; set; }
+    public required string DisplayName { get; init; }
 
     /// <summary>
     /// Gets or sets the participant color.
     /// </summary>
-    public required string Color { get; set; }
+    public required string Color { get; init; }
 
     /// <summary>
     /// Gets or sets a value indicating whether this participant is already associated with the current signed-in
     /// account.
     /// </summary>
-    public bool IsAssociatedWithCurrentUser { get; set; }
+    public bool IsAssociatedWithCurrentUser { get; init; }
 }

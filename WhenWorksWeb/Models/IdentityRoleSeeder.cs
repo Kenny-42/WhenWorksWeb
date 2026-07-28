@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 
 namespace WhenWorksWeb.Models;
 
@@ -18,23 +18,6 @@ public static class IdentityRoleSeeder
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
             }
-        }
-    }
-
-    public static async Task AddUserToRoleByEmailAsync(
-        UserManager<ApplicationUser> userManager,
-        string email,
-        string roleName)
-    {
-        var user = await userManager.FindByEmailAsync(email);
-        if (user is null)
-        {
-            return;
-        }
-
-        if (!await userManager.IsInRoleAsync(user, roleName))
-        {
-            await userManager.AddToRoleAsync(user, roleName);
         }
     }
 }
