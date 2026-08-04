@@ -374,7 +374,7 @@ authorization/anti-forgery tests.
 ## Step 7: Security-focused test coverage
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #61
@@ -389,13 +389,44 @@ behaviors are explicitly covered, rather than only incidentally covered as a sid
 the feature-focused tests in Steps 5 and 6.
 
 ### Proposed Changes
-- `[Authorize(Roles="Admin")]` boundary tests for every gated action/page currently in
-  `Areas/Admin` (e.g. `ManageUsers.cshtml.cs`).
-- Anti-forgery token enforcement tests for all state-changing POST actions in
-  `EventsController` and `MyEventsController`.
-- Explicit mismatched/invalid rejoin code rejection tests in `EventsController.SignIn.cs`.
-- `ModelConstants` boundary tests: max-length, min-length, and invalid-alphabet input
-  rejection for display name, event code, and color fields.
+- `WhenWorksWeb.Tests/Fixtures/TestAuthHandler.cs` — a test-only authentication scheme
+  (registered in `CustomWebApplicationFactory`) that authenticates a request as a given user
+  id/role set from `X-Test-UserId`/`X-Test-Roles` headers, standing in for Identity's real
+  login/cookie mechanics while leaving `[Authorize]` policy evaluation itself completely real.
+  `DefaultChallengeScheme`/`DefaultForbidScheme` stay pointed at Identity's actual cookie scheme
+  so unauthenticated/unauthorized redirects still match production exactly.
+- `WhenWorksWeb.Tests/Security/AdminAuthorizationTests.cs` — `[Authorize(Roles="Admin")]`
+  boundary on `Areas/Admin/Pages/Users/ManageUsers.cshtml.cs`: anonymous (redirect to login),
+  authenticated without the Admin role (redirect to access-denied), authenticated with a
+  *different* role (still redirected — proves the check is role-specific, not "any authenticated
+  role"), and authenticated with the Admin role (200 OK) — both the closed and open cases.
+- `WhenWorksWeb.Tests/Security/AntiForgeryEnforcementTests.cs` — missing-token rejection for
+  `Events/Join`, `event/{code}/signin`, and `MyEvents/Delete` (the latter specifically while
+  *authenticated*, isolating antiforgery enforcement from the `[Authorize]` check so one failure
+  can't mask the other), each with a database check confirming nothing was persisted.
+  `EventsController.Create` was already covered by Step 6's general smoke test.
+- `EventsControllerSignInTests.Post_ExistingParticipant_WithAnotherParticipantsRejoinCode_AddsModelError`
+  — a rejoin code valid for a *different* participant in the same event must not grant access to
+  the selected one; proves the code is checked against the specific selected participant, not
+  "any valid code in this event." Builds on Step 5's existing missing/incorrect/correct rejoin
+  code tests rather than duplicating them.
+- `ModelConstants`-driven boundary tests added for properties Step 3/5 hadn't directly covered:
+  `Participant.DisplayName`, `ApplicationUser.DisplayName`, `Event.Code`/`Title`, and
+  `EventSignInViewModel.DisplayName`/`Color`/`RejoinCode` (the last is the actual form-bound
+  model behind the sign-in POST, so its boundaries are the most directly security-relevant in
+  the app) — each via `Validator.TryValidateProperty` against the real model, per the Step 3
+  convention.
+- **Real gap found and fixed**: `ApplicationUser.DisplayName` had the identical
+  `[StringLength(MaxLength)]`-with-no-`MinimumLength` shape as the `Color` gap fixed in Step 3 —
+  an empty display name silently passed validation. Fixed by adding `MinimumLength = 1`. See
+  `CODING_CONVENTIONS.md`'s Domain Conventions & Gotchas, now generalized to cover both the
+  `[StringLength]`-alone and `[StringLength]`+`[RegularExpression]` variants of this gap.
+- **One case deliberately not "fixed"**: `Event.Code` has no `[Required]` and a bare
+  `Validator.TryValidateProperty(null, ...)` call against it passes — but `Code` is `required`
+  (compile-time enforced) and only ever set via `Event.Create` with an already-validated,
+  already-generated code, never form-bound. There's no reachable path for a null `Code`, so
+  unlike the `Color`/`DisplayName` gaps this isn't something to fix — noted in
+  `EventTests.cs` rather than silently omitted.
 
 ### Acceptance Criteria
 - Every `[Authorize]`-gated route has a test confirming unauthorized/unauthenticated
@@ -404,6 +435,7 @@ the feature-focused tests in Steps 5 and 6.
   token is rejected.
 - `ModelConstants` boundary tests cover both the valid-boundary and just-past-boundary cases
   for each constrained field.
+- `dotnet test` passes for the full suite (142 tests as of this step).
 
 ### Out of Scope
 - General business-logic correctness already covered in Step 5.

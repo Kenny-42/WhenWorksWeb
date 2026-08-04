@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +61,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             using var scopedProvider = services.BuildServiceProvider();
             using var scope = scopedProvider.CreateScope();
             scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.EnsureCreated();
+
+            // Adds TestAuthHandler as an available scheme without replacing Identity's own registration.
+            // Only DefaultAuthenticateScheme is redirected to it, so a request only becomes authenticated when
+            // it carries the X-Test-UserId header; DefaultChallengeScheme/DefaultForbidScheme stay pointed at
+            // Identity's real cookie scheme, so unauthenticated/unauthorized requests still redirect exactly
+            // as production does. See TestAuthHandler's remarks for why this is a legitimate test double
+            // (standing in for login/cookie mechanics, not for [Authorize] policy evaluation itself).
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
+                options.DefaultForbidScheme = IdentityConstants.ApplicationScheme;
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
         });
     }
 
