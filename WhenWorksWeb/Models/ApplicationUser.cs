@@ -28,7 +28,7 @@ public class ApplicationUser : IdentityUser
     /// This allows users to have a more personalized and friendly name shown in the application, especially in event-related contexts.
     /// The maximum length is set to 16 characters to ensure concise display names.
     /// </summary>
-    [StringLength(DisplayNameMaxLength)]
+    [StringLength(DisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 16 characters.")]
     public string DisplayName { get; set; } = "Nickname";
 
     /// <summary>
