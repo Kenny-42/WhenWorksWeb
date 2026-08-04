@@ -1,0 +1,364 @@
+# Automated Test System
+
+This file tracks the eight staged steps of building an automated unit/integration test
+system for WhenWorksWeb, kept together in one file rather than split across
+`Spec/Features/` because they're staged parts of a single initiative — GitHub epic #54 —
+rather than independent items (see CLAUDE.md's Specs section for when grouped entries like
+this are appropriate vs. one file per item). This file is scoped to these eight steps only;
+
+No test project exists in the repo today. Controllers hold nearly all business logic (by
+design, per `CODING_CONVENTIONS.md`), so the test system is built around a three-tier
+architecture rather than one uniform style:
+
+- **Tier 1** — pure unit tests for `Services/` and `Models/`/`Common` validation logic, no
+  database involved.
+- **Tier 2** — controller tests against a real EF Core store backed by SQLite `:memory:`
+  (not the EF InMemory provider, which silently ignores relational/constraint bugs a real
+  database would catch). This is the primary coverage tier, since controllers are where the
+  logic lives.
+- **Tier 3** — a deliberately small set of `WebApplicationFactory<Program>` full-pipeline
+  smoke tests, for the handful of behaviors (routing, auth middleware, anti-forgery filters)
+  that only the real HTTP pipeline exercises.
+
+Cross-cutting decisions that apply to every step below: test data is built via hand-rolled
+builder/object-mother classes per entity, not AutoFixture/Bogus; assertions are plain xUnit
+`Assert`, not FluentAssertions (commercially licensed as of v8) or Shouldly; mocking, if ever
+needed, uses NSubstitute rather than Moq (which had a 2023 supply-chain/telemetry incident);
+test files mirror the main project's folder structure (`Controllers/`, `Services/`,
+`Models/`) so a source file has a predictable corresponding test file path.
+
+The steps are staged in dependency order: Step 1 blocks every other step. Step 2 should land
+before Step 8 (the hook in Step 8 depends on the naming/path convention Step 2 documents).
+Step 4 blocks Steps 5 and 7 (both need the SQLite harness). Step 6 blocks Step 7's
+authorization/anti-forgery tests (those require the real HTTP pipeline, not the SQLite-only
+harness). A CI (GitHub Actions) test gate is explicitly out of scope for all eight steps —
+that's deferred to a future, separate decision, per epic #54's Notes.
+
+---
+
+## Step 1: Scaffold WhenWorksWeb.Tests project
+
+### Status
+Implemented.
+
+### GitHub Issue
+#55
+
+### Summary
+Create the `WhenWorksWeb.Tests` xUnit project and wire it into the solution so every later
+step has a place to add tests.
+
+### Motivation
+No test project exists yet. Every other step in this initiative needs somewhere to live, so
+this is the foundational step: get an empty, correctly-wired project building and running
+before any test logic is added.
+
+### Proposed Changes
+- New xUnit project `WhenWorksWeb.Tests`, created via `dotnet new xunit`, added to the
+  solution file.
+- Project reference from `WhenWorksWeb.Tests` to `WhenWorksWeb` so `Controllers/`,
+  `Services/`, `Models/`, and `Data/` namespaces are accessible.
+- `Microsoft.AspNetCore.Mvc.Testing` package added now (used later by Step 6's
+  `WebApplicationFactory` harness, but the reference belongs with initial scaffolding).
+- Folder structure inside `WhenWorksWeb.Tests` mirrors the main project (`Controllers/`,
+  `Services/`, `Models/`) so later steps have an established convention to follow.
+
+### Acceptance Criteria
+- `dotnet test` runs successfully against `WhenWorksWeb.Tests` with zero tests, confirming
+  the project builds and is correctly wired into the solution.
+- `dotnet build` at the solution level succeeds with the new project included.
+
+### Out of Scope
+- Any actual test content (Steps 3, 5, 6, 7).
+- The SQLite/WebApplicationFactory harnesses themselves (Steps 4 and 6).
+
+---
+
+## Step 2: Update CODING_CONVENTIONS.md with testing rules and enforcement policy
+
+### Status
+Proposed.
+
+### GitHub Issue
+#56
+
+### Summary
+Document the tiered test architecture, tooling choices, and the enforcement rule that
+behavior changes must ship with corresponding test updates.
+
+### Motivation
+The testing approach for this initiative was agreed in planning conversation but isn't
+written down anywhere binding yet. Codifying it in `CODING_CONVENTIONS.md` makes it the
+standard future work is measured against, instead of something re-explained each time.
+
+### Proposed Changes
+- Document the three-tier test architecture (see intro above) and when each tier applies.
+- State SQLite `:memory:` as the required approach for controller/EF Core tests, and rule
+  out the EF InMemory provider for that purpose.
+- Document the test data convention (hand-rolled builders, no AutoFixture/Bogus), the
+  assertion convention (plain xUnit `Assert` only), and the mocking convention (avoid Moq;
+  NSubstitute is the approved fallback).
+- Add the enforcement rule: any behavior change to `Controllers/`, `Services/`, or `Models/`
+  must include added/updated tests in the same change, located via the mirrored-path
+  convention.
+- Cross-reference (not duplicate) the existing test naming convention already documented in
+  the Testing Conventions section.
+
+### Acceptance Criteria
+- `CODING_CONVENTIONS.md`'s Testing Conventions section fully describes the tiered
+  architecture, tooling choices, and enforcement rule without contradicting the existing
+  naming-convention text.
+- No other section of `CODING_CONVENTIONS.md` is altered.
+
+### Out of Scope
+- Any actual test code or harness (Steps 1, 3-8).
+- The PostToolUse hook implementation itself (Step 8) — this step only documents the
+  convention the hook relies on.
+
+---
+
+## Step 3: Tier 1 unit tests for existing Services and Models
+
+### Status
+Proposed.
+
+### GitHub Issue
+#57
+
+### Summary
+Add pure, DB-free unit tests for the app's existing `Services/` and validation logic in
+`Models/`/`Common`.
+
+### Motivation
+`Services/` and `Common/ModelConstants` contain the small amount of pure logic in the app.
+These are the cheapest tests to write and maintain and should exist before the heavier
+controller tier is built out.
+
+### Proposed Changes
+- `WhenWorksWeb.Tests/Services/UniqueCodeGeneratorTests.cs` — cover correct code
+  length/alphabet per `ModelConstants`, and behavior when a generated code collides with an
+  existing one.
+- Tests for any non-declarative validation logic in `Models/` or `Common/ModelConstants`
+  (boundary cases not already fully covered by DataAnnotations attributes alone).
+
+### Acceptance Criteria
+- All Tier 1 tests run with no database, HTTP context, or controller involved.
+- `dotnet test` passes for the new test files.
+
+### Out of Scope
+- Any controller or HTTP-pipeline test (Steps 5-7).
+
+### Dependencies
+Step 1 (test project must exist).
+
+---
+
+## Step 4: SQLite in-memory test harness/fixture for controller tests
+
+### Status
+Proposed.
+
+### GitHub Issue
+#58
+
+### Summary
+Build the shared fixture that gives controller tests a real, isolated `ApplicationDbContext`
+backed by SQLite `:memory:`, plus entity builder classes for test data.
+
+### Motivation
+Every controller test needs a real `ApplicationDbContext`. Without a shared fixture, each
+test file would hand-roll its own connection/context setup, which doesn't scale. This is the
+harness Steps 5 and 7 build on.
+
+### Proposed Changes
+- A shared fixture/base class that opens a SQLite `:memory:` connection, creates the schema
+  (`EnsureCreated` or applying migrations), and exposes a fresh `ApplicationDbContext` scoped
+  correctly per test so state doesn't leak between tests.
+- Correct connection lifecycle handling — a SQLite in-memory database is destroyed once its
+  connection closes, so the fixture keeps the connection open for the test's duration.
+- Hand-rolled builder classes for the core entities needed by controller tests (`Event`,
+  `Participant`, `EventDate`, `EventMessage`).
+- A documented usage example (in the fixture's own test file or an inline comment) so Step
+  5's tests have a clear pattern to follow.
+
+### Acceptance Criteria
+- A sample test using the fixture passes and demonstrably isolates state from other tests
+  (no shared-state leakage across test runs).
+- Builder classes produce valid entities satisfying all required fields/constraints.
+
+### Out of Scope
+- The `WebApplicationFactory` harness (Step 6) — that's a separate, full-pipeline fixture.
+- Actual controller test coverage (Step 5) — this step is the harness only.
+
+### Dependencies
+Step 1. Blocks Steps 5 and 7.
+
+---
+
+## Step 5: Tier 2 controller test coverage for EventsController, HomeController, MyEventsController
+
+### Status
+Proposed.
+
+### GitHub Issue
+#59
+
+### Summary
+Cover the existing controller surface — `EventsController` and its partials, `HomeController`,
+`MyEventsController` — using the harness from Step 4.
+
+### Motivation
+Controllers hold nearly all business logic in this app, so this is the highest-leverage
+coverage in the initiative.
+
+### Proposed Changes
+- Coverage for `Controllers/EventsController.cs` and its partials (`.SignIn`, `.Home`,
+  `.AccessCookie`) — the create/join flow, sign-in success and failure paths (including
+  mismatched rejoin code), and access cookie behavior.
+- Coverage for `Controllers/HomeController.cs` — create/join-by-code entry points.
+- Coverage for `Controllers/MyEventsController.cs` — event listing and the delete workflow
+  (event and participant deletion).
+- Test files placed at the mirrored path (e.g. `Controllers/EventsControllerTests.cs`),
+  method names following the `Scenario_ExpectedOutcome` convention (e.g.
+  `SignIn_Post_WithMismatchedRejoinCode_AddsModelError`).
+
+### Acceptance Criteria
+- Every public action on the three controllers has at least one success-path and one
+  failure-path test, where a failure path exists.
+- `dotnet test` passes for all new controller tests.
+
+### Out of Scope
+- Authorization/anti-forgery-specific coverage (Step 7) — this step covers business-logic
+  correctness, not security boundaries.
+- Any Tier 3 full-pipeline test (Step 6).
+
+### Dependencies
+Step 4 (SQLite harness and entity builders).
+
+---
+
+## Step 6: WebApplicationFactory harness and initial Tier 3 smoke tests
+
+### Status
+Proposed.
+
+### GitHub Issue
+#60
+
+### Summary
+Build a full-pipeline test harness and a short list of smoke tests for behaviors only the
+real HTTP pipeline exercises.
+
+### Motivation
+Authentication middleware, routing, and anti-forgery filters aren't exercised by calling
+controller actions directly. This tier is deliberately small — a handful of smoke tests, not
+broad coverage.
+
+### Proposed Changes
+- A `CustomWebApplicationFactory<Program>` that swaps the real database configuration for a
+  SQLite in-memory `ApplicationDbContext` during tests.
+- Smoke test: full create event -> join event -> sign in flow via `HttpClient`.
+- Smoke test: an unauthenticated or non-Admin request to an `Areas/Admin` route is rejected.
+- Smoke test: a state-changing POST without a valid anti-forgery token is rejected.
+
+### Acceptance Criteria
+- All three smoke tests pass against the real ASP.NET Core pipeline (routing, middleware,
+  Identity all engaged, not bypassed).
+- The factory correctly isolates its database from any other test run.
+
+### Out of Scope
+- Broad Tier 3 coverage beyond the three smoke tests listed — this tier stays intentionally
+  small (see file intro).
+
+### Dependencies
+Step 1. Reuses entity builders from Step 4 where practical. Blocks Step 7's
+authorization/anti-forgery tests.
+
+---
+
+## Step 7: Security-focused test coverage
+
+### Status
+Proposed.
+
+### GitHub Issue
+#61
+
+### Summary
+Add explicit, deliberate coverage of authorization boundaries, anti-forgery enforcement, and
+input validation boundaries.
+
+### Motivation
+Security was flagged as a top priority for this test system. This step makes sure these
+behaviors are explicitly covered, rather than only incidentally covered as a side effect of
+the feature-focused tests in Steps 5 and 6.
+
+### Proposed Changes
+- `[Authorize(Roles="Admin")]` boundary tests for every gated action/page currently in
+  `Areas/Admin` (e.g. `ManageUsers.cshtml.cs`).
+- Anti-forgery token enforcement tests for all state-changing POST actions in
+  `EventsController` and `MyEventsController`.
+- Explicit mismatched/invalid rejoin code rejection tests in `EventsController.SignIn.cs`.
+- `ModelConstants` boundary tests: max-length, min-length, and invalid-alphabet input
+  rejection for display name, event code, and color fields.
+
+### Acceptance Criteria
+- Every `[Authorize]`-gated route has a test confirming unauthorized/unauthenticated
+  requests are rejected.
+- Every state-changing POST action has a test confirming a missing/invalid anti-forgery
+  token is rejected.
+- `ModelConstants` boundary tests cover both the valid-boundary and just-past-boundary cases
+  for each constrained field.
+
+### Out of Scope
+- General business-logic correctness already covered in Step 5.
+
+### Dependencies
+Step 4 (SQLite harness, for validation-level tests) and Step 6 (WebApplicationFactory
+harness, for authorization/anti-forgery tests requiring the real HTTP pipeline).
+
+---
+
+## Step 8: PostToolUse hook to auto-run affected tests
+
+### Status
+Proposed.
+
+### GitHub Issue
+#62
+
+### Summary
+Add a Claude Code `settings.json` hook that automatically re-runs the relevant test class
+whenever a file under `Controllers/`, `Services/`, or `Models/` is edited.
+
+### Motivation
+The enforcement rule documented in Step 2 relies on it actually being followed every time.
+This closes the loop with an automated check that surfaces regressions immediately instead
+of relying on memory alone.
+
+### Proposed Changes
+- A `PostToolUse` hook in `settings.json` triggered by Edit/Write tool calls targeting paths
+  under `Controllers/**`, `Services/**`, or `Models/**`.
+- The hook maps the edited file to its mirrored test file/class (per the naming convention
+  documented in Step 2) and runs `dotnet test` filtered to that class.
+- Test results (pass/fail) surface back into the conversation without a separate manual
+  `dotnet test` invocation.
+- The hook is a feedback signal only — it does not block or fail the edit itself. A CI gate
+  remains explicitly out of scope.
+
+### Acceptance Criteria
+- Editing a file under `Controllers/`, `Services/`, or `Models/` triggers exactly one
+  `dotnet test` run filtered to the corresponding test class, with results surfaced in the
+  conversation.
+- The hook does not fire for edits outside those three directories.
+- The hook never blocks or reverts the edit itself, regardless of test outcome.
+
+### Out of Scope
+- A CI (GitHub Actions) gate — deferred to a future, separate decision (see epic #54).
+- Coverage-gap detection (i.e. flagging when a change has *no* corresponding test at all) —
+  this hook only re-runs existing tests, it doesn't verify new tests were added.
+
+### Dependencies
+Step 1 (test project must exist) and Step 2 (documented naming/path convention the hook's
+mapping logic relies on). This is a Claude Code harness configuration change, not
+application code.

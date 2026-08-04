@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="WhenWorksWeb/WhenWorksWeb.csproj" />
+  <Project Path="WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj" />
 </Solution>
