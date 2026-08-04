@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/run-affected-tests.ps1",
+            "timeout": 60,
+            "statusMessage": "Running tests for changed Controllers/Services/Models..."
+          }
+        ]
+      }
+    ]
+  }
+}
