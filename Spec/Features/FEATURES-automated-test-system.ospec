@@ -250,7 +250,7 @@ Step 1. Blocks Steps 5 and 7.
 ## Step 5: Tier 2 controller test coverage for EventsController, HomeController, MyEventsController
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #59
@@ -264,20 +264,40 @@ Controllers hold nearly all business logic in this app, so this is the highest-l
 coverage in the initiative.
 
 ### Proposed Changes
-- Coverage for `Controllers/EventsController.cs` and its partials (`.SignIn`, `.Home`,
-  `.AccessCookie`) — the create/join flow, sign-in success and failure paths (including
-  mismatched rejoin code), and access cookie behavior.
-- Coverage for `Controllers/HomeController.cs` — create/join-by-code entry points.
-- Coverage for `Controllers/MyEventsController.cs` — event listing and the delete workflow
-  (event and participant deletion).
-- Test files placed at the mirrored path (e.g. `Controllers/EventsControllerTests.cs`),
-  method names following the `Scenario_ExpectedOutcome` convention (e.g.
-  `SignIn_Post_WithMismatchedRejoinCode_AddsModelError`).
+- **Controller test infrastructure** (`WhenWorksWeb.Tests/Fixtures/`): `ControllerTestContext`
+  (real `DefaultHttpContext`/`ControllerContext` wiring — `ClaimsPrincipal`, request cookies,
+  `RequestServices` from `AddControllersWithViews()` so `TryValidateModel`/`TempData` work, and a
+  minimal `StubUrlHelper` for `Url.RouteUrl`/`Url.Action` since real route resolution needs a full
+  endpoint pipeline); `TestUserManagerFactory` (a real `UserManager<ApplicationUser>` resolved
+  from a small DI container using `AddIdentityCore().AddEntityFrameworkStores<ApplicationDbContext>()`
+  — not `new UserStore<ApplicationUser>(db)` directly, which fails to compile because
+  `ApplicationUser`'s `required` members can't satisfy `UserStore<TUser>`'s `new()` constraint);
+  `EventsControllerTestFixture` (shared base wiring a real `EventsController` with a single
+  `EphemeralDataProtectionProvider` instance reused across every `CreateController()` call in a
+  test, so a cookie protected during a simulated SignIn request can be unprotected by a later
+  simulated Home request in the same test).
+- `WhenWorksWeb.Tests/TestData/ApplicationUserBuilder.cs` — added for parity with the other entity
+  builders, needed once controller tests required real signed-in users.
+- `Controllers/HomeControllerTests.cs` — Index/Privacy/Error. (The spec originally described this
+  file as covering "create/join-by-code entry points," but those actions are actually on
+  `EventsController`, not `HomeController` — `HomeController` only serves Index/Privacy/Error.)
+- `Controllers/EventsControllerTests.cs` (core: Create/Join),
+  `Controllers/EventsControllerSignInTests.cs` (GET/POST SignIn — new participant creation,
+  duplicate display name/color, missing/incorrect/correct rejoin code, conflicting account
+  owner), `Controllers/EventsControllerHomeTests.cs` (Home action plus the shared access-cookie
+  flow — including a full real sign-in-then-home round trip through actual cookie
+  protect/unprotect, and a tampered-cookie case proving the cookie gets deleted rather than
+  crashing the request) — mirroring the controller's own partial-class file split.
+- `Controllers/MyEventsControllerTests.cs` — Index (challenge when unauthenticated, lists only
+  created/joined events), Delete for both "event" (creator-only, Forbid otherwise) and
+  "participant" modes, including a test that a participant's chat messages get their
+  `ParticipantId` nulled rather than orphaned/rejected — the real FK-constraint behavior a SQLite
+  backend (not EF Core InMemory) is what makes this test meaningful.
 
 ### Acceptance Criteria
 - Every public action on the three controllers has at least one success-path and one
   failure-path test, where a failure path exists.
-- `dotnet test` passes for all new controller tests.
+- `dotnet test` passes for all new controller tests (99 tests total as of this step).
 
 ### Out of Scope
 - Authorization/anti-forgery-specific coverage (Step 7) — this step covers business-logic
