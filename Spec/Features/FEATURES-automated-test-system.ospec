@@ -184,7 +184,7 @@ Step 1 (test project must exist).
 ## Step 4: SQLite in-memory test harness/fixture for controller tests
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #58
@@ -199,20 +199,44 @@ test file would hand-roll its own connection/context setup, which doesn't scale.
 harness Steps 5 and 7 build on.
 
 ### Proposed Changes
-- A shared fixture/base class that opens a SQLite `:memory:` connection, creates the schema
-  (`EnsureCreated` or applying migrations), and exposes a fresh `ApplicationDbContext` scoped
-  correctly per test so state doesn't leak between tests.
-- Correct connection lifecycle handling — a SQLite in-memory database is destroyed once its
-  connection closes, so the fixture keeps the connection open for the test's duration.
-- Hand-rolled builder classes for the core entities needed by controller tests (`Event`,
-  `Participant`, `EventDate`, `EventMessage`).
-- A documented usage example (in the fixture's own test file or an inline comment) so Step
-  5's tests have a clear pattern to follow.
+- `WhenWorksWeb.Tests/Fixtures/SqliteDbContextFixture.cs` — an abstract base class that opens a
+  SQLite `:memory:` connection, creates the schema via `EnsureCreated`, and exposes a fresh,
+  isolated `protected ApplicationDbContext Db`. Controller test classes inherit from it; since
+  xUnit constructs a new test class instance per test method, every test method gets its own
+  connection and schema automatically, with no explicit reset step.
+- **Real blocker found and fixed**: `ApplicationDbContext.OnModelCreating` pins SQL Server
+  collation names (`SQL_Latin1_General_CP1_CI_AS`/`_CS_AS`) on `Event.Code`,
+  `Participant.DisplayName`, and `Participant.RejoinCode`. SQLite has no built-in collation with
+  those names, so `EnsureCreated()` failed outright with `SqliteException: no such collation
+  sequence` — verified experimentally before writing the fixture. Fixed (in the fixture, not
+  production code) by registering matching named collations via
+  `SqliteConnection.CreateCollation`, mapping each SQL Server collation name to the equivalent
+  .NET string comparison (`OrdinalIgnoreCase`/`Ordinal`). This is `Microsoft.Data.Sqlite`'s
+  documented mechanism for this exact cross-provider scenario, not a workaround — verified it
+  actually enforces case-insensitive uniqueness correctly (not just silences the schema-creation
+  error) via a duplicate-code-different-case test. See `CODING_CONVENTIONS.md`'s "Collation
+  differs by field on purpose."
+- **Verified, not assumed**: SQLite's default foreign-key enforcement is OFF, unlike SQL Server.
+  Confirmed EF Core's Sqlite provider enables `PRAGMA foreign_keys` automatically even for a
+  pre-opened external connection (checked the pragma value directly, and confirmed a dangling-FK
+  insert throws `DbUpdateException`) — no manual pragma needed in the fixture.
+- `WhenWorksWeb.Tests/TestData/EventBuilder.cs`, `ParticipantBuilder.cs`, `EventDateBuilder.cs`,
+  `EventMessageBuilder.cs` — hand-rolled fluent builders with schema-valid defaults for the four
+  core entities, so a test only overrides the field it cares about.
+- `WhenWorksWeb.Tests/Fixtures/SqliteDbContextFixtureTests.cs` — proves the fixture actually
+  enforces the same relational behavior production would: builders save successfully, the
+  case-insensitive unique index on `Event.Code` rejects a same-code-different-case duplicate, the
+  `DisplayName` trim check constraint rejects an untrimmed value, a dangling foreign key is
+  rejected, and two test methods inserting the same unique code each pass independently
+  (proving per-test isolation, not just asserted).
 
 ### Acceptance Criteria
 - A sample test using the fixture passes and demonstrably isolates state from other tests
   (no shared-state leakage across test runs).
 - Builder classes produce valid entities satisfying all required fields/constraints.
+- The fixture enforces unique indexes (including collation-dependent case-insensitivity), check
+  constraints, and foreign key constraints exactly as production would — each verified by a
+  dedicated test, not assumed from EnsureCreated succeeding.
 
 ### Out of Scope
 - The `WebApplicationFactory` harness (Step 6) — that's a separate, full-pipeline fixture.
