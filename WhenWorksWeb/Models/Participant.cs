@@ -57,7 +57,7 @@ public class Participant
     /// This can be changed from the user's global color and allows guests to have a color as well.
     /// </summary>
     [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
-    [StringLength(HexColorLength)]
+    [StringLength(HexColorLength, MinimumLength = HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
     public required string Color { get; set; }
 
     /// <summary>
@@ -162,7 +162,7 @@ public class EventMessage
     /// This is used only as a fallback if the participant row is later deleted.
     /// </summary>
     [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
-    [StringLength(HexColorLength)]
+    [StringLength(HexColorLength, MinimumLength = HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
     public required string SenderColor { get; set; }
 
     /// <summary>

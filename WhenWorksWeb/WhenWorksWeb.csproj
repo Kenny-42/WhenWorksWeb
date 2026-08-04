@@ -27,4 +27,8 @@
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="WhenWorksWeb.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -13,7 +13,9 @@ public class UniqueCodeGenerator(ApplicationDbContext dbContext)
 {
     // The maximum number of attempts to generate a unique code before giving up.
     // This is a safeguard against infinite loops in the unlikely event of many collisions.
-    private const int MaxAttempts = 50;
+    // Internal (rather than private) so WhenWorksWeb.Tests can assert the exact retry count on
+    // exhaustion instead of hardcoding a duplicate magic number that could silently drift out of sync.
+    internal const int MaxAttempts = 50;
 
     // Shared source of truth for the code alphabet.
     private static readonly char[] Alphabet = ModelConstants.UniqueCodeAlphabet.ToCharArray();
@@ -45,7 +47,10 @@ public class UniqueCodeGenerator(ApplicationDbContext dbContext)
     /// or throws if <see cref="MaxAttempts"/> is exceeded.
     /// </summary>
     /// <param name="existsAsync">Checks whether a candidate code already exists in the database.</param>
-    private static async Task<string> GenerateUniqueCodeAsync(Func<string, Task<bool>> existsAsync)
+    /// <remarks>Internal (rather than private) so <c>WhenWorksWeb.Tests</c> can exercise the retry/max-attempts
+    /// behavior deterministically via a stub <paramref name="existsAsync"/>, without depending on the
+    /// non-seedable cryptographic RNG in <see cref="GenerateCode"/> to actually force a collision.</remarks>
+    internal static async Task<string> GenerateUniqueCodeAsync(Func<string, Task<bool>> existsAsync)
     {
         for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {

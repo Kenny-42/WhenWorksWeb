@@ -35,7 +35,7 @@ public class ApplicationUser : IdentityUser
     /// Stores a hexadecimal color code (without the '#' symbol) that represents the user's preferred personal color for use in events.
     /// </summary>
     [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
-    [StringLength(HexColorLength)]
+    [StringLength(HexColorLength, MinimumLength = HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
     public string Color { get; set; } = ModelConstants.DefaultParticipantColor;
 
     /// <summary>
