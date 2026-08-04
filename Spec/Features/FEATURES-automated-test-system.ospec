@@ -112,8 +112,8 @@ standard future work is measured against, instead of something re-explained each
 
 ### Out of Scope
 - Any actual test code or harness (Steps 1, 3-8).
-- The PostToolUse hook implementation itself (Step 8) — this step only documents the
-  convention the hook relies on.
+- The Stop hook implementation itself (Step 8) — this step only documents the convention the
+  hook relies on.
 
 ---
 
@@ -446,39 +446,68 @@ harness, for authorization/anti-forgery tests requiring the real HTTP pipeline).
 
 ---
 
-## Step 8: PostToolUse hook to auto-run affected tests
+## Step 8: Stop hook to auto-run affected tests
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #62
 
 ### Summary
-Add a Claude Code `settings.json` hook that automatically re-runs the relevant test class
-whenever a file under `Controllers/`, `Services/`, or `Models/` is edited.
+Add a Claude Code `settings.json` hook that automatically runs the relevant test class(es)
+once per turn, for any `Controllers/`, `Services/`, or `Models/` source file that changed and
+hasn't been tested since.
 
 ### Motivation
 The enforcement rule documented in Step 2 relies on it actually being followed every time.
 This closes the loop with an automated check that surfaces regressions immediately instead
 of relying on memory alone.
 
+### Design change from the original proposal
+The spec originally called for a `PostToolUse` hook (firing after each Edit/Write call). That
+was changed to a **`Stop` hook** (firing once when Claude finishes responding) after discussion
+surfaced two problems with the original design:
+- `PostToolUse` fires on *every* Edit/Write call, including repeated edits to the same file
+  within one turn while iterating — noisy and wasteful.
+- A time-window throttle (skip re-testing a file for N seconds after it was last tested) was
+  considered and rejected: if a breaking edit happens and the file is never touched again, a
+  throttle window could let that final, broken state go untested indefinitely.
+
+The `Stop`-hook design instead fires once per turn and determines what to test from actual
+content state, not tool-call timing or a timer: it diffs the current file content against a
+hash recorded the last time each file was tested, so a file is tested exactly once after it
+last changed, regardless of how many edits happened in between or how much later the next
+`Stop` fires.
+
 ### Proposed Changes
-- A `PostToolUse` hook in `settings.json` triggered by Edit/Write tool calls targeting paths
-  under `Controllers/**`, `Services/**`, or `Models/**`.
-- The hook maps the edited file to its mirrored test file/class (per the naming convention
-  documented in Step 2) and runs `dotnet test` filtered to that class.
-- Test results (pass/fail) surface back into the conversation without a separate manual
-  `dotnet test` invocation.
-- The hook is a feedback signal only — it does not block or fail the edit itself. A CI gate
-  remains explicitly out of scope.
+- `.claude/hooks/run-affected-tests.ps1` — PowerShell script that: (1) lists files with
+  uncommitted changes under `WhenWorksWeb/Controllers`, `WhenWorksWeb/Services`,
+  `WhenWorksWeb/Models` via `git status`; (2) compares each against a SHA-256 hash recorded in
+  `.claude/hooks/test-hook-state.json` (gitignored — runtime state, not shared config) from the
+  last time it was tested, skipping anything unchanged; (3) maps remaining files to test
+  class(es) by mirrored path/name, matching partial-class files (e.g. `EventsController.cs`,
+  `.SignIn.cs`, `.Home.cs`, `.AccessCookie.cs`) by prefix against every
+  `WhenWorksWeb.Tests/<Dir>/<BaseName>*Tests.cs`; (4) if nothing needs testing, exits silently;
+  (5) otherwise runs one combined `dotnet test --filter <union>`, reports pass/fail via the
+  Stop hook's `systemMessage` JSON output, and updates the state file's hashes for tested files
+  regardless of outcome (a failure must surface once, not repeat on every later unrelated Stop).
+- `.claude/settings.json` (new, checked in) — registers the hook on the `Stop` event.
+- `.gitignore` — added `.claude/hooks/test-hook-state.json` (hook runtime state) and
+  `.claude/settings.local.json` (previously only ignored via the developer's personal global
+  git config, not portable to other checkouts of this repo).
+- Verified directly (not just written and assumed correct): ran the script against a real
+  changed `Services/` file (correct single-class match, correct test run, correct
+  `systemMessage`), confirmed a second run against the same unchanged file produces no output,
+  and confirmed a change to `EventsController.SignIn.cs` correctly matches and runs the union
+  of all three `EventsController*Tests` classes (29 tests) via prefix matching.
 
 ### Acceptance Criteria
-- Editing a file under `Controllers/`, `Services/`, or `Models/` triggers exactly one
-  `dotnet test` run filtered to the corresponding test class, with results surfaced in the
-  conversation.
-- The hook does not fire for edits outside those three directories.
-- The hook never blocks or reverts the edit itself, regardless of test outcome.
+- A changed `Controllers/`/`Services/`/`Models/` file triggers exactly one `dotnet test` run
+  (filtered to its corresponding test class(es)) the next time a turn ends, with results
+  surfaced via `systemMessage`.
+- An unchanged file (already tested at its current content) does not trigger another run.
+- The hook never blocks or reverts anything, regardless of test outcome — always exits 0.
 
 ### Out of Scope
 - A CI (GitHub Actions) gate — deferred to a future, separate decision (see epic #54).

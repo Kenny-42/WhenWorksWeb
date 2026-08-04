@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Claude Code: personal settings and hook runtime state (not shared/checked-in config)
+.claude/settings.local.json
+.claude/hooks/test-hook-state.json
