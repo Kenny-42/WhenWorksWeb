@@ -217,6 +217,42 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
     }
 
     /// <summary>
+    /// A rejoin code that's valid for a *different* participant in the same event must not grant access to the
+    /// selected one — proves the code is checked against the specific selected participant, not "any rejoin
+    /// code that happens to exist in this event."
+    /// </summary>
+    [Fact]
+    public async Task Post_ExistingParticipant_WithAnotherParticipantsRejoinCode_AddsModelError()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").WithRejoinCode("PQRSTV").Build());
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Bob").WithColor("222222").WithRejoinCode("MNPQRS").Build());
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel
+        {
+            Code = "BCDFGH",
+            DisplayName = "Alice",
+            Color = "111111",
+            SelectedExistingDisplayName = "Alice",
+            RejoinCode = "MNPQRS" // Bob's rejoin code, not Alice's
+        };
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.RejoinCode)]!.Errors,
+            e => e.ErrorMessage == "The rejoin code is incorrect.");
+
+        var alice = Db.Participants.Single(p => p.DisplayName == "Alice");
+        Assert.Equal("111111", alice.Color); // unchanged — the update must not have gone through
+    }
+
+    /// <summary>
     /// Selecting a participant already linked to a different signed-in account should be rejected outright,
     /// without ever prompting for a rejoin code.
     /// </summary>
