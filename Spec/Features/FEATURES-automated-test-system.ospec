@@ -39,7 +39,7 @@ that's deferred to a future, separate decision, per epic #54's Notes.
 ## Step 1: Scaffold WhenWorksWeb.Tests project
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #55
