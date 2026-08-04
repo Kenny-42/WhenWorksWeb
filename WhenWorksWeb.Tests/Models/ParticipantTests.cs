@@ -5,21 +5,27 @@ using WhenWorksWeb.Models;
 namespace WhenWorksWeb.Tests.Models;
 
 /// <summary>
-/// Tier 1 unit tests for <see cref="Participant.Color"/>'s validation attributes. Uses
-/// <see cref="Validator.TryValidateProperty"/> to run the actual <c>[StringLength]</c>/
-/// <c>[RegularExpression]</c> attributes exactly as ASP.NET Core model binding would, rather than
-/// reimplementing their match semantics by hand — this is the real production validation path.
+/// Tier 1 unit tests for <see cref="Participant.Color"/> and <see cref="Participant.DisplayName"/>'s
+/// validation attributes. Uses <see cref="Validator.TryValidateProperty"/> to run the actual
+/// <c>[StringLength]</c>/<c>[RegularExpression]</c> attributes exactly as ASP.NET Core model binding would,
+/// rather than reimplementing their match semantics by hand — this is the real production validation path.
 /// </summary>
 public class ParticipantTests
 {
-    private static bool IsColorValid(string candidate)
+    private static Participant CreateValidParticipant() =>
+        new() { EventId = 1, DisplayName = "placeholder", Color = ModelConstants.DefaultParticipantColor };
+
+    private static bool IsPropertyValid<T>(string propertyName, T candidate)
     {
-        var participant = new Participant { EventId = 1, DisplayName = "placeholder", Color = ModelConstants.DefaultParticipantColor };
-        var context = new ValidationContext(participant) { MemberName = nameof(Participant.Color) };
+        var context = new ValidationContext(CreateValidParticipant()) { MemberName = propertyName };
         var results = new List<ValidationResult>();
 
         return Validator.TryValidateProperty(candidate, context, results);
     }
+
+    private static bool IsColorValid(string candidate) => IsPropertyValid(nameof(Participant.Color), candidate);
+
+    private static bool IsDisplayNameValid(string candidate) => IsPropertyValid(nameof(Participant.DisplayName), candidate);
 
     [Theory]
     [InlineData("ff66c4")]
@@ -61,5 +67,29 @@ public class ParticipantTests
     {
         // The app-wide fallback color must itself satisfy the same validation every user-supplied color does.
         Assert.True(IsColorValid(ModelConstants.DefaultParticipantColor));
+    }
+
+    [Theory]
+    [InlineData("A")] // 1 character (MinimumLength boundary)
+    [InlineData("Sixteen Chars!!!")] // exactly 16 characters (MaxLength boundary)
+    public void DisplayName_AcceptsNameWithinLengthBounds(string displayName)
+    {
+        Assert.True(IsDisplayNameValid(displayName));
+    }
+
+    [Fact]
+    public void DisplayName_RejectsEmptyString()
+    {
+        // Unlike Color, DisplayName already has MinimumLength = 1 set explicitly — this confirms it actually
+        // works, as a regression guard rather than a newly-found gap.
+        Assert.False(IsDisplayNameValid(""));
+    }
+
+    [Fact]
+    public void DisplayName_RejectsNameLongerThanMaxLength()
+    {
+        var seventeenChars = new string('A', ModelConstants.ParticipantDisplayNameMaxLength + 1);
+
+        Assert.False(IsDisplayNameValid(seventeenChars));
     }
 }
