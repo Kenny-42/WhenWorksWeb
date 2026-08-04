@@ -120,7 +120,7 @@ standard future work is measured against, instead of something re-explained each
 ## Step 3: Tier 1 unit tests for existing Services and Models
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #57
@@ -135,15 +135,43 @@ These are the cheapest tests to write and maintain and should exist before the h
 controller tier is built out.
 
 ### Proposed Changes
-- `WhenWorksWeb.Tests/Services/UniqueCodeGeneratorTests.cs` — cover correct code
-  length/alphabet per `ModelConstants`, and behavior when a generated code collides with an
-  existing one.
-- Tests for any non-declarative validation logic in `Models/` or `Common/ModelConstants`
-  (boundary cases not already fully covered by DataAnnotations attributes alone).
+- `Services/UniqueCodeGenerator.cs` — `GenerateUniqueCodeAsync` and `MaxAttempts` changed from
+  `private` to `internal`, plus `[InternalsVisibleTo("WhenWorksWeb.Tests")]` on
+  `WhenWorksWeb.csproj`. This gives tests a deterministic seam onto the retry/max-attempts loop
+  via a stub existence-check delegate, independent of the actual (non-seedable, cryptographic)
+  RNG behind code generation — needed to test collision-retry and exhaustion behavior at all,
+  since a real collision can't be forced from outside.
+- `WhenWorksWeb.Tests/Services/UniqueCodeGeneratorTests.cs` — code length/alphabet correctness,
+  retry-until-success, exact-attempt-count exhaustion (pinned to `UniqueCodeGenerator.MaxAttempts`
+  rather than a duplicated magic number), exception propagation from `existsAsync` (not
+  swallowed/wrapped), and an RNG sanity check (many independent generations aren't all identical).
+- `WhenWorksWeb.Tests/Common/ModelConstantsTests.cs` — narrowed to facts about the constants
+  themselves (alphabet excludes ambiguous characters, no duplicate characters, alphabet/pattern
+  character-class coherence, default color/emoji length bounds). Does not re-test validation
+  behavior — see below for why that moved to real model tests.
+- `WhenWorksWeb.Tests/Models/IndexViewModelTests.cs` and `ParticipantTests.cs` (plus
+  `EventMessageTests.cs`/`ApplicationUserTests.cs` for parity) — test `EventCode`/`Color`
+  validation via `System.ComponentModel.DataAnnotations.Validator.TryValidateProperty` against
+  the real model classes, exercising the actual `[Required]`/`[StringLength]`/
+  `[RegularExpression]` attributes exactly as ASP.NET Core model binding would, rather than
+  reimplementing an attribute's match semantics by hand in test code (which was the initial
+  approach, then replaced — see below).
+- **Real gap found and fixed during this step**: `Participant.Color`, `EventMessage.SenderColor`,
+  and `ApplicationUser.Color` each pair `[RegularExpression(HexColorPattern)]` with
+  `[StringLength(HexColorLength)]` but no `MinimumLength` and no `[Required]`. Since
+  `RegularExpressionAttribute` treats null/empty as valid by design (deferring emptiness
+  enforcement to `[Required]`/`MinimumLength`), an empty string passed both attributes —
+  discovered when a model-level test (not the earlier pattern-only test) caught it. Not
+  reachable via any live code path today (the sole entry point, `EventSignInViewModel.Color`,
+  already has `[Required]`), but a latent gap for any future direct write to these properties.
+  Fixed by adding `MinimumLength = HexColorLength` to all three `[StringLength]` attributes. See
+  `CODING_CONVENTIONS.md`'s Domain Conventions & Gotchas for the documented version.
 
 ### Acceptance Criteria
 - All Tier 1 tests run with no database, HTTP context, or controller involved.
-- `dotnet test` passes for the new test files.
+- `dotnet test` passes for the new test files (62 tests as of this step).
+- DataAnnotations-validated properties are tested via `Validator.TryValidateProperty` against the
+  real model class, not a hand-rolled reimplementation of attribute match semantics.
 
 ### Out of Scope
 - Any controller or HTTP-pipeline test (Steps 5-7).
