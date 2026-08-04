@@ -79,6 +79,14 @@ No known performance problems today — this is proactive, so the app doesn't ac
 - Run `dotnet format` before committing substantial changes to auto-fix formatting-level violations.
 
 ## Testing Conventions
-- Framework: **xUnit**, in a `WhenWorksWeb.Tests` project (doesn't exist yet — create it with `dotnet new xunit` referencing the main project when we start).
+- Framework: **xUnit**, in the `WhenWorksWeb.Tests` project, referencing `WhenWorksWeb` directly.
 - Test class names mirror the type under test (`EventsControllerTests`). Test method names describe scenario and expected outcome (`SignIn_Post_WithMismatchedRejoinCode_AddsModelError`).
-- Whether/when to actually create this project and write tests is a collaboration decision — see CLAUDE.md.
+- **Test files mirror the main project's folder structure** — `WhenWorksWeb.Tests/Controllers/`, `WhenWorksWeb.Tests/Services/`, `WhenWorksWeb.Tests/Models/` map 1:1 to their `WhenWorksWeb/` counterparts, so a source file has a predictable corresponding test file path.
+- **Three tiers, by what's under test:**
+  - **Unit** — `Services/` and pure `Models/`/`Common/ModelConstants` validation logic. No database, no HTTP context.
+  - **Controller** (the primary tier — controllers hold nearly all business logic here, see "Controllers vs. Services" above) — against a real `ApplicationDbContext` backed by **SQLite `:memory:`**, never the EF Core InMemory provider, which silently ignores relational/constraint bugs (FK violations, unique indexes, check constraints) that a real database would catch.
+  - **Full-pipeline** — a deliberately small set of `WebApplicationFactory<Program>` smoke tests for behavior only the real HTTP pipeline exercises (routing, auth middleware, anti-forgery filters). Not a general-purpose coverage tier — keep this list short.
+- **Test data**: hand-rolled builder/object-mother classes per entity (e.g. `EventBuilder`). No AutoFixture, Bogus, or similar generation library.
+- **Assertions**: plain xUnit `Assert` only. FluentAssertions is intentionally not used (commercially licensed as of v8); Shouldly was considered and declined too, to keep zero new assertion dependencies.
+- **Mocking**: avoid Moq (2023 supply-chain/telemetry incident). If mocking becomes genuinely necessary, use NSubstitute instead.
+- **Enforcement**: any behavior change to `Controllers/`, `Services/`, or `Models/` must include added/updated tests in the same change, located via the mirrored-path convention above — not deferred to a follow-up.
