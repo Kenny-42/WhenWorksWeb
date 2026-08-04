@@ -312,7 +312,7 @@ Step 4 (SQLite harness and entity builders).
 ## Step 6: WebApplicationFactory harness and initial Tier 3 smoke tests
 
 ### Status
-Proposed.
+Implemented.
 
 ### GitHub Issue
 #60
@@ -327,11 +327,34 @@ controller actions directly. This tier is deliberately small — a handful of sm
 broad coverage.
 
 ### Proposed Changes
-- A `CustomWebApplicationFactory<Program>` that swaps the real database configuration for a
-  SQLite in-memory `ApplicationDbContext` during tests.
-- Smoke test: full create event -> join event -> sign in flow via `HttpClient`.
-- Smoke test: an unauthenticated or non-Admin request to an `Areas/Admin` route is rejected.
-- Smoke test: a state-changing POST without a valid anti-forgery token is rejected.
+- `WhenWorksWeb.Tests/Fixtures/CustomWebApplicationFactory.cs` — a `WebApplicationFactory<Program>`
+  that swaps `ApplicationDbContext` from SQL Server to a real SQLite `:memory:` database (same
+  collation-registration requirement as `SqliteDbContextFixture`, applied via DI service
+  replacement in `ConfigureWebHost` instead of direct construction).
+- `WhenWorksWeb.Tests/Fixtures/AntiForgeryTokenExtractor.cs` — pulls the real
+  `__RequestVerificationToken` value out of rendered form HTML so smoke tests submit POSTs
+  through the actual antiforgery pipeline rather than bypassing it.
+- Smoke test: full create event -> join event -> sign in flow via `HttpClient` (two separate
+  clients/cookie containers, simulating two different browsers), with a final check against the
+  database (not just the rendered page) confirming the participant was actually persisted.
+- Smoke test: an anonymous request to an `Areas/Admin` route is rejected (redirected to the
+  Identity login page, not served or 500'd).
+- Smoke test: a state-changing POST without a valid antiforgery token is rejected (400), with a
+  database check confirming nothing was persisted.
+- **Two real blockers found and fixed, both verified rather than guessed at:**
+  - Removing only the `DbContextOptions<ApplicationDbContext>` descriptor before re-adding a
+    SQLite-configured one was not sufficient — EF Core 8+'s `AddDbContext` registers each
+    configuration call as a separate, additive `IDbContextOptionsConfiguration<ApplicationDbContext>`
+    entry, so Program.cs's original `UseSqlServer` call stayed composed in and both providers ended
+    up registered simultaneously ("Services for database providers ... have been registered").
+    Fixed by also removing `IDbContextOptionsConfiguration<ApplicationDbContext>` before re-adding.
+  - The full-flow smoke test initially failed with an inexplicable redirect back to the sign-in
+    page after a sign-in POST that had actually succeeded (confirmed via diagnostic output that the
+    participant was already persisted). Root cause: `SetEventAccessCookie` correctly sets
+    `Secure = true`, but the default test client's `http://localhost` base address made
+    `CookieContainer` silently refuse to resend that cookie on the following request. Fixed by
+    giving every smoke-test client an `https://` base address (TestServer never opens a real
+    socket either way — this only changes how `CookieContainer` treats the `Secure` flag).
 
 ### Acceptance Criteria
 - All three smoke tests pass against the real ASP.NET Core pipeline (routing, middleware,
