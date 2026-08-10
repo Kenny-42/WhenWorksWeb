@@ -83,6 +83,55 @@ body {
   color: var(--color-text-on-gradient);
 }
 
+/* Utility: opt an element into the bubble display font. Reserved for short,
+   large text (headings, button labels) per STYLE_GUIDE.md — not a sitewide
+   default, applied per-element as pages are styled. */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ==========================================================================
+   Home page (Spec/Features/FEATURES-shared-layout-style-guide.ospec, Step 2)
+   ========================================================================== */
+.input-pill {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-text-on-gradient);
+}
+
+.input-pill::placeholder {
+  color: var(--color-text-on-gradient);
+  opacity: 0.85;
+}
+
+.input-pill-yellow {
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+}
+
+.input-pill-blue {
+  background-color: var(--color-accent-blue-fill);
+  border: 2px solid var(--color-accent-blue-border);
+}
+
+.go-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--color-accent-green);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
   color: var(--bs-secondary-color);
   text-align: end;

@@ -9,7 +9,7 @@
 
     <!-- Create Event section -->
     <div class="d-flex flex-column align-items-center gap-2">
-        <h1 class="display-4">CREATE A NEW EVENT</h1>
+        <h1 class="display-4 font-display text-on-gradient">CREATE A NEW EVENT</h1>
 
         <!-- Form posts the new event data to the Create action -->
         <form asp-action="Create"
@@ -20,10 +20,10 @@
             <!-- Event name input and submit button are aligned horizontally for a compact layout -->
             <div class="d-flex align-items-start gap-2">
                 <input asp-for="CreateEventName"
-                       class="form-control form-control-sm text-center"
+                       class="form-control form-control-sm text-center input-pill input-pill-yellow"
                        style="width: 14rem;"
                        placeholder="Event Name">
-                <button type="submit" class="btn btn-primary">GO!</button>
+                <button type="submit" class="btn go-button">GO!</button>
             </div>
 
             <!-- Field-specific validation messages appear below the controls -->
@@ -36,7 +36,7 @@
 
     <!-- Join Event section -->
     <div class="d-flex flex-column align-items-center gap-2">
-        <h2 class="display-5">JOIN AN EVENT</h2>
+        <h2 class="display-5 font-display text-on-gradient">JOIN AN EVENT</h2>
 
         <!-- Form posts the entered event code to the Join action -->
         <form asp-action="Join"
@@ -47,7 +47,7 @@
             <!-- Event code input and submit button are aligned horizontally for a compact layout -->
             <div class="d-flex align-items-start gap-2">
                 <input asp-for="EventCode"
-                       class="form-control form-control-sm text-uppercase text-center"
+                       class="form-control form-control-sm text-uppercase text-center input-pill input-pill-blue"
                        style="width: 13ch;"
                        maxlength="@WhenWorksWeb.Common.ModelConstants.UniqueCodeLength"
                        autocomplete="off"
@@ -55,7 +55,7 @@
                        oninput="this.value = this.value.toUpperCase();"
                        placeholder="Event Code" />
 
-                <button type="submit" class="btn btn-primary">GO!</button>
+                <button type="submit" class="btn go-button">GO!</button>
             </div>
 
             <!-- Validation summary and field-specific validation messages appear below the controls -->
