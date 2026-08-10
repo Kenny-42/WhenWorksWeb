@@ -1,0 +1,73 @@
+## Display Name not updating correctly for logged-in users
+
+### Status
+Not started.
+
+### GitHub Issue
+#50
+
+### Summary
+On the event sign-in page, a logged-in user's previously saved custom display name for
+an event is not pre-filled. Instead the Display Name field is auto-populated with their
+account username.
+
+### Reported Behavior
+1. Log in to the website.
+2. Access "My Events" or enter a valid event code for a previously joined event.
+3. Select an event where the display name was changed before.
+4. The sign-in page's Display Name (and Participant) fields populate with the account
+   username instead of the previously saved display name.
+
+Reported on Brave 1.90.128, with a screenshot showing the mismatch.
+
+### Expected Behavior
+The sign-in page should autofill the Display Name and Participant fields with the
+user's previously saved participant display name for that event, not their username.
+
+### Root Cause
+Server-side, `EventsController.BuildSignInViewModelAsync`
+(WhenWorksWeb/Controllers/EventsController.SignIn.cs:117-192) and its participant lookup
+helper `GetCurrentParticipantAsync` (WhenWorksWeb/Controllers/EventsController.AccessCookie.cs:59-99)
+already resolve the signed-in user's actual saved `Participant.DisplayName` — via the
+event access cookie first, then a fallback query for the user's single existing
+participant record for that event — and use it to pre-populate the form. Nothing in that
+path reads the account's username, and `ApplicationUser.DisplayName` (used only when no
+participant record exists yet) defaults to `"Nickname"`, not the username, so the
+reported "username" value likely isn't coming from the C# view-model logic at all.
+
+The more likely source is the Display Name `<input>` itself
+(WhenWorksWeb/Views/Events/SignIn.cshtml:26-27), which is rendered via `asp-for="DisplayName"`
+with no `autocomplete` attribute set. The Identity login form on the same origin
+(WhenWorksWeb/Areas/Identity/Pages/Account/Login.cshtml:17) explicitly marks its username
+field with `autocomplete="username"`, which is exactly the signal browsers (Brave/Chromium)
+use to remember and later auto-fill a "username" value for the site. Because the sign-in
+page's Display Name field has no `autocomplete` value of its own to disambiguate it, the
+browser's autofill heuristics can match it against the saved username for the domain and
+overwrite the server-rendered value after the page loads — consistent with a per-browser,
+version-specific report rather than a server logic bug. This should be confirmed by
+reproducing in Brave (and comparing against a browser/profile with no saved credentials
+for the site) before implementing a fix.
+
+### Proposed Fix
+- Add an explicit, non-matching `autocomplete` attribute to the Display Name input in
+  `SignIn.cshtml` (e.g. `autocomplete="off"` or `autocomplete="nickname"`, matching the
+  convention already used on the Register page's Display Name field) so browsers stop
+  treating it as a username-autofill target.
+- Re-verify the reproduction steps in Brave after the change to confirm the field no
+  longer gets overwritten post-load.
+- If reproduction shows the server-rendered value is correct on initial page load and
+  only changes after browser autofill runs, no controller/view-model changes are needed;
+  if reproduction instead shows the server itself is emitting the username, revisit
+  `BuildSignInViewModelAsync` and `GetCurrentParticipantAsync` for a logic fix instead.
+
+### Acceptance Criteria
+- A logged-in user revisiting the sign-in page for an event where they previously set a
+  custom display name sees that saved display name pre-filled, not their account
+  username, across the browsers used to reproduce the issue.
+- No change to sign-in behavior for users without a saved participant display name for
+  the event (still defaults to empty or their account's `DisplayName` profile field per
+  existing logic).
+
+### Out of Scope
+- Any change to how `ApplicationUser.DisplayName` is set or edited.
+- Any change to the rejoin-code or existing-participant-dropdown flows.
