@@ -8,18 +8,18 @@
 {
     <!-- Link to the authenticated user's joined events page -->
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-controller="MyEvents" asp-action="Index">My Events</a>
+        <a class="nav-link" asp-controller="MyEvents" asp-action="Index">My Events</a>
     </li>
 
     <!-- Greeting / account management link -->
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @((await UserManager.GetUserAsync(User))?.DisplayName ?? User.Identity?.Name)!</a>
+        <a class="nav-link" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @((await UserManager.GetUserAsync(User))?.DisplayName ?? User.Identity?.Name)!</a>
     </li>
 
     <!-- Logout form -->
     <li class="nav-item">
         <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-            <button type="submit" class="nav-link btn btn-link text-dark">Logout</button>
+            <button type="submit" class="nav-link btn btn-link">Logout</button>
         </form>
     </li>
 }
@@ -27,12 +27,12 @@ else
 {
     <!-- Registration link for anonymous users -->
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Register">Register</a>
+        <a class="nav-link" asp-area="Identity" asp-page="/Account/Register">Register</a>
     </li>
 
     <!-- Login link for anonymous users -->
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">Login</a>
+        <a class="nav-link" asp-area="Identity" asp-page="/Account/Login">Login</a>
     </li>
 }
 </ul>

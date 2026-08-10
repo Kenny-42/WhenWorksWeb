@@ -1,0 +1,66 @@
+Part of epic #40 ("Style the website with CSS"). Establishes the site's visual style guide — a soft, bubbly, bright/airy look driven by reference mockups (gradient background, pill-shaped controls, rounded display font) — starting with the shared layout and the home page as a combined first pass, since home page styling depends on the tokens defined for the shared layout.
+
+## Step 1: Shared Layout
+### Status
+Complete
+
+### GitHub Issue
+#41
+
+### Summary
+Apply the new visual style (gradient background, font pairing, pill-shaped nav/buttons/inputs) to the shared layout — navbar and footer chrome — without changing nav items, text, links, or structure.
+
+### Motivation
+Sub-issue of epic #40. Establishes the reusable token layer (STYLE_GUIDE.md + CSS custom properties) that later per-page styling issues (#42–#49) will build on.
+
+### Proposed Changes
+- Add STYLE_GUIDE.md documenting palette/type/shape rationale and usage guidance (no literal values — points to site.css).
+- Add CSS custom properties in site.css :root: --gradient-page, --color-accent-yellow, --color-accent-blue, --color-accent-green, --color-text-on-gradient, --radius-pill, --font-display, --font-body.
+- Load Cherry Bomb One and Quicksand webfonts.
+- Apply --gradient-page as the body background sitewide via _Layout.cshtml.
+- Restyle navbar to transparent background with pill-shaped, white-outlined nav links — same nav items/routes/text as today.
+- Restyle footer to transparent background, white text, centered — same copy as today.
+
+### Acceptance Criteria
+- Gradient background renders behind every page via the shared layout.
+- Navbar/footer visual style matches reference mockups; no nav item, link, or text changed.
+- Cherry Bomb One and Quicksand are loaded and exposed as --font-display/--font-body.
+- STYLE_GUIDE.md exists and documents the tokens without duplicating their literal values.
+
+### Out of Scope
+- Hover/focus/active/disabled states.
+- Styling beyond shared layout + home page.
+- The dark outer "frame" from the mockups (confirmed to be mockup/artboard framing, not real UI).
+
+---
+
+## Step 2: Home Page
+### Status
+Not Started
+
+### GitHub Issue
+#42
+
+### Summary
+Apply the Step 1 tokens to Home/Index.cshtml (Create Event / Join Event) to match the reference mockups.
+
+### Motivation
+Sub-issue of epic #40. Home/Index.cshtml already structurally matches the mockups, so this is a styling-only pass; doing it alongside Step 1 gives a concrete working example of the new style guide.
+
+### Proposed Changes
+- Style "CREATE A NEW EVENT" / "JOIN AN EVENT" headings with --font-display.
+- Restyle Event Name input as a pill with --color-accent-yellow fill/border.
+- Restyle Event Code input as a pill with --color-accent-blue fill/border.
+- Restyle GO! buttons as small circular buttons using --color-accent-green.
+- No changes to form markup structure, validation, or controller logic.
+
+### Acceptance Criteria
+- Home page visually matches the reference mockups' shapes/colors/fonts for these elements.
+- Existing form behavior/validation is unaffected.
+
+### Out of Scope
+- Hover/focus/disabled states.
+- Other pages.
+
+### Dependencies
+Step 1 (consumes the tokens defined there).

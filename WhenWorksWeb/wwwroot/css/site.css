@@ -1,3 +1,20 @@
+/* ==========================================================================
+   Style guide tokens — see STYLE_GUIDE.md for rationale/usage.
+   This block is the single source of truth for actual values.
+   ========================================================================== */
+:root {
+  --gradient-page: linear-gradient(135deg, #ec6ea8, #f5d76e);
+  --color-accent-yellow-fill: #f2d675;
+  --color-accent-yellow-border: #e8935a;
+  --color-accent-blue-fill: #8fd8e0;
+  --color-accent-blue-border: #4fb8c4;
+  --color-accent-green: #9fdb6a;
+  --color-text-on-gradient: #ffffff;
+  --radius-pill: 999px;
+  --font-display: 'Cherry Bomb One', sans-serif;
+  --font-body: 'Quicksand', sans-serif;
+}
+
 html {
   font-size: 14px;
 }
@@ -19,6 +36,51 @@ html {
 
 body {
   margin-bottom: 60px;
+  background: var(--gradient-page);
+  background-attachment: fixed;
+  font-family: var(--font-body);
+}
+
+/* ==========================================================================
+   Shared layout chrome — navbar and footer (Spec/Features/FEATURES-shared-
+   layout-style-guide.ospec, Step 1). Nav items/text/routes are unchanged;
+   only their visual treatment is restyled here.
+   ========================================================================== */
+.navbar {
+  background: transparent;
+}
+
+.navbar-brand,
+.navbar .nav-link {
+  color: var(--color-text-on-gradient) !important;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.navbar .nav-link {
+  border: 1px solid var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 1rem;
+  margin: 0.15rem 0.25rem;
+}
+
+.footer {
+  background: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.footer a {
+  color: var(--color-text-on-gradient);
+}
+
+/* Utility: opt any element sitting directly on the gradient background (no
+   card/surface underneath it) into readable white text. Default body text
+   elsewhere stays Bootstrap's default dark color. See STYLE_GUIDE.md. */
+.text-on-gradient {
+  color: var(--color-text-on-gradient);
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
