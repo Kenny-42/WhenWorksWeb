@@ -4,12 +4,18 @@
    ========================================================================== */
 :root {
   --gradient-page: linear-gradient(135deg, #ec6ea8, #f5d76e);
+  /* --color-accent-pink-fill is overridden inline in _Layout.cshtml, echoing
+     ModelConstants.DefaultParticipantColor so the "default pink" users get
+     stays a single source of truth. This value is only a fallback in case
+     that override is ever missing. */
+  --color-accent-pink-fill: #ff66c4;
   --color-accent-yellow-fill: #f2d675;
   --color-accent-yellow-border: #e8935a;
   --color-accent-blue-fill: #8fd8e0;
   --color-accent-blue-border: #4fb8c4;
   --color-accent-green: #bee776;
   --color-accent-green-border: #8eca51;
+  --color-accent-red: #ef5d5d;
   --color-text-on-gradient: #ffffff;
   --radius-pill: 999px;
   --font-display: 'Cherry Bomb One', sans-serif;
@@ -86,6 +92,59 @@ body {
 .navbar .nav-link {
   padding: 0.25rem 1rem;
   margin: 0.15rem 0.25rem;
+}
+
+/* Per-link hover/click color. :hover and :active share the same accent
+   color now — clicking previews/holds the identical color a hover does,
+   instead of shifting to a separate darker variant — and reverts the
+   instant the click ends since :focus is deliberately not used here.
+   !important is required to win over the !important base color set above. */
+.navbar-brand:hover,
+.navbar-brand:active {
+  color: var(--color-accent-pink-fill) !important;
+}
+
+.nav-link-home:hover,
+.nav-link-home:active {
+  color: var(--color-accent-yellow-fill) !important;
+}
+
+.nav-link-register:hover,
+.nav-link-myevents:hover,
+.nav-link-register:active,
+.nav-link-myevents:active {
+  color: var(--color-accent-blue-fill) !important;
+}
+
+.nav-link-login:hover,
+.nav-link-login:active {
+  color: var(--color-accent-green) !important;
+}
+
+/* Hello Name! link's color comes from the signed-in user's own account
+   color, passed in as --user-color via an inline style on the element
+   (Views/Shared/_LoginPartial.cshtml). */
+.nav-link-username:hover,
+.nav-link-username:active {
+  color: var(--user-color) !important;
+}
+
+.nav-link-logout:hover,
+.nav-link-logout:active {
+  color: var(--color-accent-red) !important;
+}
+
+/* Logout is a <button>, not an <a> like the other nav links, so it's also
+   caught by two Bootstrap/site rules the plain links never hit: the generic
+   ".btn-link.nav-link:focus" ring defined near the top of this file, and
+   Bootstrap's own ".btn:focus-visible" ring — both are what draw the boxy
+   outline after a click. Suppressed here so Logout behaves purely by color,
+   exactly like every other navbar link. */
+.nav-link-logout:focus,
+.nav-link-logout:focus-visible,
+.nav-link-logout:active:focus {
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* In the expanded (desktop) layout, nudge the pill links down slightly so
@@ -219,6 +278,54 @@ body {
   border: 2px solid var(--color-accent-blue-border);
 }
 
+/* Event Name / Event Code inputs never change appearance, focused or not.
+   Bootstrap's own .form-control:focus rule (same 0,2,0 specificity as the
+   variant selectors below) swaps in its default white background, blue
+   border, and body text color and adds a focus ring — so each color that
+   rule touches has to be explicitly restated here, not just the ring
+   suppressed, or the "basic Bootstrap" focus look leaks through. */
+.input-pill:focus {
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.input-pill-yellow:focus {
+  background-color: var(--color-accent-yellow-fill) !important;
+  border-color: var(--color-accent-yellow-border) !important;
+}
+
+.input-pill-blue:focus {
+  background-color: var(--color-accent-blue-fill) !important;
+  border-color: var(--color-accent-blue-border) !important;
+}
+
+/* Chrome/Edge/Safari paint autofilled fields (e.g. picking a suggestion
+   from the browser's own dropdown) with a baked-in yellow background and
+   dark text that even background-color/color with !important can't touch —
+   the standard workaround is an inset box-shadow large enough to cover the
+   whole field, plus -webkit-text-fill-color for the text. Listed per
+   pseudo-state because Chrome re-applies its own styling for each one.
+   Firefox's :autofill is included too, though it's less aggressive. */
+.input-pill-yellow:-webkit-autofill,
+.input-pill-yellow:-webkit-autofill:hover,
+.input-pill-yellow:-webkit-autofill:focus,
+.input-pill-yellow:-webkit-autofill:active,
+.input-pill-yellow:autofill {
+  box-shadow: 0 0 0 1000px var(--color-accent-yellow-fill) inset !important;
+  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
+  caret-color: var(--color-text-on-gradient);
+}
+
+.input-pill-blue:-webkit-autofill,
+.input-pill-blue:-webkit-autofill:hover,
+.input-pill-blue:-webkit-autofill:focus,
+.input-pill-blue:-webkit-autofill:active,
+.input-pill-blue:autofill {
+  box-shadow: 0 0 0 1000px var(--color-accent-blue-fill) inset !important;
+  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
+  caret-color: var(--color-text-on-gradient);
+}
+
 .go-button {
   display: inline-flex;
   align-items: center;
@@ -233,6 +340,26 @@ body {
   font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.65rem;
+}
+
+/* Outline stays put at all times. Hover and click share one fill — the
+   button's own outline color — instead of click going to a separate darker
+   shade, reverting the instant the click/hover ends. Text stays white
+   throughout. Bootstrap's own :active selector (":not(.btn-check)+.btn:active",
+   plus ":first-child:active") out-specifies a plain ".go-button:active", and
+   its base .btn:hover/:active rules would otherwise reset color/background
+   back to Bootstrap's defaults — so !important is needed here, matching the
+   navbar link rules above. */
+.go-button:hover,
+.go-button:active {
+  background-color: var(--color-accent-green-border) !important;
+  border-color: var(--color-accent-green-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.go-button:focus {
+  box-shadow: none;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {

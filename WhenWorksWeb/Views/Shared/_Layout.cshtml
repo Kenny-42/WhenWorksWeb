@@ -11,6 +11,14 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
+    @* The "WhenWorks" brand hover color is the same pink users get by default, so it's
+       linked here to Common/ModelConstants.DefaultParticipantColor instead of being a
+       separate hardcoded value that could drift out of sync. *@
+    <style>
+        :root {
+            --color-accent-pink-fill: #@WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
+        }
+    </style>
 </head>
 <body>
     <!-- Site header: brand link, Admin nav item (shown only to Admins), and the login/logout partial -->
@@ -25,7 +33,7 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link nav-link-home" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         @if (User.IsInRole("Admin"))
                         {
