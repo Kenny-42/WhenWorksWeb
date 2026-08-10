@@ -8,7 +8,8 @@
   --color-accent-yellow-border: #e8935a;
   --color-accent-blue-fill: #8fd8e0;
   --color-accent-blue-border: #4fb8c4;
-  --color-accent-green: #9fdb6a;
+  --color-accent-green: #bee776;
+  --color-accent-green-border: #8eca51;
   --color-text-on-gradient: #ffffff;
   --radius-pill: 999px;
   --font-display: 'Cherry Bomb One', sans-serif;
@@ -48,6 +49,17 @@ body {
    ========================================================================== */
 .navbar {
   background: transparent;
+  /* Bootstrap's navbar-dark scheme bakes translucency into these tokens
+     (e.g. nav-link at 55% alpha, toggler border/icon well below that) —
+     override them at the source so every navbar element, including the
+     collapsed-view hamburger, is fully opaque like the home page headings. */
+  --bs-navbar-color: var(--color-text-on-gradient);
+  --bs-navbar-hover-color: var(--color-text-on-gradient);
+  --bs-navbar-active-color: var(--color-text-on-gradient);
+  --bs-navbar-brand-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-border-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='white' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
 .navbar-brand,
@@ -58,10 +70,76 @@ body {
 }
 
 .navbar .nav-link {
-  border: 1px solid var(--color-text-on-gradient);
+  border: 2px solid var(--color-text-on-gradient);
   border-radius: var(--radius-pill);
   padding: 0.25rem 1rem;
   margin: 0.15rem 0.25rem;
+}
+
+.navbar-toggler {
+  border-width: 2px;
+}
+
+/* Bootstrap adds a thick focus ring on :focus, which lingers after the click
+   (the button keeps focus until something else is clicked). We only want
+   that emphasis while the button is actively being pressed. */
+.navbar-toggler:focus {
+  box-shadow: none;
+}
+
+.navbar-toggler:active {
+  box-shadow: 0 0 0 var(--bs-navbar-toggler-focus-width, 0.25rem);
+}
+
+.navbar-divider {
+  /* A border-top always has square ends, no matter what border-radius says —
+     rounding the line itself needs an actual filled block instead of a
+     border, so height + background + border-radius stand in for one here. */
+  height: 2px;
+  margin: 0 1rem 1rem;
+  border: none;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  /* Bootstrap's reboot styles every <hr> at opacity: 0.25 by default — this
+     divider is never meant to be sheer, so override it explicitly. */
+  opacity: 1;
+}
+
+/* Below the sm breakpoint the navbar collapses behind the hamburger and the
+   nav items stack vertically. Individually-pilled links look cluttered
+   stacked like that, so merge them into one outlined group with dividers
+   between entries instead. Scoped to the collapsed layout only — the
+   expanded (desktop) pill-per-link look above is unaffected. */
+@media (max-width: 575.98px) {
+  .navbar-collapse {
+    margin-top: 0.5rem;
+    border: 2px solid var(--color-text-on-gradient);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  .navbar-collapse .nav-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Same rounded-capsule technique as .navbar-divider — a border can't get
+     rounded ends, and these dividers should sit inset from the group's
+     edges rather than spanning full width, so a filled block stands in. */
+  .navbar-collapse .navbar-nav + .navbar-nav::before,
+  .navbar-collapse .nav-item + .nav-item::before {
+    content: "";
+    display: block;
+    height: 2px;
+    margin: 0 1rem;
+    background-color: var(--color-text-on-gradient);
+    border-radius: var(--radius-pill);
+  }
 }
 
 .footer {
@@ -99,6 +177,8 @@ body {
   font-weight: 600;
   text-align: center;
   color: var(--color-text-on-gradient);
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
 }
 
 .input-pill::placeholder {
@@ -123,7 +203,7 @@ body {
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
-  border: none;
+  border: 2px solid var(--color-accent-green-border);
   border-radius: 50%;
   background-color: var(--color-accent-green);
   color: var(--color-text-on-gradient);
