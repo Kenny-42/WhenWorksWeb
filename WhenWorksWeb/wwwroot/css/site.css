@@ -69,11 +69,34 @@ body {
   font-weight: 600;
 }
 
+.navbar-brand {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: normal;
+  line-height: 1;
+  /* Cherry Bomb One's glyphs sit low within their own line box (large built-in
+     descender space relative to other faces), so even once vertically
+     centered by the flex navbar it reads as sitting below the nav links.
+     Nudge it up to compensate — enough to center the (larger) brand glyphs
+     on the nav links' vertical center, not all the way to a shared bottom
+     edge, since the brand is bigger and should overhang evenly top/bottom. */
+  transform: translateY(-3px);
+}
+
 .navbar .nav-link {
-  border: 2px solid var(--color-text-on-gradient);
-  border-radius: var(--radius-pill);
   padding: 0.25rem 1rem;
   margin: 0.15rem 0.25rem;
+}
+
+/* In the expanded (desktop) layout, nudge the pill links down slightly so
+   they read as aligned with the lowercase letters of "WhenWorks" rather
+   than its full cap-height — matches the brand's own upward nudge above.
+   Scoped past the sm breakpoint only; the collapsed hamburger menu's merged
+   list keeps its own (unshifted) vertical rhythm. */
+@media (min-width: 576px) {
+  .navbar .nav-link {
+    transform: translateY(2px);
+  }
 }
 
 .navbar-toggler {
@@ -89,20 +112,6 @@ body {
 
 .navbar-toggler:active {
   box-shadow: 0 0 0 var(--bs-navbar-toggler-focus-width, 0.25rem);
-}
-
-.navbar-divider {
-  /* A border-top always has square ends, no matter what border-radius says —
-     rounding the line itself needs an actual filled block instead of a
-     border, so height + background + border-radius stand in for one here. */
-  height: 2px;
-  margin: 0 1rem 1rem;
-  border: none;
-  background-color: var(--color-text-on-gradient);
-  border-radius: var(--radius-pill);
-  /* Bootstrap's reboot styles every <hr> at opacity: 0.25 by default — this
-     divider is never meant to be sheer, so override it explicitly. */
-  opacity: 1;
 }
 
 /* Below the sm breakpoint the navbar collapses behind the hamburger and the
@@ -140,6 +149,20 @@ body {
     background-color: var(--color-text-on-gradient);
     border-radius: var(--radius-pill);
   }
+}
+
+.navbar-divider {
+  /* A border-top always has square ends, no matter what border-radius says —
+     rounding the line itself needs an actual filled block instead of a
+     border, so height + background + border-radius stand in for one here. */
+  height: 2px;
+  margin: 0 1rem 1rem;
+  border: none;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  /* Bootstrap's reboot styles every <hr> at opacity: 0.25 by default — this
+     divider is never meant to be sheer, so override it explicitly. */
+  opacity: 1;
 }
 
 .footer {
