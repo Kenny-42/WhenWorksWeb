@@ -13,7 +13,7 @@
 
     <!-- Greeting / account management link -->
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @User.Identity?.Name!</a>
+        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @((await UserManager.GetUserAsync(User))?.DisplayName ?? User.Identity?.Name)!</a>
     </li>
 
     <!-- Logout form -->
