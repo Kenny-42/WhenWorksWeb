@@ -147,6 +147,121 @@ body {
   outline: none !important;
 }
 
+/* Account dropdown toggle (person icon) — replaces the old inline "Hello
+   Name!"/Logout links. Stays white like every other navbar control by
+   default (inherited from ".navbar .nav-link" above) and only switches to
+   the signed-in user's own account color while actually hovered/clicked —
+   deliberately not while the dropdown is merely left open (no
+   "[aria-expanded=true]" rule here), so the icon reverts to white the
+   moment the click ends instead of staying colored for as long as the menu
+   is open. */
+.nav-link-account-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-link-account-toggle svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.nav-link-account-toggle:hover,
+.nav-link-account-toggle:active {
+  color: var(--user-color) !important;
+}
+
+/* Icon-only toggle — suppress Bootstrap's default dropdown caret. */
+.nav-link-account-toggle.dropdown-toggle::after {
+  display: none;
+}
+
+/* Dropdown panel: the same transparent, white-outlined "merged pill group"
+   treatment the collapsed mobile navbar-collapse block uses above, reused
+   here since both are just a short list of nav links sitting on the page's
+   gradient background (the gradient is applied at the body level, so it's
+   still what's behind this panel wherever it opens on the page — a solid
+   fill here would read as a flat patch breaking the diagonal gradient
+   instead of blending into it like the rest of the navbar does). */
+.account-dropdown-menu {
+  background-color: transparent;
+  border: 2px solid var(--color-text-on-gradient);
+  border-radius: 1rem;
+  margin-top: 0.5rem;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.account-dropdown-menu .dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0.6rem 1.25rem;
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+/* Light hover tint for affordance; .nav-link-username/.nav-link-logout's own
+   !important hover color rules above still win for text color, same as they
+   do everywhere else in the navbar. */
+.account-dropdown-menu .dropdown-item:hover,
+.account-dropdown-menu .dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--color-text-on-gradient);
+}
+
+/* At the sm breakpoint and up, this dropdown is an actual floating panel
+   (unlike the mobile nested one below, it sits in normal flow inside a
+   horizontal nav — see the sm-and-up nudge rule further down — and visually
+   overlaps whatever page content is beneath it, e.g. the navbar divider or
+   a heading). Truly transparent there would let that content show through,
+   which reads as a bug rather than "blending with the gradient". Instead,
+   paint the exact same gradient the body has, pinned to the viewport via
+   background-attachment: fixed like the body's own — since both are fixed
+   to the same viewport, the slice rendered here lines up pixel-for-pixel
+   with what the body would show anyway, so it's opaque (nothing behind it
+   is visible) while still looking like it's just showing the page through
+   it. */
+@media (min-width: 576px) {
+  .account-dropdown-menu {
+    background-image: var(--gradient-page);
+    background-attachment: fixed;
+  }
+}
+
+/* Same rounded-capsule divider technique as .navbar-collapse's own dividers
+   below — an inset, rounded-end filled bar rather than a full-bleed
+   square-cornered border-top, so both the desktop dropdown and the mobile
+   nested one below read as the same menu style. */
+.account-dropdown-menu li + li::before {
+  content: "";
+  display: block;
+  height: 2px;
+  margin: 0 1rem;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+}
+
+/* Below the sm breakpoint this dropdown renders nested inside the collapsed
+   hamburger box (Bootstrap forces ".navbar-nav .dropdown-menu" to
+   position:static there, so it's a plain block in normal flow, not a
+   floating panel) and by default stretches edge-to-edge inside it. Inset it
+   with its own side/bottom margins so its outline reads as a distinct,
+   smaller group nested inside the hamburger box's outline rather than
+   sharing its border. */
+@media (max-width: 575.98px) {
+  .account-dropdown-menu {
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
 /* In the expanded (desktop) layout, nudge the pill links down slightly so
    they read as aligned with the lowercase letters of "WhenWorks" rather
    than its full cap-height — matches the brand's own upward nudge above.

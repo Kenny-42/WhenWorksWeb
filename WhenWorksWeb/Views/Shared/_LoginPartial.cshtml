@@ -7,23 +7,42 @@
 @if (SignInManager.IsSignedIn(User))
 {
     var currentUser = await UserManager.GetUserAsync(User);
+    var userColor = currentUser?.Color ?? WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
 
     <!-- Link to the authenticated user's joined events page -->
     <li class="nav-item">
         <a class="nav-link nav-link-myevents" asp-controller="MyEvents" asp-action="Index">My Events</a>
     </li>
 
-    <!-- Greeting / account management link. Hover/click colors come from the user's own
-         account color, passed in as --user-color for site.css's .nav-link-username rules. -->
-    <li class="nav-item">
-        <a class="nav-link nav-link-username" style="--user-color: #@(currentUser?.Color ?? WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor);" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @(currentUser?.DisplayName ?? User.Identity?.Name)!</a>
-    </li>
-
-    <!-- Logout form -->
-    <li class="nav-item">
-        <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-            <button type="submit" class="nav-link nav-link-logout btn btn-link">Logout</button>
-        </form>
+    <!-- Account dropdown: a person-icon toggle (white by default, like every
+         other navbar control) that reveals the greeting/manage link and
+         logout, which used to be two separate inline nav links. --user-color
+         is set once here on the wrapping li and inherited (CSS custom
+         properties cascade) by the toggle and the menu items below, same
+         source as before. -->
+    <li class="nav-item dropdown" style="--user-color: #@userColor;">
+        <a class="nav-link nav-link-account-toggle dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" />
+                <circle cx="12" cy="9.5" r="3.25" fill="currentColor" />
+                <path d="M5.5 19c1.1-3 3.7-4.5 6.5-4.5s5.4 1.5 6.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+            <span class="visually-hidden">Account</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end account-dropdown-menu">
+            <!-- Account management link. Hover color comes from the user's own
+                 account color via the inherited --user-color, same as
+                 .nav-link-username always has. -->
+            <li>
+                <a class="dropdown-item nav-link-username" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">My Profile</a>
+            </li>
+            <!-- Logout form -->
+            <li>
+                <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                    <button type="submit" class="dropdown-item nav-link-logout">Logout</button>
+                </form>
+            </li>
+        </ul>
     </li>
 }
 else
