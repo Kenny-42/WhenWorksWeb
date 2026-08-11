@@ -9,6 +9,7 @@
      stays a single source of truth. This value is only a fallback in case
      that override is ever missing. */
   --color-accent-pink-fill: #ff66c4;
+  --color-accent-orange-fill: #ffa48c;
   --color-accent-yellow-fill: #f2d675;
   --color-accent-yellow-border: #e8935a;
   --color-accent-blue-fill: #8fd8e0;
@@ -23,12 +24,16 @@
 }
 
 html {
-  font-size: 14px;
+  /* Base scale is 125% of the original 14px/16px tokens (Spec request:
+     the site reads as too small/sparse at 100% browser zoom). Since
+     nearly every size in this stylesheet is expressed in rem, scaling
+     these two root values scales the whole site proportionally. */
+  font-size: 17.5px;
 }
 
 @media (min-width: 768px) {
   html {
-    font-size: 16px;
+    font-size: 20px;
   }
 }
 
@@ -101,7 +106,7 @@ body {
    !important is required to win over the !important base color set above. */
 .navbar-brand:hover,
 .navbar-brand:active {
-  color: var(--color-accent-pink-fill) !important;
+  color: var(--color-accent-orange-fill) !important;
 }
 
 .nav-link-home:hover,
