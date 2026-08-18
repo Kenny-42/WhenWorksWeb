@@ -91,10 +91,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(p => p.Color)
                 .HasMaxLength(ModelConstants.HexColorLength);
 
-            entity.Property(p => p.RejoinCode)
-                .HasMaxLength(ModelConstants.UniqueCodeLength)
-                .UseCollation("SQL_Latin1_General_CP1_CI_AS");
-
             entity.HasOne(p => p.Event)
                 .WithMany(e => e.Participants)
                 .HasForeignKey(p => p.EventId)
@@ -112,10 +108,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.HasIndex(p => new { p.EventId, p.Color })
                 .IsUnique();
-
-            entity.HasIndex(p => p.RejoinCode)
-                .IsUnique()
-                .HasFilter("[RejoinCode] IS NOT NULL");
 
             entity.HasCheckConstraint(
                 "CK_Participants_DisplayName_Trimmed",
