@@ -32,9 +32,9 @@ public abstract class SqliteDbContextFixture : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        // ApplicationDbContext.OnModelCreating pins specific SQL Server collations on Event.Code,
-        // Participant.DisplayName, and Participant.RejoinCode (see CODING_CONVENTIONS.md's "Collation
-        // differs by field on purpose"). SQLite has no built-in collation with those names, so schema
+        // ApplicationDbContext.OnModelCreating pins specific SQL Server collations on Event.Code and
+        // Participant.DisplayName (see CODING_CONVENTIONS.md's "Collation differs by field on purpose").
+        // SQLite has no built-in collation with those names, so schema
         // creation fails outright (SqliteException: "no such collation sequence") unless equivalent named
         // collations are registered on the connection first. This is the standard, documented mechanism
         // for this exact cross-provider scenario (Microsoft.Data.Sqlite's SqliteConnection.CreateCollation)

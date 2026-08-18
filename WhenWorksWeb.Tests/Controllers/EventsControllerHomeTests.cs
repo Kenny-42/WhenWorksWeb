@@ -47,11 +47,11 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
 
     /// <summary>
     /// After a full sign-in round trip (real cookie protect on the SignIn response, real unprotect on a
-    /// subsequent Home request), the home page should render with the signed-in participant's rejoin code —
-    /// proving the access cookie mechanism works end to end, not just that SignIn "returns a redirect."
+    /// subsequent Home request), the home page should render with the event's details — proving the access
+    /// cookie mechanism works end to end, not just that SignIn "returns a redirect."
     /// </summary>
     [Fact]
-    public async Task Home_WithValidAccessCookieFromRealSignIn_ReturnsViewWithParticipantRejoinCode()
+    public async Task Home_WithValidAccessCookieFromRealSignIn_ReturnsViewWithEventDetails()
     {
         var evt = new EventBuilder().WithCode("BCDFGH").WithTitle("Trivia Night").Build();
         Db.Events.Add(evt);
@@ -74,8 +74,7 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
         Assert.Equal("BCDFGH", model.Code);
         Assert.Equal("Trivia Night", model.Title);
 
-        var savedParticipant = Assert.Single(Db.Participants);
-        Assert.Equal(savedParticipant.RejoinCode, model.RejoinCode);
+        Assert.Single(Db.Participants);
     }
 
     /// <summary>
