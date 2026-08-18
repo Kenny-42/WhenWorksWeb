@@ -328,16 +328,15 @@ public partial class EventsController
     }
 
     /// <summary>
-    /// Returns a value indicating whether the selected participant is already owned by another signed-in account.
+    /// Returns a value indicating whether the selected participant is already owned by an account other than
+    /// the current requester.
     /// </summary>
+    /// <remarks>Keyed off whether the *participant* has an owner, not whether the requester is signed in:
+    /// an account-owned participant must be rejected for a signed-out guest exactly as it would be for a
+    /// signed-in account that isn't the owner. Guests may only claim unowned (guest) participants.</remarks>
     private static bool HasConflictingAccountOwner(Participant? selectedExistingParticipant, string? currentUserId)
     {
         if (selectedExistingParticipant is null)
-        {
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(currentUserId))
         {
             return false;
         }
