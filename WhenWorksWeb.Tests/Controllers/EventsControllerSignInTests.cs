@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
@@ -225,5 +226,66 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
         var alice = Db.Participants.Single(p => p.DisplayName == "Alice");
         Assert.Equal("111111", alice.Color);
         Assert.Equal(owner.Id, alice.UserId);
+    }
+
+    /// <summary>
+    /// If another request's save lands between this request's uniqueness pre-check and its own
+    /// SaveChangesAsync call — reachable by any two guests now that Issue #73 removed the rejoin-code gate on
+    /// claiming/updating participants — the resulting DbUpdateException from the unique index must be turned
+    /// into the same field-specific model errors the ordinary pre-check would have produced, not left to
+    /// surface as an unhandled exception. A SaveChangesInterceptor commits the "concurrent" participant via a
+    /// second DbContext at the exact moment this request's own save would hit the database, reproducing the
+    /// race deterministically instead of relying on real thread timing.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_LosesRaceToConcurrentDuplicate_AddsFieldSpecificModelErrors()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "111111" };
+
+        RaceInterceptor.ArmOnce(async () =>
+        {
+            using var racer = CreateConcurrentDbContext();
+            racer.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").Build());
+            await racer.SaveChangesAsync();
+        });
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.DisplayName)]!.Errors,
+            e => e.ErrorMessage == "That display name is already taken in this event.");
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.Color)]!.Errors,
+            e => e.ErrorMessage == "That color is already taken in this event.");
+
+        // Only the racer's participant should exist — this request's own save must not have partially succeeded.
+        var saved = Assert.Single(Db.Participants);
+        Assert.Equal("Alice", saved.DisplayName);
+    }
+
+    /// <summary>
+    /// A SaveChangesAsync failure that is NOT a display name/color conflict (e.g. a transient database error)
+    /// must propagate, not be silently swallowed as if it were a uniqueness race — the recovery path only
+    /// applies when re-running the uniqueness check actually finds a conflict.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_SaveFailsForUnrelatedReason_ExceptionPropagates()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "111111" };
+
+        RaceInterceptor.ArmOnce(() => throw new DbUpdateException("Simulated unrelated database failure."));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => controller.SignIn("BCDFGH", model, CancellationToken.None));
     }
 }

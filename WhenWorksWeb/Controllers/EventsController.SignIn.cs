@@ -97,10 +97,28 @@ public partial class EventsController
             return View(viewModel);
         }
 
-        // Save changes to the database to persist the new or updated participant record,
-        // and set the event access cookie for the participant to allow access to the event home page.
-        await _db.SaveChangesAsync(cancellationToken);
+        // Save changes to the database to persist the new or updated participant record.
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Another request may have taken the same display name or color between the uniqueness check above and
+            // this save. Re-run that check against the now-current database state so the redisplayed form gets the
+            // same field-specific error(s) it would have gotten if the conflict had been caught the first time.
+            await ValidateParticipantUniquenessAsync(eventEntity, selectedExistingParticipant?.Id, model.DisplayName, model.Color, cancellationToken);
 
+            if (!ModelState.IsValid)
+            {
+                return View(viewModel);
+            }
+
+            // The save failed for a reason other than a display name/color conflict; let it propagate.
+            throw;
+        }
+
+        // Set the event access cookie for the participant to allow access to the event home page.
         SetEventAccessCookie(eventEntity, participant);
         return RedirectToRoute("EventHome", new { code = eventEntity.Code });
     }
