@@ -26,8 +26,6 @@ public class EventSignInViewModelTests
 
     private static bool IsColorValid(string candidate) => IsPropertyValid(nameof(EventSignInViewModel.Color), candidate);
 
-    private static bool IsRejoinCodeValid(string? candidate) => IsPropertyValid(nameof(EventSignInViewModel.RejoinCode), candidate);
-
     [Fact]
     public void DisplayName_RejectsEmptyString()
     {
@@ -61,28 +59,5 @@ public class EventSignInViewModelTests
     public void Color_RejectsInvalidHexColors(string color)
     {
         Assert.False(IsColorValid(color));
-    }
-
-    [Fact]
-    public void RejoinCode_AcceptsNull()
-    {
-        // RejoinCode is intentionally optional — only required situationally (see
-        // EventsController.SignIn.RequiresRejoinCode), so no [Required] here is correct, not a gap.
-        Assert.True(IsRejoinCodeValid(null));
-    }
-
-    [Theory]
-    [InlineData("BCDFG")] // too short
-    [InlineData("BCDFGHJ")] // too long
-    [InlineData("AEILOU")] // excluded ambiguous letters
-    public void RejoinCode_RejectsInvalidCodes(string code)
-    {
-        Assert.False(IsRejoinCodeValid(code));
-    }
-
-    [Fact]
-    public void RejoinCode_AcceptsValidCode()
-    {
-        Assert.True(IsRejoinCodeValid("BCDFGH"));
     }
 }

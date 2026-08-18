@@ -14,7 +14,6 @@ public sealed class ParticipantBuilder
     private string _displayName = "Test Participant";
     private string _color = ModelConstants.DefaultParticipantColor;
     private string? _userId;
-    private string? _rejoinCode;
 
     public ParticipantBuilder ForEvent(int eventId)
     {
@@ -47,18 +46,11 @@ public sealed class ParticipantBuilder
         return this;
     }
 
-    public ParticipantBuilder WithRejoinCode(string? rejoinCode)
-    {
-        _rejoinCode = rejoinCode;
-        return this;
-    }
-
     public Participant Build() => new()
     {
         EventId = _eventId,
         DisplayName = _displayName,
         Color = _color,
-        UserId = _userId,
-        RejoinCode = _rejoinCode
+        UserId = _userId
     };
 }

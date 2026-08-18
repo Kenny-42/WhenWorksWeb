@@ -23,6 +23,13 @@ public abstract class SqliteDbContextFixture : IDisposable
     /// </summary>
     protected ApplicationDbContext Db { get; }
 
+    /// <summary>
+    /// Attached to <see cref="Db"/>. A no-op unless a test arms it (see
+    /// <see cref="RaceConditionSaveChangesInterceptor.ArmOnce"/>) to simulate a concurrent-write race
+    /// deterministically.
+    /// </summary>
+    protected RaceConditionSaveChangesInterceptor RaceInterceptor { get; } = new();
+
     protected SqliteDbContextFixture()
     {
         // A SQLite in-memory database only exists for as long as its connection stays open, so the
@@ -32,9 +39,9 @@ public abstract class SqliteDbContextFixture : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        // ApplicationDbContext.OnModelCreating pins specific SQL Server collations on Event.Code,
-        // Participant.DisplayName, and Participant.RejoinCode (see CODING_CONVENTIONS.md's "Collation
-        // differs by field on purpose"). SQLite has no built-in collation with those names, so schema
+        // ApplicationDbContext.OnModelCreating pins specific SQL Server collations on Event.Code and
+        // Participant.DisplayName (see CODING_CONVENTIONS.md's "Collation differs by field on purpose").
+        // SQLite has no built-in collation with those names, so schema
         // creation fails outright (SqliteException: "no such collation sequence") unless equivalent named
         // collations are registered on the connection first. This is the standard, documented mechanism
         // for this exact cross-provider scenario (Microsoft.Data.Sqlite's SqliteConnection.CreateCollation)
@@ -48,6 +55,7 @@ public abstract class SqliteDbContextFixture : IDisposable
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlite(_connection)
+            .AddInterceptors(RaceInterceptor)
             .Options;
 
         Db = new ApplicationDbContext(options);
@@ -58,6 +66,24 @@ public abstract class SqliteDbContextFixture : IDisposable
         // this pre-opened one, so foreign key violations are enforced exactly as they would be in
         // production (verified: a dangling FK insert throws DbUpdateException, not silently succeeds).
         Db.Database.EnsureCreated();
+    }
+
+    /// <summary>
+    /// Creates a second, independent <see cref="ApplicationDbContext"/> bound to the same underlying SQLite
+    /// connection as <see cref="Db"/> (not a new <c>:memory:</c> connection string, which would point at a
+    /// different, empty database — see the remark on <see cref="_connection"/>'s construction above). Lets a
+    /// test simulate a genuinely separate concurrent writer — e.g. another request's own
+    /// <see cref="ApplicationDbContext"/> — committing a row that <see cref="Db"/> can see, without needing a
+    /// second physical database or real multi-threading. Deliberately has no <see cref="RaceInterceptor"/>
+    /// attached: a real concurrent request's context wouldn't share it either.
+    /// </summary>
+    protected ApplicationDbContext CreateConcurrentDbContext()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+
+        return new ApplicationDbContext(options);
     }
 
     public void Dispose()

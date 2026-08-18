@@ -73,29 +73,17 @@ public partial class EventsController
             return null;
         }
 
-        // Load participants for the current user without AsNoTracking so a missing rejoin code can be generated and saved.
+        // Load participants for the current user to check for a single unambiguous match.
         var existingParticipantsForUser = await _db.Participants
+            .AsNoTracking()
             .Where(p => p.EventId == eventEntity.Id && p.UserId == currentUser.Id)
             .OrderBy(p => p.Id)
             .ToListAsync(cancellationToken);
 
         // If exactly one participant exists for the signed-in user, use it to pre-populate the form.
-        if (existingParticipantsForUser.Count == 1)
-        {
-            var existingParticipant = existingParticipantsForUser[0];
-
-            // If the existing participant record does not have a rejoin code, generate and save one so the user
-            // can use it if they sign out and need to rejoin.
-            if (string.IsNullOrWhiteSpace(existingParticipant.RejoinCode))
-            {
-                existingParticipant.RejoinCode = await _codeGenerator.GenerateUniqueParticipantRejoinCodeAsync(cancellationToken);
-                await _db.SaveChangesAsync(cancellationToken);
-            }
-
-            return existingParticipant;
-        }
-
-        return null;
+        return existingParticipantsForUser.Count == 1
+            ? existingParticipantsForUser[0]
+            : null;
     }
 
     /// <summary>

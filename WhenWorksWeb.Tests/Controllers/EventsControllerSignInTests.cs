@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
@@ -29,7 +30,7 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
 
     /// <summary>
     /// GET SignIn for an existing event, with no access cookie and no signed-in user, should render the sign-in
-    /// page with empty defaults and no rejoin code prompt.
+    /// page with empty defaults.
     /// </summary>
     [Fact]
     public async Task Get_WithExistingEventAndNoParticipant_ReturnsEmptySignInForm()
@@ -47,7 +48,6 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
         Assert.Equal("BCDFGH", model.Code);
         Assert.Equal("Trivia Night", model.EventName);
         Assert.Equal(string.Empty, model.DisplayName);
-        Assert.False(model.ShowRejoinCodeInput);
         Assert.Empty(model.ExistingParticipants);
     }
 
@@ -73,7 +73,6 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
         var savedParticipant = Assert.Single(Db.Participants);
         Assert.Equal("Alice", savedParticipant.DisplayName);
         Assert.Equal("ff66c4", savedParticipant.Color);
-        Assert.NotNull(savedParticipant.RejoinCode);
 
         var cookieValue = ControllerTestContext.GetResponseCookieValue(httpContext, "WhenWorksWeb.EventAccess.BCDFGH");
         Assert.NotNull(cookieValue);
@@ -129,72 +128,17 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
     }
 
     /// <summary>
-    /// Selecting an existing, unowned participant without supplying a rejoin code should be rejected — a rejoin
-    /// code is required whenever the signed-in session doesn't already own the participant.
+    /// Selecting an existing, unowned guest participant should update it and redirect straight to the event
+    /// home page — no rejoin code or other ownership proof is required (Issue #73: rejoin codes were removed
+    /// so any guest can pick an existing guest display name from the dropdown).
     /// </summary>
     [Fact]
-    public async Task Post_ExistingParticipant_WithMissingRejoinCode_AddsModelError()
+    public async Task Post_ExistingParticipant_SelectedWithoutOwnershipProof_UpdatesParticipantAndRedirects()
     {
         var evt = new EventBuilder().WithCode("BCDFGH").Build();
         Db.Events.Add(evt);
         await Db.SaveChangesAsync();
-        var existing = new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithRejoinCode("BCDFGH").Build();
-        Db.Participants.Add(existing);
-        await Db.SaveChangesAsync();
-
-        var (controller, _) = CreateController();
-        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4", SelectedExistingDisplayName = "Alice" };
-
-        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
-
-        Assert.IsType<ViewResult>(result);
-        Assert.Contains(
-            controller.ModelState[nameof(EventSignInViewModel.RejoinCode)]!.Errors,
-            e => e.ErrorMessage == "Rejoin code is required.");
-    }
-
-    /// <summary>
-    /// Selecting an existing, unowned participant with the wrong rejoin code should be rejected — matching is
-    /// case-insensitive so this proves it's actually comparing values, not just requiring presence.
-    /// </summary>
-    [Fact]
-    public async Task Post_ExistingParticipant_WithIncorrectRejoinCode_AddsModelError()
-    {
-        var evt = new EventBuilder().WithCode("BCDFGH").Build();
-        Db.Events.Add(evt);
-        await Db.SaveChangesAsync();
-        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithRejoinCode("BCDFGH").Build());
-        await Db.SaveChangesAsync();
-
-        var (controller, _) = CreateController();
-        var model = new EventSignInViewModel
-        {
-            Code = "BCDFGH",
-            DisplayName = "Alice",
-            Color = "ff66c4",
-            SelectedExistingDisplayName = "Alice",
-            RejoinCode = "MNPQRS"
-        };
-
-        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
-
-        Assert.IsType<ViewResult>(result);
-        Assert.Contains(
-            controller.ModelState[nameof(EventSignInViewModel.RejoinCode)]!.Errors,
-            e => e.ErrorMessage == "The rejoin code is incorrect.");
-    }
-
-    /// <summary>
-    /// Selecting an existing, unowned participant with the correct rejoin code (different case, since rejoin
-    /// codes are case-insensitive) should update the participant and redirect to the event home page.
-    /// </summary>
-    [Fact]
-    public async Task Post_ExistingParticipant_WithCorrectRejoinCode_UpdatesParticipantAndRedirects()
-    {
-        var evt = new EventBuilder().WithCode("BCDFGH").Build();
-        Db.Events.Add(evt);
-        await Db.SaveChangesAsync();
-        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").WithRejoinCode("PQRSTV").Build());
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").Build());
         await Db.SaveChangesAsync();
 
         var (controller, _) = CreateController();
@@ -203,8 +147,7 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
             Code = "BCDFGH",
             DisplayName = "Alice",
             Color = "222222",
-            SelectedExistingDisplayName = "Alice",
-            RejoinCode = "pqrstv"
+            SelectedExistingDisplayName = "Alice"
         };
 
         var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
@@ -217,44 +160,8 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
     }
 
     /// <summary>
-    /// A rejoin code that's valid for a *different* participant in the same event must not grant access to the
-    /// selected one — proves the code is checked against the specific selected participant, not "any rejoin
-    /// code that happens to exist in this event."
-    /// </summary>
-    [Fact]
-    public async Task Post_ExistingParticipant_WithAnotherParticipantsRejoinCode_AddsModelError()
-    {
-        var evt = new EventBuilder().WithCode("BCDFGH").Build();
-        Db.Events.Add(evt);
-        await Db.SaveChangesAsync();
-        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").WithRejoinCode("PQRSTV").Build());
-        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Bob").WithColor("222222").WithRejoinCode("MNPQRS").Build());
-        await Db.SaveChangesAsync();
-
-        var (controller, _) = CreateController();
-        var model = new EventSignInViewModel
-        {
-            Code = "BCDFGH",
-            DisplayName = "Alice",
-            Color = "111111",
-            SelectedExistingDisplayName = "Alice",
-            RejoinCode = "MNPQRS" // Bob's rejoin code, not Alice's
-        };
-
-        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
-
-        Assert.IsType<ViewResult>(result);
-        Assert.Contains(
-            controller.ModelState[nameof(EventSignInViewModel.RejoinCode)]!.Errors,
-            e => e.ErrorMessage == "The rejoin code is incorrect.");
-
-        var alice = Db.Participants.Single(p => p.DisplayName == "Alice");
-        Assert.Equal("111111", alice.Color); // unchanged — the update must not have gone through
-    }
-
-    /// <summary>
-    /// Selecting a participant already linked to a different signed-in account should be rejected outright,
-    /// without ever prompting for a rejoin code.
+    /// Selecting a participant already linked to a different signed-in account should still be rejected
+    /// outright — removing the rejoin code doesn't weaken the account-ownership guard.
     /// </summary>
     [Fact]
     public async Task Post_ExistingParticipant_OwnedByAnotherAccount_AddsConflictModelError()
@@ -283,5 +190,102 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
         Assert.Contains(
             controller.ModelState[nameof(EventSignInViewModel.SelectedExistingDisplayName)]!.Errors,
             e => e.ErrorMessage == "That participant is already associated with another account.");
+    }
+
+    /// <summary>
+    /// A signed-out guest selecting a participant that's linked to a real account must be rejected exactly like
+    /// a mismatched signed-in account would be — otherwise, with rejoin codes removed (Issue #73), an anonymous
+    /// guest could take over an account-owned participant (rename it, recolor it, and receive its access
+    /// cookie) just by picking its display name from the dropdown. Guests may only claim unowned participants.
+    /// </summary>
+    [Fact]
+    public async Task Post_ExistingParticipant_OwnedByAccount_WithNoSignedInUser_AddsConflictModelError()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var owner = new ApplicationUserBuilder().WithUserName("owner").WithEmail("owner@example.com").Build();
+        Db.Users.Add(owner);
+        await Db.SaveChangesAsync();
+
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").WithUserId(owner.Id).Build());
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4", SelectedExistingDisplayName = "Alice" };
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.SelectedExistingDisplayName)]!.Errors,
+            e => e.ErrorMessage == "That participant is already associated with another account.");
+
+        // The account-owned participant must be untouched — the rejected request must not have gone through.
+        var alice = Db.Participants.Single(p => p.DisplayName == "Alice");
+        Assert.Equal("111111", alice.Color);
+        Assert.Equal(owner.Id, alice.UserId);
+    }
+
+    /// <summary>
+    /// If another request's save lands between this request's uniqueness pre-check and its own
+    /// SaveChangesAsync call — reachable by any two guests now that Issue #73 removed the rejoin-code gate on
+    /// claiming/updating participants — the resulting DbUpdateException from the unique index must be turned
+    /// into the same field-specific model errors the ordinary pre-check would have produced, not left to
+    /// surface as an unhandled exception. A SaveChangesInterceptor commits the "concurrent" participant via a
+    /// second DbContext at the exact moment this request's own save would hit the database, reproducing the
+    /// race deterministically instead of relying on real thread timing.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_LosesRaceToConcurrentDuplicate_AddsFieldSpecificModelErrors()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "111111" };
+
+        RaceInterceptor.ArmOnce(async () =>
+        {
+            using var racer = CreateConcurrentDbContext();
+            racer.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Alice").WithColor("111111").Build());
+            await racer.SaveChangesAsync();
+        });
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.DisplayName)]!.Errors,
+            e => e.ErrorMessage == "That display name is already taken in this event.");
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.Color)]!.Errors,
+            e => e.ErrorMessage == "That color is already taken in this event.");
+
+        // Only the racer's participant should exist — this request's own save must not have partially succeeded.
+        var saved = Assert.Single(Db.Participants);
+        Assert.Equal("Alice", saved.DisplayName);
+    }
+
+    /// <summary>
+    /// A SaveChangesAsync failure that is NOT a display name/color conflict (e.g. a transient database error)
+    /// must propagate, not be silently swallowed as if it were a uniqueness race — the recovery path only
+    /// applies when re-running the uniqueness check actually finds a conflict.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_SaveFailsForUnrelatedReason_ExceptionPropagates()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "111111" };
+
+        RaceInterceptor.ArmOnce(() => throw new DbUpdateException("Simulated unrelated database failure."));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => controller.SignIn("BCDFGH", model, CancellationToken.None));
     }
 }

@@ -14,9 +14,4 @@ public sealed class EventHomeViewModel
     /// The title of the event.
     /// </summary>
     public required string Title { get; init; }
-
-    /// <summary>
-    /// The user's unique rejoin code that is used primarily for guests re-joining events.
-    /// </summary>
-    public required string RejoinCode { get; init; }
 }

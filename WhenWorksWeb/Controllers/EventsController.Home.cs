@@ -27,8 +27,7 @@ public partial class EventsController
         return View(new EventHomeViewModel
         {
             Code = eventEntity.Code,
-            Title = eventEntity.Title,
-            RejoinCode = participant.RejoinCode ?? string.Empty
+            Title = eventEntity.Title
         });
     }
 }

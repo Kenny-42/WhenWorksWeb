@@ -62,7 +62,7 @@ public partial class EventsController
             cancellationToken);
 
         // Repopulate the page model so the dropdown and event data stay intact.
-        ApplySignInViewModelState(viewModel, model, selectedExistingParticipant, currentUser?.Id);
+        ApplySignInViewModelState(viewModel, model);
 
         // Validate the model state after normalization. If it's invalid, redisplay the form with validation messages.
         if (!TryValidateModel(model))
@@ -74,7 +74,6 @@ public partial class EventsController
         if (!string.IsNullOrWhiteSpace(model.SelectedExistingDisplayName) && selectedExistingParticipant is null)
         {
             ModelState.AddModelError(nameof(EventSignInViewModel.SelectedExistingDisplayName), "That participant could not be found.");
-            viewModel.ShowRejoinCodeInput = false;
             return View(viewModel);
         }
 
@@ -85,24 +84,41 @@ public partial class EventsController
                 nameof(EventSignInViewModel.SelectedExistingDisplayName),
                 "That participant is already associated with another account.");
 
-            viewModel.ShowRejoinCodeInput = false;
             return View(viewModel);
         }
 
         // Create or update the participant depending on whether an existing participant was selected.
         var participant = selectedExistingParticipant is null
-            ? await TryCreateNewParticipantAsync(eventEntity, model, viewModel, currentUser, cancellationToken)
-            : await TryUpdateExistingParticipantAsync(eventEntity, selectedExistingParticipant, model, viewModel, currentUser, cancellationToken);
+            ? await TryCreateNewParticipantAsync(eventEntity, model, currentUser, cancellationToken)
+            : await TryUpdateExistingParticipantAsync(eventEntity, selectedExistingParticipant, model, currentUser, cancellationToken);
 
         if (participant is null)
         {
             return View(viewModel);
         }
 
-        // Save changes to the database to persist the new or updated participant record,
-        // and set the event access cookie for the participant to allow access to the event home page.
-        await _db.SaveChangesAsync(cancellationToken);
+        // Save changes to the database to persist the new or updated participant record.
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Another request may have taken the same display name or color between the uniqueness check above and
+            // this save. Re-run that check against the now-current database state so the redisplayed form gets the
+            // same field-specific error(s) it would have gotten if the conflict had been caught the first time.
+            await ValidateParticipantUniquenessAsync(eventEntity, selectedExistingParticipant?.Id, model.DisplayName, model.Color, cancellationToken);
 
+            if (!ModelState.IsValid)
+            {
+                return View(viewModel);
+            }
+
+            // The save failed for a reason other than a display name/color conflict; let it propagate.
+            throw;
+        }
+
+        // Set the event access cookie for the participant to allow access to the event home page.
         SetEventAccessCookie(eventEntity, participant);
         return RedirectToRoute("EventHome", new { code = eventEntity.Code });
     }
@@ -120,8 +136,6 @@ public partial class EventsController
         Participant? currentParticipant,
         CancellationToken cancellationToken)
     {
-        var currentUserId = currentUser?.Id;
-
         // Retrieve a list of existing participant display names for the event, ordered alphabetically.
         var existingParticipants = await _db.Participants
             .AsNoTracking()
@@ -130,10 +144,7 @@ public partial class EventsController
             .Select(p => new ParticipantSelectionViewModel
             {
                 DisplayName = p.DisplayName,
-                Color = p.Color,
-                // Only mark the participant as already associated when the signed-in account actually owns it.
-                // Browser-recognized participants should still require the rejoin code to be shown.
-                IsAssociatedWithCurrentUser = currentUserId != null && p.UserId == currentUserId
+                Color = p.Color
             })
             .ToListAsync(cancellationToken);
 
@@ -141,11 +152,6 @@ public partial class EventsController
         var displayName = string.Empty;
         var color = ModelConstants.DefaultParticipantColor;
         string? selectedDisplayName = null;
-        string? rejoinCode = null;
-
-        // Show the rejoin code when a participant is already selected, unless the signed-in account owns that participant.
-        // Guest browser recognition may still pre-fill the inputs, but it does not hide the rejoin code.
-        var showRejoinCodeInput = RequiresRejoinCode(currentParticipant, currentUser?.Id);
 
         // If a current participant is known from the access cookie or the signed-in user's existing event participation,
         // use it to pre-populate the form.
@@ -154,7 +160,6 @@ public partial class EventsController
             displayName = currentParticipant.DisplayName;
             color = currentParticipant.Color;
             selectedDisplayName = currentParticipant.DisplayName;
-            rejoinCode = currentParticipant.RejoinCode;
         }
         // If the user is logged in and does not already have an event participant record, attempt to use the user's profile
         // information as the default form values.
@@ -185,8 +190,6 @@ public partial class EventsController
             DisplayName = displayName,
             Color = color,
             SelectedExistingDisplayName = selectedDisplayName,
-            RejoinCode = rejoinCode,
-            ShowRejoinCodeInput = showRejoinCodeInput,
             ExistingParticipants = existingParticipants
         };
     }
@@ -199,7 +202,6 @@ public partial class EventsController
         model.DisplayName = model.DisplayName?.Trim() ?? string.Empty;
         model.Color = NormalizeColor(model.Color);
         model.SelectedExistingDisplayName = model.SelectedExistingDisplayName?.Trim();
-        model.RejoinCode = model.RejoinCode?.Trim().ToUpperInvariant();
     }
 
     /// <summary>
@@ -207,15 +209,11 @@ public partial class EventsController
     /// </summary>
     private static void ApplySignInViewModelState(
         EventSignInViewModel viewModel,
-        EventSignInViewModel model,
-        Participant? selectedExistingParticipant,
-        string? currentUserId)
+        EventSignInViewModel model)
     {
         viewModel.DisplayName = model.DisplayName;
         viewModel.Color = model.Color;
         viewModel.SelectedExistingDisplayName = model.SelectedExistingDisplayName;
-        viewModel.RejoinCode = model.RejoinCode;
-        viewModel.ShowRejoinCodeInput = RequiresRejoinCode(selectedExistingParticipant, currentUserId);
     }
 
     /// <summary>
@@ -243,7 +241,6 @@ public partial class EventsController
     private async Task<Participant?> TryCreateNewParticipantAsync(
         Event eventEntity,
         EventSignInViewModel model,
-        EventSignInViewModel viewModel,
         ApplicationUser? currentUser,
         CancellationToken cancellationToken)
     {
@@ -253,8 +250,7 @@ public partial class EventsController
             EventId = eventEntity.Id,
             UserId = currentUser?.Id,
             DisplayName = model.DisplayName,
-            Color = model.Color,
-            RejoinCode = await _codeGenerator.GenerateUniqueParticipantRejoinCodeAsync(cancellationToken)
+            Color = model.Color
         };
 
         // Validate uniqueness for the new participant record before adding it to the database.
@@ -263,7 +259,6 @@ public partial class EventsController
         // If validation fails, redisplay the form with validation errors. The new participant record will not be added to the database.
         if (!ModelState.IsValid)
         {
-            viewModel.ShowRejoinCodeInput = false;
             return null;
         }
 
@@ -272,65 +267,21 @@ public partial class EventsController
     }
 
     /// <summary>
-    /// Updates an existing participant after verifying rejoin access and validating uniqueness.
+    /// Updates an existing participant after validating uniqueness.
     /// </summary>
     private async Task<Participant?> TryUpdateExistingParticipantAsync(
         Event eventEntity,
         Participant selectedExistingParticipant,
         EventSignInViewModel model,
-        EventSignInViewModel viewModel,
         ApplicationUser? currentUser,
         CancellationToken cancellationToken)
     {
-        // Participants that are already associated with the signed-in account do not require a rejoin code.
-        // If the participant does not yet have a rejoin code, generate one behind the scenes.
-        if (!RequiresRejoinCode(selectedExistingParticipant, currentUser?.Id))
-        {
-            if (string.IsNullOrWhiteSpace(selectedExistingParticipant.RejoinCode))
-            {
-                selectedExistingParticipant.RejoinCode = await _codeGenerator.GenerateUniqueParticipantRejoinCodeAsync(cancellationToken);
-            }
-
-            model.RejoinCode = selectedExistingParticipant.RejoinCode;
-        }
-        // If the signed-in user is not already associated with this participant, validate the rejoin code they entered.
-        else
-        {
-            // If the rejoin code is missing from the form submission, add a model error and redisplay the form with the
-            // rejoin code input shown.
-            if (string.IsNullOrWhiteSpace(model.RejoinCode))
-            {
-                ModelState.AddModelError(nameof(EventSignInViewModel.RejoinCode), "Rejoin code is required.");
-                viewModel.ShowRejoinCodeInput = true;
-                return null;
-            }
-
-            // If the participant does not have a rejoin code in the database, add a model error and redisplay the form with
-            // the rejoin code input shown.
-            if (string.IsNullOrWhiteSpace(selectedExistingParticipant.RejoinCode))
-            {
-                ModelState.AddModelError(nameof(EventSignInViewModel.RejoinCode), "This participant does not have a rejoin code yet.");
-                viewModel.ShowRejoinCodeInput = true;
-                return null;
-            }
-
-            // If the rejoin code provided by the user does not match the participant's rejoin code in the database,
-            // add a model error and redisplay the form with the rejoin code input shown.
-            if (!string.Equals(selectedExistingParticipant.RejoinCode, model.RejoinCode, StringComparison.OrdinalIgnoreCase))
-            {
-                ModelState.AddModelError(nameof(EventSignInViewModel.RejoinCode), "The rejoin code is incorrect.");
-                viewModel.ShowRejoinCodeInput = true;
-                return null;
-            }
-        }
-
         // Validate uniqueness before updating the existing participant record.
         await ValidateParticipantUniquenessAsync(eventEntity, selectedExistingParticipant.Id, model.DisplayName, model.Color, cancellationToken);
 
         // If validation fails, redisplay the form with validation errors. The existing participant record will not be updated in the database.
         if (!ModelState.IsValid)
         {
-            viewModel.ShowRejoinCodeInput = RequiresRejoinCode(selectedExistingParticipant, currentUser?.Id);
             return null;
         }
 
@@ -395,32 +346,15 @@ public partial class EventsController
     }
 
     /// <summary>
-    /// Determines whether the selected participant requires a rejoin code.
+    /// Returns a value indicating whether the selected participant is already owned by an account other than
+    /// the current requester.
     /// </summary>
-    private static bool RequiresRejoinCode(Participant? selectedExistingParticipant, string? currentUserId)
-    {
-        if (selectedExistingParticipant is null)
-        {
-            return false;
-        }
-
-        // The rejoin code is only skipped when the selected participant is already associated with the
-        // currently signed-in account.
-        return string.IsNullOrWhiteSpace(currentUserId) ||
-               !string.Equals(selectedExistingParticipant.UserId, currentUserId, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Returns a value indicating whether the selected participant is already owned by another signed-in account.
-    /// </summary>
+    /// <remarks>Keyed off whether the *participant* has an owner, not whether the requester is signed in:
+    /// an account-owned participant must be rejected for a signed-out guest exactly as it would be for a
+    /// signed-in account that isn't the owner. Guests may only claim unowned (guest) participants.</remarks>
     private static bool HasConflictingAccountOwner(Participant? selectedExistingParticipant, string? currentUserId)
     {
         if (selectedExistingParticipant is null)
-        {
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(currentUserId))
         {
             return false;
         }

@@ -33,16 +33,6 @@ public class UniqueCodeGenerator(ApplicationDbContext dbContext)
     }
 
     /// <summary>
-    /// Asynchronously generates a unique participant rejoin code that does not already exist in the database.
-    /// </summary>
-    /// <remarks>This method uses the exact same generation logic as event codes, with the same length and alphabet.</remarks>
-    public Task<string> GenerateUniqueParticipantRejoinCodeAsync(CancellationToken cancellationToken = default)
-    {
-        return GenerateUniqueCodeAsync(
-            async code => await dbContext.Participants.AnyAsync(p => p.RejoinCode == code, cancellationToken));
-    }
-
-    /// <summary>
     /// Generates codes until one is found that <paramref name="existsAsync"/> reports as not already in use,
     /// or throws if <see cref="MaxAttempts"/> is exceeded.
     /// </summary>
