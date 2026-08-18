@@ -1,0 +1,46 @@
+@page
+@model DeletePersonalDataModel
+@{
+    ViewData["Title"] = "Delete Personal Data";
+    ViewData["ActivePage"] = ManageNavPages.PersonalData;
+}
+
+<h2 class="h4 font-display text-on-gradient mb-2">@ViewData["Title"]</h2>
+<hr class="account-divider w-100 mb-3" />
+
+<div class="alert alert-warning" role="alert">
+    <p class="mb-0">
+        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+    </p>
+</div>
+
+<form id="delete-user" method="post" class="d-flex flex-column align-items-center gap-2">
+    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+    @if (Model.RequirePassword)
+    {
+        <div>
+            <label asp-for="Input.Password" class="text-on-gradient fw-bold mb-1 d-block">Enter your password</label>
+            <input asp-for="Input.Password"
+                   class="form-control input-pill input-pill-red mx-auto"
+                   style="width: 100%; max-width: 16rem;"
+                   autocomplete="current-password"
+                   aria-required="true"
+                   placeholder="Password" />
+            <span asp-validation-for="Input.Password" class="text-danger d-block mt-1"></span>
+        </div>
+    }
+
+    <!-- align-items-center overrides the flex row's default "stretch" —
+         without it, Cancel matches the multi-line Delete button's full
+         height instead of sizing to its own short text, rendering as an
+         oversized pill/circle instead of a small button. -->
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <a asp-page="./PersonalData" class="btn modal-cancel-button">Cancel</a>
+        <button class="btn modal-delete-button" type="submit">DELETE DATA AND CLOSE MY ACCOUNT</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
