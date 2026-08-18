@@ -485,3 +485,120 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* ==========================================================================
+   Event Sign-In page. Reuses the .input-pill/.input-pill-blue tokens from
+   the Home page pass above; the two additions below are specific to this
+   page's controls (a pill-shaped <select> with an inset arrow well, a
+   circular color swatch, and a large "Enter!" call-to-action pill).
+   ========================================================================== */
+
+/* Layered on top of .input-pill.input-pill-blue on the existing-participant
+   <select> — that pair still supplies the fill/border/font/focus styling
+   identical to a text input; this class only replaces the browser's native
+   dropdown affordance with a darker inset "well" and a white arrow glyph,
+   matching the reference mockup. Two background layers: the arrow icon,
+   then a hard-stop linear-gradient standing in for a solid box (a real box
+   would need an extra wrapper element, since a <select> can't host a
+   pseudo-element) — clipped to the pill's own border-radius automatically
+   since background-clip defaults to border-box. */
+.select-arrow-inset {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 3.25rem;
+  background-repeat: no-repeat, no-repeat;
+  background-position: center right 0.75rem, right center;
+  background-size: 1rem 1rem, 2.5rem 100%;
+}
+
+.select-arrow-inset.input-pill-blue {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, var(--color-accent-blue-border) 2.5rem, transparent 2.5rem);
+}
+
+/* The open options list is rendered by the browser/OS, not by this stylesheet, so it
+   can't pick up the pill shape or gradient — only a resting row's color/background can
+   be influenced here, which Chrome/Edge honor and Firefox partially honors. This swaps
+   the browser's stark white default list for the same blue/white pairing as the
+   closed pill, so it at least reads as part of the same control instead of a jarring
+   default-styled popup.
+
+   The hovered/selected row is intentionally NOT styled here: Chromium-based browsers
+   (confirmed on both Edge and Brave) paint that row with the OS's own system
+   "Highlight" color and there is no CSS override for it — not even the background
+   shorthand + flat-gradient trick sometimes cited for older WebKit. Fully custom
+   hover styling would require replacing the native <select> with a custom-built
+   listbox; not attempted here, see conversation with the developer. */
+.select-arrow-inset.input-pill-blue option {
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-on-gradient);
+}
+
+/* Native color input, restyled as a circular swatch (input[type=color] has
+   no cross-browser way to become a circle via a wrapper, so its own
+   ::-webkit-color-swatch-* / ::-moz-color-swatch pseudo-elements are
+   targeted directly). White ring matches the mockup regardless of which
+   accent color is currently picked. */
+.color-swatch-picker {
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  border: 3px solid var(--color-text-on-gradient);
+  border-radius: 50%;
+  cursor: pointer;
+  background: none;
+}
+
+.color-swatch-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.color-swatch-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.color-swatch-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.color-swatch-picker:focus {
+  box-shadow: none;
+}
+
+/* Primary call-to-action for this page — same green accent/hover behavior
+   as .go-button (STYLE_GUIDE.md's "GO!" pattern), but a large labeled pill
+   rather than a small circle, since this page has one page-level action
+   instead of one per input. */
+.enter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 3rem;
+  border: 2px solid var(--color-accent-green-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-green);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+/* Same hover/active/focus treatment as .go-button — see its comments above
+   for why !important is required here too. */
+.enter-button:hover,
+.enter-button:active {
+  background-color: var(--color-accent-green-border) !important;
+  border-color: var(--color-accent-green-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.enter-button:focus {
+  box-shadow: none;
+}

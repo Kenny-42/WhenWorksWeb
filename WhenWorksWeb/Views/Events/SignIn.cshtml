@@ -6,14 +6,18 @@
 }
 
 <!-- Event sign-in container -->
-<div class="container py-4" style="max-width: 32rem;">
-    <h1 class="h3 mb-3">@Model.EventName</h1>
+<div class="text-center">
+    <!-- Event name stays the page's primary heading; "Enter Your Nickname" from the
+         reference mockup is kept as a smaller subtitle, pushed down from the title so
+         the two read as visually distinct rather than one stacked block. -->
+    <h1 class="display-4 font-display text-on-gradient mb-2">@Model.EventName</h1>
+    <h2 class="h4 font-display text-on-gradient mt-4 mb-2">ENTER YOUR NICKNAME</h2>
 
     <form asp-action="SignIn"
           asp-controller="Events"
           asp-route-code="@Model.Code"
           method="post"
-          class="d-grid gap-3"
+          class="d-flex flex-column align-items-center gap-2"
           id="eventSignInForm">
 
         <input type="hidden" asp-for="Code" />
@@ -22,16 +26,23 @@
 
         <!-- Participant name input -->
         <div>
-            <label asp-for="DisplayName" class="form-label"></label>
-            <input asp-for="DisplayName" class="form-control" autocomplete="nickname" />
-            <span asp-validation-for="DisplayName" class="text-danger"></span>
+            <label asp-for="DisplayName" class="visually-hidden"></label>
+            <input asp-for="DisplayName"
+                   class="form-control input-pill input-pill-yellow"
+                   style="width: 16rem;"
+                   placeholder="Your Name"
+                   autocomplete="nickname" />
+            <span asp-validation-for="DisplayName" class="text-danger d-block mt-1"></span>
         </div>
+
+        <p class="text-on-gradient fw-bold small mb-1">Already joined? Choose your name from the dropdown below</p>
 
         <!-- Existing participant dropdown -->
         <div>
-            <label class="form-label" for="existingDisplayNames">Participant</label>
+            <label class="visually-hidden" for="existingDisplayNames">Participant</label>
             <select asp-for="SelectedExistingDisplayName"
-                    class="form-select"
+                    class="form-select input-pill input-pill-blue select-arrow-inset"
+                    style="width: 16rem;"
                     id="existingDisplayNames">
                 @if (string.IsNullOrWhiteSpace(selectedExistingDisplayName))
                 {
@@ -61,21 +72,23 @@
                     }
                 }
             </select>
-            <span asp-validation-for="SelectedExistingDisplayName" class="text-danger"></span>
+            <span asp-validation-for="SelectedExistingDisplayName" class="text-danger d-block mt-1"></span>
         </div>
+
+        <h2 class="h4 font-display text-on-gradient mt-4 mb-2">CHOOSE YOUR COLOR</h2>
 
         <!-- Participant color input -->
         <div>
-            <label class="form-label" for="colorPicker">Color</label>
+            <label class="visually-hidden" for="colorPicker">Color</label>
             <input type="color"
                    id="colorPicker"
-                   class="form-control form-control-color"
+                   class="color-swatch-picker"
                    value="#@Model.Color" />
             <input asp-for="Color" type="hidden" id="Color" />
-            <span asp-validation-for="Color" class="text-danger"></span>
+            <span asp-validation-for="Color" class="text-danger d-block mt-1"></span>
         </div>
 
-        <button type="submit" class="btn btn-primary">Enter Event</button>
+        <button type="submit" class="btn enter-button mt-4">ENTER!</button>
     </form>
 </div>
 
