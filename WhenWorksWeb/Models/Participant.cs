@@ -21,12 +21,6 @@ public class Participant
     /// <summary>The required length of <see cref="Color"/>.</summary>
     private const int HexColorLength = ModelConstants.HexColorLength;
 
-    /// <summary>The required length of <see cref="RejoinCode"/>.</summary>
-    private const int RejoinCodeLength = ModelConstants.UniqueCodeLength;
-
-    /// <summary>The regular expression <see cref="RejoinCode"/> must match.</summary>
-    private const string RejoinCodePattern = ModelConstants.EventCodePattern;
-
     /// <summary>
     /// The database id for the participant.
     /// </summary>
@@ -59,14 +53,6 @@ public class Participant
     [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
     [StringLength(HexColorLength, MinimumLength = HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
     public required string Color { get; set; }
-
-    /// <summary>
-    /// A unique 6-character code that allows the participant to rejoin the same event later.
-    /// This uses the same format and generation rules as event codes for consistency.
-    /// </summary>
-    [StringLength(RejoinCodeLength, MinimumLength = RejoinCodeLength, ErrorMessage = "Rejoin code must be exactly 6 characters.")]
-    [RegularExpression(RejoinCodePattern, ErrorMessage = "Rejoin code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
-    public string? RejoinCode { get; set; }
 
     /// <summary>
     /// The event this participant belongs to.

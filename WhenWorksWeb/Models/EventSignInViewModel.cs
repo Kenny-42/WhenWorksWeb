@@ -12,9 +12,9 @@ namespace WhenWorksWeb.Models;
 /// no form input at all. Neither of those two can be `required`/non-nullable-without-a-default: the model
 /// binder bypasses the compiler's `required` enforcement (it isn't built via `new { ... }` syntax), so a
 /// `required` property with no default is left null after binding, which trips ASP.NET Core's automatic
-/// non-nullable-reference-type validation and silently fails the whole POST. DisplayName, Color,
-/// SelectedExistingDisplayName, RejoinCode, and ShowRejoinCodeInput are also reassigned in place by
-/// NormalizeSignInModel/ApplySignInViewModelState after binding, so they stay mutable regardless.</remarks>
+/// non-nullable-reference-type validation and silently fails the whole POST. DisplayName, Color, and
+/// SelectedExistingDisplayName are also reassigned in place by NormalizeSignInModel/ApplySignInViewModelState
+/// after binding, so they stay mutable regardless.</remarks>
 public sealed class EventSignInViewModel
 {
     /// <summary>
@@ -57,23 +57,6 @@ public sealed class EventSignInViewModel
     public string? SelectedExistingDisplayName { get; set; }
 
     /// <summary>
-    /// Gets or sets the participant rejoin code.
-    /// </summary>
-    /// <remarks>This value is hidden for signed-in users and shown only when a participant selection requires
-    /// reauthentication or rejoin verification.</remarks>
-    [StringLength(ModelConstants.UniqueCodeLength, MinimumLength = ModelConstants.UniqueCodeLength,
-        ErrorMessage = "Rejoin code must be exactly 6 characters.")]
-    [RegularExpression(ModelConstants.EventCodePattern,
-        ErrorMessage = "Rejoin code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
-    [Display(Name = "Rejoin Code")]
-    public string? RejoinCode { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value that determines whether the rejoin code input should be shown to the user.
-    /// </summary>
-    public bool ShowRejoinCodeInput { get; set; }
-
-    /// <summary>
     /// Gets or sets the list of available participant options for the event.
     /// </summary>
     public IReadOnlyList<ParticipantSelectionViewModel> ExistingParticipants { get; set; } = [];
@@ -93,10 +76,4 @@ public sealed class ParticipantSelectionViewModel
     /// Gets or sets the participant color.
     /// </summary>
     public required string Color { get; init; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether this participant is already associated with the current signed-in
-    /// account.
-    /// </summary>
-    public bool IsAssociatedWithCurrentUser { get; init; }
 }
