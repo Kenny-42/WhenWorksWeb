@@ -1,0 +1,86 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Profile";
+    ViewData["ActivePage"] = ManageNavPages.Index;
+}
+
+<!-- Profile page: username (read-only), phone, and the same
+     display name / color pair collected at registration. -->
+<h2 class="h4 font-display text-on-gradient mb-2">@ViewData["Title"]</h2>
+<hr class="account-divider w-100 mb-3" />
+<partial name="_StatusMessage" for="StatusMessage" />
+
+<form id="profile-form" method="post" class="d-flex flex-column align-items-center gap-2">
+    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+    <!-- Username (read-only) -->
+    <div>
+        <label asp-for="Username" class="text-on-gradient fw-bold mb-1 d-block"></label>
+        <input asp-for="Username"
+               class="form-control input-pill input-pill-yellow mx-auto"
+               style="width: 100%; max-width: 16rem;"
+               placeholder="Username"
+               disabled />
+    </div>
+
+    <!-- Phone number -->
+    <div>
+        <label asp-for="Input.PhoneNumber" class="text-on-gradient fw-bold mb-1 d-block"></label>
+        <input asp-for="Input.PhoneNumber"
+               class="form-control input-pill input-pill-yellow mx-auto"
+               style="width: 100%; max-width: 16rem;"
+               placeholder="000-000-0000" />
+        <span asp-validation-for="Input.PhoneNumber" class="text-danger d-block mt-1"></span>
+    </div>
+
+    <!-- Display name -->
+    <div>
+        <label asp-for="Input.DisplayName" class="text-on-gradient fw-bold mb-1 d-block"></label>
+        <input asp-for="Input.DisplayName"
+               class="form-control input-pill input-pill-blue mx-auto"
+               style="width: 100%; max-width: 16rem;"
+               autocomplete="nickname"
+               aria-required="true"
+               placeholder="Name" />
+        <span asp-validation-for="Input.DisplayName" class="text-danger d-block mt-1"></span>
+    </div>
+
+    <!-- Color picker input that stores a hex value, styled as a circular swatch
+         matching the participant color picker on the Event Sign-In and
+         Register pages. -->
+    <div class="mt-1 d-flex flex-column align-items-center">
+        <label class="text-on-gradient fw-bold mb-1" for="colorPicker">Pick your personal color!</label>
+        <input type="color"
+               id="colorPicker"
+               class="color-swatch-picker"
+               value="#@Model.Input.Color" />
+        <input asp-for="Input.Color" type="hidden" id="Input_Color" />
+        <span asp-validation-for="Input.Color" class="text-danger d-block mt-1"></span>
+    </div>
+
+    <button id="update-profile-button" type="submit" class="btn enter-button mt-3">SAVE</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <!-- Synchronizes the visible color picker with the hidden posted value -->
+    <script>
+        const form = document.getElementById('profile-form');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorHidden = document.getElementById('Input_Color');
+
+        function syncColor() {
+            colorHidden.value = colorPicker.value.replace('#', '');
+        }
+
+        colorPicker.addEventListener('input', syncColor);
+
+        form.addEventListener('submit', () => {
+            syncColor();
+        });
+
+        syncColor();
+    </script>
+}

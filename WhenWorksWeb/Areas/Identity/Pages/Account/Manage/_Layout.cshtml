@@ -1,0 +1,42 @@
+@{
+    // This project has no Areas/Identity/Pages/_Layout.cshtml of its own —
+    // every page nests straight into the shared site layout instead, so
+    // that's the fallback here rather than the scaffold's default guess.
+    if (ViewData.TryGetValue("ParentLayout", out var parentLayout) && parentLayout != null)
+    {
+        Layout = parentLayout.ToString();
+    }
+    else
+    {
+        Layout = "/Views/Shared/_Layout.cshtml";
+    }
+}
+
+<!-- Manage account container: page heading + pill sidebar nav, sitting
+     directly on the gradient like the other Identity pages. -->
+<div class="text-center">
+    <h1 class="display-4 font-display text-on-gradient mb-4">ACCOUNT SETTINGS</h1>
+
+    <div class="row justify-content-center gx-5">
+        <div class="col-md-3 mb-4 mb-md-0">
+            <!-- Invisible spacer, identical markup/classes to the h2 + divider
+                 every Manage page renders at the top of the content column —
+                 reserves that exact height (not a guessed fixed margin, so it
+                 stays correct if that heading's size/spacing ever changes)
+                 so the nav's first pill starts below the divider line instead
+                 of sitting level with the heading text next to it. -->
+            <div class="invisible" aria-hidden="true">
+                <h2 class="h4 font-display mb-2">&nbsp;</h2>
+                <hr class="account-divider w-100 mb-3" />
+            </div>
+            <partial name="_ManageNav" />
+        </div>
+        <div class="col-md-6">
+            @RenderBody()
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @RenderSection("Scripts", required: false)
+}
