@@ -59,6 +59,20 @@ body {
   font-family: var(--font-body);
 }
 
+/* ASP.NET Core's asp-validation-summary tag helper always renders errors as
+   a <ul>/<li> list and stamps ".validation-summary-errors" onto the summary
+   element itself (alongside whatever class, e.g. "text-danger", the view
+   adds) — so this targets every validation summary sitewide (Home, Sign-In,
+   Login, Register, ...) rather than needing a per-page override. Every page
+   in this style centers its validation text and stacks messages on separate
+   lines already; only the bullet/indent is Bootstrap/browser default and
+   doesn't fit the site's plainer look. */
+.validation-summary-errors ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
 /* ==========================================================================
    Shared layout chrome — navbar and footer (Spec/Features/FEATURES-shared-
    layout-style-guide.ospec, Step 1). Nav items/text/routes are unchanged;
@@ -399,6 +413,16 @@ body {
   border: 2px solid var(--color-accent-blue-border);
 }
 
+/* Red pill variant — first used on the Register page's password fields.
+   Reuses the same --color-accent-red/-border tokens as the destructive
+   modal buttons, but here it isn't signaling a destructive action; it's
+   just a third input accent alongside yellow/blue for pages with more
+   fields than that pair can distinguish. */
+.input-pill-red {
+  background-color: var(--color-accent-red);
+  border: 2px solid var(--color-accent-red-border);
+}
+
 /* Event Name / Event Code inputs never change appearance, focused or not.
    Bootstrap's own .form-control:focus rule (same 0,2,0 specificity as the
    variant selectors below) swaps in its default white background, blue
@@ -418,6 +442,11 @@ body {
 .input-pill-blue:focus {
   background-color: var(--color-accent-blue-fill) !important;
   border-color: var(--color-accent-blue-border) !important;
+}
+
+.input-pill-red:focus {
+  background-color: var(--color-accent-red) !important;
+  border-color: var(--color-accent-red-border) !important;
 }
 
 /* Chrome/Edge/Safari paint autofilled fields (e.g. picking a suggestion
@@ -443,6 +472,16 @@ body {
 .input-pill-blue:-webkit-autofill:active,
 .input-pill-blue:autofill {
   box-shadow: 0 0 0 1000px var(--color-accent-blue-fill) inset !important;
+  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
+  caret-color: var(--color-text-on-gradient);
+}
+
+.input-pill-red:-webkit-autofill,
+.input-pill-red:-webkit-autofill:hover,
+.input-pill-red:-webkit-autofill:focus,
+.input-pill-red:-webkit-autofill:active,
+.input-pill-red:autofill {
+  box-shadow: 0 0 0 1000px var(--color-accent-red) inset !important;
   -webkit-text-fill-color: var(--color-text-on-gradient) !important;
   caret-color: var(--color-text-on-gradient);
 }
@@ -854,4 +893,89 @@ body {
   background-color: var(--color-accent-red);
   border-color: var(--color-accent-red-border);
   opacity: 0.5;
+}
+
+/* ==========================================================================
+   Identity account pages (Areas/Identity/Pages/Account/Login.cshtml,
+   Register.cshtml — both share this two-column "local form" / "external
+   providers" layout). Reuses the .input-pill/.input-pill-yellow/
+   .input-pill-blue, .enter-button, and .color-swatch-picker tokens from the
+   Home/Sign-In pages; the three classes below are specific to this shared
+   layout (a divider under each column heading, height-matching for those
+   headings, and a secondary outline pill for external providers).
+   ========================================================================== */
+
+/* Same rounded-capsule divider technique as .navbar-divider, scoped to this
+   layout instead of reusing that class directly — kept separate since each
+   page section in this file defines its own small set of page-specific
+   classes rather than sharing one generically-named divider across pages.
+
+   Markup note: on both Login and Register, this divider (and the heading
+   above it) must sit as a sibling *before* the form that follows, not
+   nested inside it — the form uses Bootstrap's flex "gap-2" utility to
+   space its own children, and if the heading/divider were nested inside
+   that form, the gap would add extra space after the divider on that
+   column only, throwing off the height-matching below despite both
+   headings measuring equal. Lost an hour to exactly this once already;
+   don't reintroduce it on a future account page. */
+.account-divider {
+  height: 2px;
+  margin: 0 0 0.5rem;
+  border: none;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  opacity: 1;
+}
+
+/* The two column headings (e.g. "Use a Local Account" / "Use Another
+   Service") wrap to a different number of lines at some widths, which would
+   otherwise leave their .account-divider lines at different heights when
+   the columns sit side by side. Bottom-align both headings within a shared
+   min-height so the dividers underneath always land at the same y position.
+
+   min-height is in em, not rem: it has to reserve exactly two lines of the
+   heading's *own* font-size (Bootstrap's heading reset already sets
+   line-height: 1.2, restated here so the 2.4em math is self-contained
+   rather than relying on that staying unchanged elsewhere), not two lines
+   of the root font-size — the two don't match here since html's root
+   font-size is itself scaled up at this same md breakpoint (see the root
+   `html { font-size }` rules near the top of this file), so a rem value
+   sized for one would be wrong relative to the heading's actual text size.
+
+   Scoped to the md breakpoint and up, matching where the columns actually
+   go side-by-side (col-md-5) — below that they're stacked single-column
+   and don't need alignment. */
+@media (min-width: 768px) {
+  .account-column-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 2.4em;
+    line-height: 1.2;
+  }
+}
+
+/* Secondary action pill for "log in with an external provider" buttons —
+   same transparent, white-outlined treatment as .modal-cancel-button, since
+   this is a secondary path alongside the page's primary local-account form. */
+.external-login-button {
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-text-on-gradient);
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+}
+
+.external-login-button:hover,
+.external-login-button:active {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.external-login-button:focus {
+  box-shadow: none;
 }
