@@ -979,3 +979,60 @@ body {
 .external-login-button:focus {
   box-shadow: none;
 }
+
+/* ==========================================================================
+   Identity Manage account pages (Areas/Identity/Pages/Account/Manage/*).
+   Reuses the .input-pill/.enter-button/.color-swatch-picker tokens above and
+   .modal-delete-button from the My Events delete modal for the account
+   deletion actions; the two rules below are specific to this section (the
+   sidebar nav, and a disabled-state override for read-only pills like the
+   Username/current-email fields).
+   ========================================================================== */
+
+/* Read-only pills (Username on Profile, current email on the Email page)
+   render disabled — Bootstrap's own ".form-control:disabled" rule already
+   flattens the background to a pale, low-contrast grey but leaves the
+   yellow/blue/red border from whichever .input-pill-* variant is applied,
+   so without this the pill ends up a mismatched pale-grey-with-accent-
+   border combo. Restated here as a flat dark grey, overriding whichever
+   color variant is applied, since "disabled" should always read the same
+   regardless of which pill color a field would otherwise use. */
+.input-pill:disabled {
+  background-color: #6c757d !important;
+  border-color: #495057 !important;
+  color: var(--color-text-on-gradient) !important;
+  opacity: 1;
+}
+
+.input-pill:disabled::placeholder {
+  color: var(--color-text-on-gradient);
+  opacity: 0.85;
+}
+
+/* Sidebar nav link for the Manage pages. Same transparent white-outlined
+   pill as .external-login-button/.modal-cancel-button at rest; the active
+   page fills solid white instead, reusing neither the yellow/blue accent
+   pair (reserved for the Create/Join semantic pair per STYLE_GUIDE.md) nor
+   the My Events "selected row" pink (scoped to that list) — a plain white
+   fill reads as "current tab" without borrowing either token's meaning. */
+.manage-nav-link {
+  display: block;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-text-on-gradient);
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  padding: 0.5rem 1.5rem;
+}
+
+.manage-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.manage-nav-link.active {
+  background-color: var(--color-text-on-gradient);
+  color: var(--color-accent-blue-border);
+}
