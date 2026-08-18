@@ -12,22 +12,24 @@
 <!-- Page container -->
 <div class="container py-4" style="max-width: 42rem;">
     <!-- Page heading -->
-    <h1 class="h3 mb-3 text-center">My Events</h1>
+    <h1 class="display-4 font-display text-on-gradient text-center mb-4">MY EVENTS</h1>
 
     <!-- Empty state shown when the user has not joined any events -->
     @if (Model.Count == 0)
     {
-        <div class="alert alert-info mb-0">
-            You have not joined any events yet.
-        </div>
+        <p class="text-on-gradient fw-bold text-center mb-0">
+            Oops! You have not joined any events yet.
+        </p>
     }
     else
     {
-        <!-- Event list card with a fixed-height scrolling interior -->
-        <div class="card">
+        <!-- Event list card with a capped-height scrolling interior -->
+        <div class="card my-events-card">
 
-            <!-- Scrollable container for the joined event list -->
-            <div class="card-body p-0 overflow-auto" id="my-events-list" style="max-height: 21rem;">
+            <!-- Scrollable container for the joined event list. Capped at 21rem
+                 (scrolls beyond that) but otherwise shrinks to fit however many
+                 rows exist, so a short list doesn't leave blank card space. -->
+            <div class="card-body p-0 overflow-auto my-events-list" id="my-events-list" style="max-height: 21rem;">
                 <div class="list-group list-group-flush">
                     @foreach (var myEvent in Model)
                     {
@@ -35,7 +37,7 @@
                         var participantsJson = JsonSerializer.Serialize(myEvent.Participants, participantsJsonOptions);
 
                         <!-- Clickable event row -->
-                        <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 my-event-item"
+                        <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 my-event-item fw-semibold"
                              role="button"
                              tabindex="0"
                              data-signin-url="@myEvent.SignInUrl"
@@ -49,13 +51,15 @@
                             <!-- Event title and code -->
                             <span class="d-flex flex-row align-items-center gap-2 flex-grow-1 text-start text-break">
                                 <span class="fw-semibold flex-grow-1">@myEvent.Title</span>
-                                <small class="text-muted ms-auto flex-shrink-0 d-inline-flex align-items-center gap-2">
+                                <small class="ms-auto flex-shrink-0 d-inline-flex align-items-center gap-2">
                                     <strong>@myEvent.Code</strong>
                                     <button type="button"
-                                            class="btn btn-link p-0 text-danger invisible my-event-delete-button text-decoration-none"
+                                            class="btn btn-link p-0 invisible my-event-delete-button text-decoration-none"
                                             aria-label="Delete event"
                                             title="Delete event">
-                                        &#x1F5D1; <!-- Wastebasket emoji 🗑 -->
+                                        &#x1F5D1;&#xFE0F; <!-- Wastebasket emoji 🗑️ (trailing U+FE0F forces the
+                                             color emoji glyph instead of the monochrome text-style glyph
+                                             some browsers/fonts fall back to without it) -->
                                     </button>
                                 </small>
                             </span>
@@ -66,20 +70,20 @@
         </div>
 
         <!-- GO button shown only after the user selects an event -->
-        <div class="mt-3 d-none text-center" id="my-events-go-container">
-            <button type="button" class="btn btn-primary" id="my-events-go-button">GO!</button>
+        <div class="mt-4 d-none text-center" id="my-events-go-container">
+            <button type="button" class="btn my-events-go-button" id="my-events-go-button">GO!</button>
         </div>
 
         <!-- Delete confirmation modal -->
         <div class="modal fade" id="delete-event-modal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
+                <div class="modal-content delete-modal-content">
                     <form asp-controller="MyEvents" asp-action="Delete" method="post" id="delete-event-form">
                         @Html.AntiForgeryToken()
 
                         <div class="modal-header">
-                            <h5 class="modal-title" id="delete-event-modal-title">Delete Confirmation</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <h5 class="modal-title font-display" id="delete-event-modal-title">Delete Confirmation</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
 
                         <div class="modal-body">
@@ -90,11 +94,11 @@
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input class="form-check-input delete-option-radio" type="radio" name="deleteChoice" id="delete-participant-option" value="participant" />
-                                    <label class="form-check-label" for="delete-participant-option">Delete participant</label>
+                                    <label class="form-check-label" for="delete-participant-option">Select a participant to delete</label>
                                 </div>
 
                                 <div class="ms-4 mt-2" id="participant-delete-container">
-                                    <select class="form-select" id="participant-delete-select">
+                                    <select class="form-select input-pill input-pill-blue select-arrow-inset w-100" id="participant-delete-select">
                                         <option value="">Select a participant</option>
                                     </select>
 
@@ -107,7 +111,7 @@
                             <div class="mb-0">
                                 <div class="form-check">
                                     <input class="form-check-input delete-option-radio" type="radio" name="deleteChoice" id="delete-event-option" value="event" />
-                                    <label class="form-check-label" for="delete-event-option">Delete whole event</label>
+                                    <label class="form-check-label" for="delete-event-option">Delete the whole event</label>
                                 </div>
 
                                 <div class="ms-4 mt-2 text-danger small d-none" id="event-delete-unavailable-text">
@@ -117,8 +121,8 @@
                         </div>
 
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-danger" id="delete-submit-button" disabled>Delete</button>
+                            <button type="button" class="btn modal-cancel-button" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn modal-delete-button" id="delete-submit-button" disabled>Delete</button>
                         </div>
                     </form>
                 </div>

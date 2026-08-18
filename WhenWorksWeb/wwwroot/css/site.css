@@ -3,24 +3,30 @@
    This block is the single source of truth for actual values.
    ========================================================================== */
 :root {
-  --gradient-page: linear-gradient(135deg, #ec6ea8, #f5d76e);
   /* --color-accent-pink-fill is overridden inline in _Layout.cshtml, echoing
-     ModelConstants.DefaultParticipantColor so the "default pink" users get
-     stays a single source of truth. This value is only a fallback in case
-     that override is ever missing. */
+  ModelConstants.DefaultParticipantColor so the "default pink" users get
+  stays a single source of truth. This value is only a fallback in case
+  that override is ever missing. */
   --color-accent-pink-fill: #ff66c4;
   --color-accent-orange-fill: #ffa48c;
   --color-accent-yellow-fill: #f2d675;
   --color-accent-yellow-border: #e8935a;
+  /* Selected-row fill for the My Events list — deliberately distinct from
+  --color-accent-orange-fill (the row hover color) so hovering and
+  selecting read as two different states, not the same color twice. */
+  --color-accent-selected-fill: #ec6ea8;
   --color-accent-blue-fill: #8fd8e0;
   --color-accent-blue-border: #4fb8c4;
   --color-accent-green: #bee776;
   --color-accent-green-border: #8eca51;
   --color-accent-red: #ef5d5d;
+  --color-accent-red-border: #d84343;
   --color-text-on-gradient: #ffffff;
   --radius-pill: 999px;
   --font-display: 'Cherry Bomb One', sans-serif;
   --font-body: 'Quicksand', sans-serif;
+  
+  --gradient-page: linear-gradient(135deg, var(--color-accent-selected-fill), #f5d76e);
 }
 
 html {
@@ -519,6 +525,22 @@ body {
     linear-gradient(to left, var(--color-accent-blue-border) 2.5rem, transparent 2.5rem);
 }
 
+/* Bootstrap's own ".form-select:disabled" rule (used by the delete modal's
+   participant picker before "Delete participant" is chosen) repaints the
+   background to a flat gray and drops the background-image entirely —
+   both at higher specificity than the two single-class selectors above, so
+   the pill/arrow-well look has to be explicitly restated here rather than
+   just re-enabling color. Dimmed via opacity instead of a separate color
+   set, so it still reads as "this same blue pill, temporarily inactive". */
+.select-arrow-inset.input-pill-blue:disabled {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, var(--color-accent-blue-border) 2.5rem, transparent 2.5rem);
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-on-gradient);
+  opacity: 0.6;
+}
+
 /* The open options list is rendered by the browser/OS, not by this stylesheet, so it
    can't pick up the pill shape or gradient — only a resting row's color/background can
    be influenced here, which Chrome/Edge honor and Firefox partially honors. This swaps
@@ -601,4 +623,235 @@ body {
 
 .enter-button:focus {
   box-shadow: none;
+}
+
+/* ==========================================================================
+   My Events page. The joined-events list reuses the yellow/orange accent
+   pair as opaque row fills (not the usual pill-input treatment) inside a
+   rounded, coral-bordered card, plus the same green circular "GO!" pattern
+   as .go-button, scaled up for a page-level action.
+   ========================================================================== */
+.my-events-card {
+  border: 3px solid var(--color-accent-yellow-border);
+  border-radius: 1.75rem;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+/* Rows are opaque color blocks, not pills — the card's own border-radius +
+   overflow:hidden above clips the first row's top corners, so no per-row
+   radius is needed. The scrollable container's own background stays white
+   so any leftover height below a short list (e.g. only a few joined events)
+   reads as blank card space rather than an empty color block. */
+.my-events-list {
+  background-color: #fff;
+}
+
+/* Scrollbar styling for the fixed-height list — Firefox via scrollbar-color,
+   Chromium/Safari via the ::-webkit-scrollbar pseudo-elements (there's no
+   single standard property that covers both). Thumb reuses the same border
+   tone as the card's own outline so the scrollbar reads as part of the same
+   palette instead of the browser's flat gray default. */
+.my-events-list {
+  scrollbar-color: var(--color-accent-yellow-border) #fff;
+  scrollbar-width: thin;
+}
+
+.my-events-list::-webkit-scrollbar {
+  width: 0.6rem;
+}
+
+.my-events-list::-webkit-scrollbar-track {
+  background-color: #fff;
+}
+
+.my-events-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-accent-yellow-border);
+  border-radius: var(--radius-pill);
+}
+
+.my-event-item {
+  background-color: var(--color-accent-yellow-fill);
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  padding: 0.85rem 1.25rem;
+}
+
+.my-events-list .list-group-item:last-child .my-event-item,
+.my-event-item:last-child {
+  border-bottom: none;
+}
+
+/* Bootstrap's .list-group-item-action default hover/focus background
+   (a translucent dark overlay meant for plain white list groups) is
+   replaced with the orange accent fill instead. */
+.my-event-item.list-group-item-action:hover,
+.my-event-item.list-group-item-action:focus {
+  background-color: var(--color-accent-orange-fill);
+  color: var(--color-text-on-gradient);
+}
+
+/* Selected state gets its own distinct color rather than reusing the hover
+   fill — otherwise hovering and selecting would read as the same state.
+   The two ".selected" combos below are needed to still win over the hover
+   rule above (equal specificity, but this comes later in source order) when
+   the selected row is also the one being hovered. */
+.my-event-item.selected,
+.my-event-item.selected.list-group-item-action:hover,
+.my-event-item.selected.list-group-item-action:focus {
+  background-color: var(--color-accent-selected-fill);
+  color: var(--color-text-on-gradient);
+}
+
+/* Deliberately no separate :hover/:active rule — the icon should look
+   identical no matter the row's hover/selected state, not dim or shift. */
+.my-event-item .my-event-delete-button,
+.my-event-item .my-event-delete-button:hover,
+.my-event-item .my-event-delete-button:active {
+  color: var(--color-text-on-gradient);
+  opacity: 1;
+}
+
+/* Large circular "GO!" action below the card — same green fill/border and
+   hover/active treatment as .go-button, sized up since this page has one
+   page-level action rather than one per input. */
+.my-events-go-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  padding: 0;
+  border: 3px solid var(--color-accent-green-border);
+  border-radius: 50%;
+  background-color: var(--color-accent-green);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.my-events-go-button:hover,
+.my-events-go-button:active {
+  background-color: var(--color-accent-green-border) !important;
+  border-color: var(--color-accent-green-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.my-events-go-button:focus {
+  box-shadow: none;
+}
+
+/* Delete confirmation modal — same rounded, yellow-accented "card" language
+   as .my-events-card, since it's opened directly from that list. Whole
+   dialog is one yellow-filled surface (matching the existing precedent of
+   white text on --color-accent-yellow-fill from the Home page's Event Name
+   input and the My Events rows) rather than a plain white Bootstrap modal. */
+.modal-content.delete-modal-content {
+  background-color: var(--color-accent-yellow-fill);
+  border: 3px solid var(--color-accent-yellow-border);
+  border-radius: 1.75rem;
+  overflow: hidden;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+}
+
+.delete-modal-content .modal-header {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.delete-modal-content .modal-title {
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.delete-modal-content .modal-footer {
+  border-top: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.delete-modal-content .form-check-label {
+  color: var(--color-text-on-gradient);
+}
+
+/* Native radio inputs are Bootstrap's own SVG-background controls, not
+   plain browser widgets, so recoloring them means overriding those layers
+   directly rather than using accent-color. Unchecked stays an outlined
+   white ring against the yellow fill; checked switches to the same red
+   accent as the Delete button, since these radios are picking a mode of
+   this destructive action rather than an affirmative "GO!" choice. */
+.delete-modal-content .form-check-input {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--color-text-on-gradient);
+}
+
+.delete-modal-content .form-check-input:checked {
+  background-color: var(--color-accent-red);
+  border-color: var(--color-accent-red-border);
+}
+
+.delete-modal-content .form-check-input:focus {
+  box-shadow: none;
+  border-color: var(--color-text-on-gradient);
+}
+
+.delete-modal-content .text-danger {
+  color: #6b1414 !important;
+}
+
+/* Cancel — a transparent pill outlined in white, echoing the navbar's own
+   pill-link treatment, rather than Bootstrap's flat gray secondary button. */
+.modal-cancel-button {
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-text-on-gradient);
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+}
+
+.modal-cancel-button:hover,
+.modal-cancel-button:active {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.modal-cancel-button:focus {
+  box-shadow: none;
+}
+
+/* Delete — the destructive counterpart to .go-button/.enter-button, same
+   pill/hover pattern but in the site's red accent instead of green since
+   this action isn't the affirmative "GO!" case. */
+.modal-delete-button {
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-accent-red-border);
+  background-color: var(--color-accent-red);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 700;
+  padding: 0.5rem 1.5rem;
+}
+
+.modal-delete-button:hover,
+.modal-delete-button:active {
+  background-color: var(--color-accent-red-border) !important;
+  border-color: var(--color-accent-red-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.modal-delete-button:focus {
+  box-shadow: none;
+}
+
+.modal-delete-button:disabled {
+  background-color: var(--color-accent-red);
+  border-color: var(--color-accent-red-border);
+  opacity: 0.5;
 }
