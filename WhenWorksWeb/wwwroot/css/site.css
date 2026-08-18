@@ -855,3 +855,77 @@ body {
   border-color: var(--color-accent-red-border);
   opacity: 0.5;
 }
+
+/* ==========================================================================
+   Login page (Areas/Identity/Pages/Account/Login.cshtml). Reuses the
+   .input-pill/.input-pill-yellow/.input-pill-blue and .enter-button tokens
+   from the Home/Sign-In pages; the two additions below are specific to this
+   page's two-column layout (a divider under each column heading, and a
+   secondary outline pill for external login providers).
+   ========================================================================== */
+
+/* Same rounded-capsule divider technique as .navbar-divider, scoped to this
+   page instead of reusing that class directly — kept separate since each
+   page section in this file defines its own small set of page-specific
+   classes rather than sharing one generically-named divider across pages. */
+.login-divider {
+  height: 2px;
+  margin: 0 0 0.5rem;
+  border: none;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  opacity: 1;
+}
+
+/* The two column headings ("Use a Local Account" / "Use Another Service")
+   wrap to a different number of lines at some widths, which would otherwise
+   leave their .login-divider lines at different heights when the columns
+   sit side by side. Bottom-align both headings within a shared min-height
+   so the dividers underneath always land at the same y position.
+
+   min-height is in em, not rem: it has to reserve exactly two lines of the
+   heading's *own* font-size (Bootstrap's heading reset already sets
+   line-height: 1.2, restated here so the 2.4em math is self-contained
+   rather than relying on that staying unchanged elsewhere), not two lines
+   of the root font-size — the two don't match here since html's root
+   font-size is itself scaled up at this same md breakpoint (see the root
+   `html { font-size }` rules near the top of this file), so a rem value
+   sized for one would be wrong relative to the heading's actual text size.
+
+   Scoped to the md breakpoint and up, matching where the columns actually
+   go side-by-side (col-md-5) — below that they're stacked single-column
+   and don't need alignment. */
+@media (min-width: 768px) {
+  .login-column-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 2.4em;
+    line-height: 1.2;
+  }
+}
+
+/* Secondary action pill for "log in with an external provider" buttons —
+   same transparent, white-outlined treatment as .modal-cancel-button, since
+   this is a secondary path alongside the page's primary local-account form. */
+.external-login-button {
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-text-on-gradient);
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+}
+
+.external-login-button:hover,
+.external-login-button:active {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.external-login-button:focus {
+  box-shadow: none;
+}
