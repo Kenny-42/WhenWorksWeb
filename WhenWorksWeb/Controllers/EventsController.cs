@@ -26,7 +26,7 @@ public partial class EventsController : Controller
     private readonly ApplicationDbContext _db;
 
     /// <summary>
-    /// Generates unique event codes and participant rejoin codes.
+    /// Generates unique event codes.
     /// </summary>
     private readonly UniqueCodeGenerator _codeGenerator;
 
