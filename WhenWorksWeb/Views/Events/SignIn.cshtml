@@ -28,7 +28,7 @@
         <div>
             <label asp-for="DisplayName" class="visually-hidden"></label>
             <input asp-for="DisplayName"
-                   class="form-control input-pill input-pill-yellow"
+                   class="form-control input-pill input-pill-yellow mx-auto"
                    style="width: 16rem;"
                    placeholder="Your Name"
                    autocomplete="nickname" />
@@ -41,7 +41,7 @@
         <div>
             <label class="visually-hidden" for="existingDisplayNames">Participant</label>
             <select asp-for="SelectedExistingDisplayName"
-                    class="form-select input-pill input-pill-blue select-arrow-inset"
+                    class="form-select input-pill input-pill-blue select-arrow-inset mx-auto"
                     style="width: 16rem;"
                     id="existingDisplayNames">
                 @if (string.IsNullOrWhiteSpace(selectedExistingDisplayName))
