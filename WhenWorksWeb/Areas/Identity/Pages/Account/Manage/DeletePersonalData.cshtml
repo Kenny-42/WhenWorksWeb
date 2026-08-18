@@ -20,7 +20,7 @@
     @if (Model.RequirePassword)
     {
         <div>
-            <label asp-for="Input.Password" class="visually-hidden"></label>
+            <label asp-for="Input.Password" class="text-on-gradient fw-bold mb-1 d-block">Enter your password</label>
             <input asp-for="Input.Password"
                    class="form-control input-pill input-pill-red mx-auto"
                    style="width: 100%; max-width: 16rem;"
@@ -31,7 +31,14 @@
         </div>
     }
 
-    <button class="btn modal-delete-button mt-3" type="submit">DELETE DATA AND CLOSE MY ACCOUNT</button>
+    <!-- align-items-center overrides the flex row's default "stretch" —
+         without it, Cancel matches the multi-line Delete button's full
+         height instead of sizing to its own short text, rendering as an
+         oversized pill/circle instead of a small button. -->
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <a asp-page="./PersonalData" class="btn modal-cancel-button">Cancel</a>
+        <button class="btn modal-delete-button" type="submit">DELETE DATA AND CLOSE MY ACCOUNT</button>
+    </div>
 </form>
 
 @section Scripts {

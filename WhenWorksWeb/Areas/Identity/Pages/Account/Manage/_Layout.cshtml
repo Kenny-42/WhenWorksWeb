@@ -17,8 +17,15 @@
 <div class="text-center">
     <h1 class="display-4 font-display text-on-gradient mb-4">ACCOUNT SETTINGS</h1>
 
+    <!-- Columns go side-by-side starting at the lg breakpoint (992px), not md
+         (768px) — the pill-shaped nav links and buttons in this section don't
+         shrink below their content's natural size, and md's narrower
+         container repeatedly wasn't wide enough to hold both columns without
+         one bleeding into the other. lg's container has enough headroom that
+         this squeeze doesn't happen; below it, both columns simply stack
+         full-width, where there's no space pressure at all. -->
     <div class="row justify-content-center gx-5">
-        <div class="col-md-3 mb-4 mb-md-0">
+        <div class="col-lg-3 mb-4 mb-lg-0">
             <!-- Invisible spacer, identical markup/classes to the h2 + divider
                  every Manage page renders at the top of the content column —
                  reserves that exact height (not a guessed fixed margin, so it
@@ -31,7 +38,7 @@
             </div>
             <partial name="_ManageNav" />
         </div>
-        <div class="col-md-6">
+        <div class="col-lg-6">
             @RenderBody()
         </div>
     </div>
