@@ -1,10 +1,39 @@
+/* ==========================================================================
+   Style guide tokens — see STYLE_GUIDE.md for rationale/usage.
+   This block is the single source of truth for actual values.
+   ========================================================================== */
+:root {
+  --gradient-page: linear-gradient(135deg, #ec6ea8, #f5d76e);
+  /* --color-accent-pink-fill is overridden inline in _Layout.cshtml, echoing
+     ModelConstants.DefaultParticipantColor so the "default pink" users get
+     stays a single source of truth. This value is only a fallback in case
+     that override is ever missing. */
+  --color-accent-pink-fill: #ff66c4;
+  --color-accent-orange-fill: #ffa48c;
+  --color-accent-yellow-fill: #f2d675;
+  --color-accent-yellow-border: #e8935a;
+  --color-accent-blue-fill: #8fd8e0;
+  --color-accent-blue-border: #4fb8c4;
+  --color-accent-green: #bee776;
+  --color-accent-green-border: #8eca51;
+  --color-accent-red: #ef5d5d;
+  --color-text-on-gradient: #ffffff;
+  --radius-pill: 999px;
+  --font-display: 'Cherry Bomb One', sans-serif;
+  --font-body: 'Quicksand', sans-serif;
+}
+
 html {
-  font-size: 14px;
+  /* Base scale is 125% of the original 14px/16px tokens (Spec request:
+     the site reads as too small/sparse at 100% browser zoom). Since
+     nearly every size in this stylesheet is expressed in rem, scaling
+     these two root values scales the whole site proportionally. */
+  font-size: 17.5px;
 }
 
 @media (min-width: 768px) {
   html {
-    font-size: 16px;
+    font-size: 20px;
   }
 }
 
@@ -19,6 +48,433 @@ html {
 
 body {
   margin-bottom: 60px;
+  background: var(--gradient-page);
+  background-attachment: fixed;
+  font-family: var(--font-body);
+}
+
+/* ==========================================================================
+   Shared layout chrome — navbar and footer (Spec/Features/FEATURES-shared-
+   layout-style-guide.ospec, Step 1). Nav items/text/routes are unchanged;
+   only their visual treatment is restyled here.
+   ========================================================================== */
+.navbar {
+  background: transparent;
+  /* Bootstrap's navbar-dark scheme bakes translucency into these tokens
+     (e.g. nav-link at 55% alpha, toggler border/icon well below that) —
+     override them at the source so every navbar element, including the
+     collapsed-view hamburger, is fully opaque like the home page headings. */
+  --bs-navbar-color: var(--color-text-on-gradient);
+  --bs-navbar-hover-color: var(--color-text-on-gradient);
+  --bs-navbar-active-color: var(--color-text-on-gradient);
+  --bs-navbar-brand-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-border-color: var(--color-text-on-gradient);
+  --bs-navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='white' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.navbar-brand,
+.navbar .nav-link {
+  color: var(--color-text-on-gradient) !important;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.navbar-brand {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: normal;
+  line-height: 1;
+  /* Cherry Bomb One's glyphs sit low within their own line box (large built-in
+     descender space relative to other faces), so even once vertically
+     centered by the flex navbar it reads as sitting below the nav links.
+     Nudge it up to compensate — enough to center the (larger) brand glyphs
+     on the nav links' vertical center, not all the way to a shared bottom
+     edge, since the brand is bigger and should overhang evenly top/bottom. */
+  transform: translateY(-3px);
+}
+
+.navbar .nav-link {
+  padding: 0.25rem 1rem;
+  margin: 0.15rem 0.25rem;
+}
+
+/* Per-link hover/click color. :hover and :active share the same accent
+   color now — clicking previews/holds the identical color a hover does,
+   instead of shifting to a separate darker variant — and reverts the
+   instant the click ends since :focus is deliberately not used here.
+   !important is required to win over the !important base color set above. */
+.nav-link-home:hover,
+.nav-link-home:active {
+  color: var(--color-accent-yellow-fill) !important;
+}
+
+.nav-link-register:hover,
+.nav-link-myevents:hover,
+.nav-link-register:active,
+.nav-link-myevents:active {
+  color: var(--color-accent-blue-fill) !important;
+}
+
+.nav-link-login:hover,
+.nav-link-login:active {
+  color: var(--color-accent-green) !important;
+}
+
+/* Hello Name! link's color comes from the signed-in user's own account
+   color, passed in as --user-color via an inline style on the element
+   (Views/Shared/_LoginPartial.cshtml). */
+.nav-link-username:hover,
+.nav-link-username:active {
+  color: var(--user-color) !important;
+}
+
+.nav-link-logout:hover,
+.nav-link-logout:active {
+  color: var(--color-accent-red) !important;
+}
+
+/* Logout is a <button>, not an <a> like the other nav links, so it's also
+   caught by two Bootstrap/site rules the plain links never hit: the generic
+   ".btn-link.nav-link:focus" ring defined near the top of this file, and
+   Bootstrap's own ".btn:focus-visible" ring — both are what draw the boxy
+   outline after a click. Suppressed here so Logout behaves purely by color,
+   exactly like every other navbar link. */
+.nav-link-logout:focus,
+.nav-link-logout:focus-visible,
+.nav-link-logout:active:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Account dropdown toggle (person icon) — replaces the old inline "Hello
+   Name!"/Logout links. Stays white like every other navbar control by
+   default (inherited from ".navbar .nav-link" above) and only switches to
+   the signed-in user's own account color while actually hovered/clicked —
+   deliberately not while the dropdown is merely left open (no
+   "[aria-expanded=true]" rule here), so the icon reverts to white the
+   moment the click ends instead of staying colored for as long as the menu
+   is open. */
+.nav-link-account-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-link-account-toggle svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.nav-link-account-toggle:hover,
+.nav-link-account-toggle:active {
+  color: var(--user-color) !important;
+}
+
+/* Icon-only toggle — suppress Bootstrap's default dropdown caret. */
+.nav-link-account-toggle.dropdown-toggle::after {
+  display: none;
+}
+
+/* Dropdown panel: the same transparent, white-outlined "merged pill group"
+   treatment the collapsed mobile navbar-collapse block uses above, reused
+   here since both are just a short list of nav links sitting on the page's
+   gradient background (the gradient is applied at the body level, so it's
+   still what's behind this panel wherever it opens on the page — a solid
+   fill here would read as a flat patch breaking the diagonal gradient
+   instead of blending into it like the rest of the navbar does). */
+.account-dropdown-menu {
+  background-color: transparent;
+  border: 2px solid var(--color-text-on-gradient);
+  border-radius: 1rem;
+  margin-top: 0.5rem;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.account-dropdown-menu .dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0.6rem 1.25rem;
+  background-color: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+/* Light hover tint for affordance; .nav-link-username/.nav-link-logout's own
+   !important hover color rules above still win for text color, same as they
+   do everywhere else in the navbar. */
+.account-dropdown-menu .dropdown-item:hover,
+.account-dropdown-menu .dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--color-text-on-gradient);
+}
+
+/* At the sm breakpoint and up, this dropdown is an actual floating panel
+   (unlike the mobile nested one below, it sits in normal flow inside a
+   horizontal nav — see the sm-and-up nudge rule further down — and visually
+   overlaps whatever page content is beneath it, e.g. the navbar divider or
+   a heading). Truly transparent there would let that content show through,
+   which reads as a bug rather than "blending with the gradient". Instead,
+   paint the exact same gradient the body has, pinned to the viewport via
+   background-attachment: fixed like the body's own — since both are fixed
+   to the same viewport, the slice rendered here lines up pixel-for-pixel
+   with what the body would show anyway, so it's opaque (nothing behind it
+   is visible) while still looking like it's just showing the page through
+   it. */
+@media (min-width: 576px) {
+  .account-dropdown-menu {
+    background-image: var(--gradient-page);
+    background-attachment: fixed;
+  }
+}
+
+/* Same rounded-capsule divider technique as .navbar-collapse's own dividers
+   below — an inset, rounded-end filled bar rather than a full-bleed
+   square-cornered border-top, so both the desktop dropdown and the mobile
+   nested one below read as the same menu style. */
+.account-dropdown-menu li + li::before {
+  content: "";
+  display: block;
+  height: 2px;
+  margin: 0 1rem;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+}
+
+/* Below the sm breakpoint this dropdown renders nested inside the collapsed
+   hamburger box (Bootstrap forces ".navbar-nav .dropdown-menu" to
+   position:static there, so it's a plain block in normal flow, not a
+   floating panel) and by default stretches edge-to-edge inside it. Inset it
+   with its own side/bottom margins so its outline reads as a distinct,
+   smaller group nested inside the hamburger box's outline rather than
+   sharing its border. */
+@media (max-width: 575.98px) {
+  .account-dropdown-menu {
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* In the expanded (desktop) layout, nudge the pill links down slightly so
+   they read as aligned with the lowercase letters of "WhenWorks" rather
+   than its full cap-height — matches the brand's own upward nudge above.
+   Scoped past the sm breakpoint only; the collapsed hamburger menu's merged
+   list keeps its own (unshifted) vertical rhythm. */
+@media (min-width: 576px) {
+  .navbar .nav-link {
+    transform: translateY(2px);
+  }
+}
+
+.navbar-toggler {
+  border-width: 2px;
+}
+
+/* Bootstrap adds a thick focus ring on :focus, which lingers after the click
+   (the button keeps focus until something else is clicked). We only want
+   that emphasis while the button is actively being pressed. */
+.navbar-toggler:focus {
+  box-shadow: none;
+}
+
+.navbar-toggler:active {
+  box-shadow: 0 0 0 var(--bs-navbar-toggler-focus-width, 0.25rem);
+}
+
+/* Below the sm breakpoint the navbar collapses behind the hamburger and the
+   nav items stack vertically. Individually-pilled links look cluttered
+   stacked like that, so merge them into one outlined group with dividers
+   between entries instead. Scoped to the collapsed layout only — the
+   expanded (desktop) pill-per-link look above is unaffected. */
+@media (max-width: 575.98px) {
+  .navbar-collapse {
+    margin-top: 0.5rem;
+    border: 2px solid var(--color-text-on-gradient);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  .navbar-collapse .nav-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Same rounded-capsule technique as .navbar-divider — a border can't get
+     rounded ends, and these dividers should sit inset from the group's
+     edges rather than spanning full width, so a filled block stands in. */
+  .navbar-collapse .navbar-nav + .navbar-nav::before,
+  .navbar-collapse .nav-item + .nav-item::before {
+    content: "";
+    display: block;
+    height: 2px;
+    margin: 0 1rem;
+    background-color: var(--color-text-on-gradient);
+    border-radius: var(--radius-pill);
+  }
+}
+
+.navbar-divider {
+  /* A border-top always has square ends, no matter what border-radius says —
+     rounding the line itself needs an actual filled block instead of a
+     border, so height + background + border-radius stand in for one here. */
+  height: 2px;
+  margin: 0 1rem 1rem;
+  border: none;
+  background-color: var(--color-text-on-gradient);
+  border-radius: var(--radius-pill);
+  /* Bootstrap's reboot styles every <hr> at opacity: 0.25 by default — this
+     divider is never meant to be sheer, so override it explicitly. */
+  opacity: 1;
+}
+
+.footer {
+  background: transparent;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.footer a {
+  color: var(--color-text-on-gradient);
+}
+
+/* Utility: opt any element sitting directly on the gradient background (no
+   card/surface underneath it) into readable white text. Default body text
+   elsewhere stays Bootstrap's default dark color. See STYLE_GUIDE.md. */
+.text-on-gradient {
+  color: var(--color-text-on-gradient);
+}
+
+/* Utility: opt an element into the bubble display font. Reserved for short,
+   large text (headings, button labels) per STYLE_GUIDE.md — not a sitewide
+   default, applied per-element as pages are styled. */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ==========================================================================
+   Home page (Spec/Features/FEATURES-shared-layout-style-guide.ospec, Step 2)
+   ========================================================================== */
+.input-pill {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-text-on-gradient);
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.input-pill::placeholder {
+  color: var(--color-text-on-gradient);
+  opacity: 0.85;
+}
+
+.input-pill-yellow {
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+}
+
+.input-pill-blue {
+  background-color: var(--color-accent-blue-fill);
+  border: 2px solid var(--color-accent-blue-border);
+}
+
+/* Event Name / Event Code inputs never change appearance, focused or not.
+   Bootstrap's own .form-control:focus rule (same 0,2,0 specificity as the
+   variant selectors below) swaps in its default white background, blue
+   border, and body text color and adds a focus ring — so each color that
+   rule touches has to be explicitly restated here, not just the ring
+   suppressed, or the "basic Bootstrap" focus look leaks through. */
+.input-pill:focus {
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.input-pill-yellow:focus {
+  background-color: var(--color-accent-yellow-fill) !important;
+  border-color: var(--color-accent-yellow-border) !important;
+}
+
+.input-pill-blue:focus {
+  background-color: var(--color-accent-blue-fill) !important;
+  border-color: var(--color-accent-blue-border) !important;
+}
+
+/* Chrome/Edge/Safari paint autofilled fields (e.g. picking a suggestion
+   from the browser's own dropdown) with a baked-in yellow background and
+   dark text that even background-color/color with !important can't touch —
+   the standard workaround is an inset box-shadow large enough to cover the
+   whole field, plus -webkit-text-fill-color for the text. Listed per
+   pseudo-state because Chrome re-applies its own styling for each one.
+   Firefox's :autofill is included too, though it's less aggressive. */
+.input-pill-yellow:-webkit-autofill,
+.input-pill-yellow:-webkit-autofill:hover,
+.input-pill-yellow:-webkit-autofill:focus,
+.input-pill-yellow:-webkit-autofill:active,
+.input-pill-yellow:autofill {
+  box-shadow: 0 0 0 1000px var(--color-accent-yellow-fill) inset !important;
+  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
+  caret-color: var(--color-text-on-gradient);
+}
+
+.input-pill-blue:-webkit-autofill,
+.input-pill-blue:-webkit-autofill:hover,
+.input-pill-blue:-webkit-autofill:focus,
+.input-pill-blue:-webkit-autofill:active,
+.input-pill-blue:autofill {
+  box-shadow: 0 0 0 1000px var(--color-accent-blue-fill) inset !important;
+  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
+  caret-color: var(--color-text-on-gradient);
+}
+
+.go-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 2px solid var(--color-accent-green-border);
+  border-radius: 50%;
+  background-color: var(--color-accent-green);
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+
+/* Outline stays put at all times. Hover and click share one fill — the
+   button's own outline color — instead of click going to a separate darker
+   shade, reverting the instant the click/hover ends. Text stays white
+   throughout. Bootstrap's own :active selector (":not(.btn-check)+.btn:active",
+   plus ":first-child:active") out-specifies a plain ".go-button:active", and
+   its base .btn:hover/:active rules would otherwise reset color/background
+   back to Bootstrap's defaults — so !important is needed here, matching the
+   navbar link rules above. */
+.go-button:hover,
+.go-button:active {
+  background-color: var(--color-accent-green-border) !important;
+  border-color: var(--color-accent-green-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  box-shadow: none !important;
+}
+
+.go-button:focus {
+  box-shadow: none;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {

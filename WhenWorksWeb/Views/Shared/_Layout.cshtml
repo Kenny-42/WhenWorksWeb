@@ -5,16 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
     <script type="importmap"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
+    @* The "WhenWorks" brand hover color is the same pink users get by default, so it's
+       linked here to Common/ModelConstants.DefaultParticipantColor instead of being a
+       separate hardcoded value that could drift out of sync. *@
+    <style>
+        :root {
+            --color-accent-pink-fill: #@WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
+        }
+    </style>
 </head>
 <body>
     <!-- Site header: brand link, Admin nav item (shown only to Admins), and the login/logout partial -->
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">WhenWorksWeb</a>
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">WhenWorks</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -22,12 +33,12 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link nav-link-home" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         @if (User.IsInRole("Admin"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="Admin" asp-page="/Users/ManageUsers">Manage Users</a>
+                                <a class="nav-link" asp-area="Admin" asp-page="/Users/ManageUsers">Manage Users</a>
                             </li>
                         }
                     </ul>
@@ -35,6 +46,7 @@
                 </div>
             </div>
         </nav>
+        <hr class="navbar-divider" />
     </header>
 
     <!-- Main content area: renders whichever view is being displayed -->
@@ -45,7 +57,7 @@
     </div>
 
     <!-- Site footer -->
-    <footer class="border-top footer text-muted">
+    <footer class="footer">
         <div class="container">
             &copy; 2026 - WhenWorksWeb - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
