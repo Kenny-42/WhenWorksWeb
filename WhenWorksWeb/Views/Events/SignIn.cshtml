@@ -3,7 +3,6 @@
 @{
     ViewData["Title"] = "Event Sign-In";
     var selectedExistingDisplayName = Model.SelectedExistingDisplayName ?? string.Empty;
-    var showRejoinCodeInput = Model.ShowRejoinCodeInput;
 }
 
 <!-- Event sign-in container -->
@@ -49,7 +48,6 @@
                     {
                         <option value="@participant.DisplayName"
                                 data-color="@participant.Color"
-                                data-associated-with-current-user="@participant.IsAssociatedWithCurrentUser.ToString().ToLowerInvariant()"
                                 selected="selected">
                             @participant.DisplayName
                         </option>
@@ -57,8 +55,7 @@
                     else
                     {
                         <option value="@participant.DisplayName"
-                                data-color="@participant.Color"
-                                data-associated-with-current-user="@participant.IsAssociatedWithCurrentUser.ToString().ToLowerInvariant()">
+                                data-color="@participant.Color">
                             @participant.DisplayName
                         </option>
                     }
@@ -78,17 +75,6 @@
             <span asp-validation-for="Color" class="text-danger"></span>
         </div>
 
-        <!-- Rejoin code input -->
-        <div id="rejoinCodeContainer" class="@(showRejoinCodeInput ? "" : "d-none")">
-            <label asp-for="RejoinCode" class="form-label"></label>
-            <input asp-for="RejoinCode"
-                   class="form-control"
-                   autocomplete="off"
-                   maxlength="@WhenWorksWeb.Common.ModelConstants.UniqueCodeLength"
-                   disabled="@(showRejoinCodeInput ? null : "disabled")" />
-            <span asp-validation-for="RejoinCode" class="text-danger"></span>
-        </div>
-
         <button type="submit" class="btn btn-primary">Enter Event</button>
     </form>
 </div>
@@ -102,38 +88,14 @@
             const displayNameSelect = document.getElementById('existingDisplayNames');
             const colorPicker = document.getElementById('colorPicker');
             const colorHidden = document.getElementById('Color');
-            const rejoinCodeContainer = document.getElementById('rejoinCodeContainer');
-            const rejoinCodeInput = document.getElementById('RejoinCode');
 
-            if (!form || !displayNameInput || !displayNameSelect || !colorPicker || !colorHidden ||
-                !rejoinCodeContainer || !rejoinCodeInput) {
+            if (!form || !displayNameInput || !displayNameSelect || !colorPicker || !colorHidden) {
                 return;
             }
-
-            // Keeps the initial server decision intact on page load, including browser autofill cases.
-            let keepRejoinCodeVisible = @showRejoinCodeInput.ToString().ToLowerInvariant();
 
             // Copies the visible color picker value into the hidden field that is posted to the server.
             function syncColor() {
                 colorHidden.value = colorPicker.value.replace('#', '');
-            }
-
-            // Shows the rejoin code input for every existing participant unless the currently signed-in account already
-            // owns that participant. Browser recognition may still prefill the input, but it does not hide it.
-            function setRejoinCodeVisibility() {
-                const selectedOption = displayNameSelect.options[displayNameSelect.selectedIndex];
-                const selectedDisplayName = displayNameSelect.value;
-                const isAssociatedWithCurrentUser = selectedOption?.dataset.associatedWithCurrentUser === 'true';
-                const showRejoinCode = keepRejoinCodeVisible || (!!selectedDisplayName && !isAssociatedWithCurrentUser);
-
-                rejoinCodeContainer.classList.toggle('d-none', !showRejoinCode);
-                rejoinCodeInput.disabled = !showRejoinCode;
-
-                if (!showRejoinCode) {
-                    rejoinCodeInput.value = '';
-                }
-
-                keepRejoinCodeVisible = false;
             }
 
             // Synchronizes the display name and color when a participant is selected from the dropdown.
@@ -153,8 +115,6 @@
                 else {
                     displayNameInput.value = '';
                 }
-
-                setRejoinCodeVisibility();
             }
 
             displayNameSelect.addEventListener('change', syncSelectedParticipant);
@@ -167,7 +127,6 @@
             });
 
             syncColor();
-            setRejoinCodeVisibility();
 
             if (displayNameSelect.value) {
                 syncSelectedParticipant();
