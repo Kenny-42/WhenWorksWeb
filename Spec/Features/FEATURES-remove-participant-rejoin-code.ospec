@@ -1,0 +1,54 @@
+## Remove participant rejoin code
+
+### Status
+Implemented.
+
+### GitHub Issue
+#73
+
+### Summary
+Guest participants currently must enter a rejoin code (a 6-character code shown on the
+event home page) to re-select an existing guest display name from the sign-in dropdown.
+The client has decided this validation layer is unnecessary — guests should be able to
+pick any existing guest participant name from the dropdown without proving they're the
+original owner.
+
+### Motivation
+The rejoin code adds friction for guests and the client no longer wants that layer of
+validation. Removing it simplifies the sign-in flow for the common case (a group of guests
+sharing one event link) at the cost of guests no longer being distinguishable from one
+another by identity — an accepted tradeoff.
+
+### Proposed Changes
+1. Remove rejoin-code enforcement from `EventsController.SignIn.cs` (`RequiresRejoinCode`,
+   the code-validation branch in `TryUpdateExistingParticipantAsync`, and the
+   `RejoinCode`/`ShowRejoinCodeInput` population in `BuildSignInViewModelAsync`).
+2. Remove `RejoinCode`/`ShowRejoinCodeInput` from `EventSignInViewModel` and the
+   rejoin-code markup/JS from `SignIn.cshtml`.
+3. Remove `RejoinCode` from `EventHomeViewModel` and the display line from `Home.cshtml`;
+   remove it from `EventsController.Home.cs`.
+4. Remove the rejoin-code backfill in `EventsController.AccessCookie.cs`
+   (`GetCurrentParticipantAsync`) and `UniqueCodeGenerator.GenerateUniqueParticipantRejoinCodeAsync`.
+5. Update `CODING_CONVENTIONS.md` to remove the rejoin-code enforcement rule.
+6. Add and apply an EF Core migration dropping `Participant.RejoinCode`.
+
+### Acceptance Criteria
+- The sign-in form no longer requires or displays a rejoin code input for guest
+  participants selecting an existing display name.
+- The event home page no longer displays a rejoin code.
+- No new rejoin codes are generated anywhere (sign-in flow and the access-cookie fallback
+  both currently generate one).
+- `Participant.RejoinCode` column is dropped from the database via an EF Core migration.
+- The account-ownership guard (`HasConflictingAccountOwner`), which blocks a signed-in
+  user from selecting a participant display name already linked to a *different*
+  signed-in account, is unchanged — this is not the rejoin code and must not be weakened.
+- The browser access cookie (`WhenWorksWeb.EventAccess.{CODE}`) that recognizes a
+  returning guest's own browser is unchanged.
+
+### Out of Scope
+- Any new guest identity/verification mechanism to replace the rejoin code — the client
+  has explicitly decided guests will not have that layer of validation going forward.
+- Updating existing tests that reference rejoin codes (`EventSignInViewModelTests`,
+  `EventsControllerSignInTests`, `EventsControllerHomeTests`, `ParticipantBuilder`,
+  `SqliteDbContextFixture`) — per CLAUDE.md testing policy, tests are only modified on
+  explicit separate request.
