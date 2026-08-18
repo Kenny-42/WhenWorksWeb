@@ -104,11 +104,6 @@ body {
    instead of shifting to a separate darker variant — and reverts the
    instant the click ends since :focus is deliberately not used here.
    !important is required to win over the !important base color set above. */
-.navbar-brand:hover,
-.navbar-brand:active {
-  color: var(--color-accent-orange-fill) !important;
-}
-
 .nav-link-home:hover,
 .nav-link-home:active {
   color: var(--color-accent-yellow-fill) !important;
