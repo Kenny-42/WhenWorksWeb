@@ -13,10 +13,10 @@
         <!-- Local account form -->
         <div class="col-md-5">
             <section>
-                <div class="login-column-heading">
+                <div class="account-column-heading">
                     <h2 class="h4 font-display text-on-gradient mb-2">USE A LOCAL ACCOUNT</h2>
                 </div>
-                <hr class="login-divider w-100" />
+                <hr class="account-divider w-100" />
 
                 <form id="account" method="post" class="d-flex flex-column align-items-center gap-2">
                     <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
@@ -68,10 +68,10 @@
         <!-- External login providers -->
         <div class="col-md-5 mt-5 mt-md-0">
             <section>
-                <div class="login-column-heading">
+                <div class="account-column-heading">
                     <h2 class="h4 font-display text-on-gradient mb-2">USE ANOTHER SERVICE</h2>
                 </div>
-                <hr class="login-divider w-100" />
+                <hr class="account-divider w-100" />
                 @{
                     if ((Model.ExternalLogins?.Count ?? 0) == 0)
                     {
