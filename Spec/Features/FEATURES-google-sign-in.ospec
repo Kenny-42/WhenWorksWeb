@@ -1,0 +1,72 @@
+## Google sign-in
+
+### Status
+Not started.
+
+### GitHub Issue
+#79
+
+### Summary
+Add "Sign in with Google" as an alternative authentication method alongside the existing
+ASP.NET Core Identity local username/password flow. Google-authenticated users link to
+the same `ApplicationUser` record type used today — this is an additional login method,
+not a parallel account system.
+
+### Motivation
+Some users would rather authenticate with an existing Google account than create and
+remember a separate WhenWorks username/password. ASP.NET Core Identity already supports
+external login providers; the scaffolded `Login.cshtml` view already renders a section
+for external providers (`Model.ExternalLogins`) and posts to `./ExternalLogin`, but no
+Google provider is registered and no `ExternalLogin` page exists yet to handle the
+callback.
+
+### Proposed Changes
+1. Add the `Microsoft.AspNetCore.Authentication.Google` NuGet package to
+   `WhenWorksWeb.csproj`.
+2. Register Google authentication in `Program.cs` via
+   `builder.Services.AddAuthentication().AddGoogle(...)`, reading `ClientId`/`ClientSecret`
+   from configuration (`dotnet user-secrets` locally, environment variables/App Service
+   configuration in production) — never hardcoded or committed to `appsettings.json`.
+3. Add `Areas/Identity/Pages/Account/ExternalLogin.cshtml` + `.cshtml.cs`, following the
+   standard ASP.NET Core Identity scaffolded pattern:
+   - `OnGetAsync`/challenge redirect to Google.
+   - `OnGetCallbackAsync` handles the return trip: if `ExternalLoginSignInManager`
+     recognizes the Google identity as already linked to an `ApplicationUser`, sign in
+     directly.
+   - If it's a new Google identity, fall through to a confirmation step that collects the
+     app's required custom fields (`DisplayName`, `Color`) before calling
+     `_userManager.CreateAsync(user)` + `AddLoginAsync(user, info)` — mirroring the
+     `DisplayName`/`Color` collection already in `Register.cshtml.cs`, since those
+     properties have no meaningful default a Google profile can supply.
+   - Explicitly set `CreatedAt`/`LastActiveAt` when constructing the new `ApplicationUser`
+     (`Register.cshtml.cs`'s `Activator.CreateInstance<ApplicationUser>()` currently leaves
+     these `required` properties at their CLR default rather than actually populating them —
+     don't replicate that gap in the new code path; flag it separately rather than fixing
+     it here, since it's pre-existing and out of scope for this feature).
+4. This will be the first area code under `Areas/Identity` that isn't purely scaffolded
+   boilerplate — per CLAUDE.md, `Areas/Identity` changes need explicit approval, which this
+   spec is seeking.
+5. Update `Login.cshtml`'s existing external-provider loop only if the scaffolded rendering
+   needs visual/styling adjustment to match the current site styling pass; the
+   provider-loop markup and `asp-page="./ExternalLogin"` post target already exist and
+   should not need structural changes.
+
+### Acceptance Criteria
+- A "Sign in with Google" button appears on the login page once a Google provider is
+  configured.
+- A user authenticating with Google for the first time is prompted for `DisplayName` and
+  `Color` (the app's required custom fields) before their `ApplicationUser` is created.
+- A returning user who previously linked Google signs in directly without re-entering
+  those fields.
+- Local username/password login continues to work unchanged.
+- Google `ClientId`/`ClientSecret` are never committed to source control.
+
+### Out of Scope
+- A "manage external logins" page (`Areas/Identity/Pages/Account/Manage/ExternalLogins.cshtml`)
+  for linking/unlinking Google from an existing local-password account after the fact —
+  the issue asks only for Google as a sign-in method, not full external-login management.
+  Worth a separate feature entry if wanted later.
+- Other OAuth providers (Facebook, Microsoft, etc.) — Google only, per the issue.
+- Any change to the local username/password flow itself.
+- Fixing the pre-existing `CreatedAt`/`LastActiveAt` gap in `Register.cshtml.cs`'s local
+  registration path (noted above) — flagged for a separate bug entry, not fixed here.
