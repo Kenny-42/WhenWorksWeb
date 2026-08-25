@@ -7,8 +7,9 @@
     <script type="importmap"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
     @* The "WhenWorks" brand hover color is the same pink users get by default, so it's
@@ -21,47 +22,87 @@
     </style>
 </head>
 <body>
-    <!-- Site header: brand link, Admin nav item (shown only to Admins), and the login/logout partial -->
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">WhenWorks</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-home" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        @if (User.IsInRole("Admin"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="Admin" asp-page="/Users/ManageUsers">Manage Users</a>
-                            </li>
-                        }
-                    </ul>
-                    <partial name="_LoginPartial" />
+    <!-- Fixed full-viewport canvas the animated background blobs are drawn
+         onto in JS (see wwwroot/js/site.js) rather than via a CSS animation
+         — CSS animations of the background here (background-position/size,
+         then transform on pseudo-elements) turned out not to reliably
+         repaint for a live viewer across real browsers; a JS
+         requestAnimationFrame loop drives its own repaints directly instead
+         of depending on that. aria-hidden since it's purely decorative.
+         Must stay the first element in <body>, and #ww-page-content below
+         must stay the ONLY sibling after it — site.css positions this
+         canvas fixed/full-viewport but deliberately sets no z-index (a
+         negative z-index was tried instead and, specifically for a canvas
+         holding a *gradient* rather than a solid fill, turned out to
+         silently stop compositing to the screen at all — see the comment
+         on #ww-gradient-canvas in site.css). Without a z-index, position:
+         fixed still always opens its own stacking context, which — despite
+         being first in the DOM — paints ABOVE any plain static (non-
+         positioned) sibling content, not below it; #ww-page-content's own
+         position:relative (no z-index needed there either) is what
+         promotes the real page content into that same kind of stacking
+         context so DOM order (canvas first) decides the rest correctly.
+         Dropping that wrapper, or adding new top-level content as a
+         sibling of the canvas instead of inside #ww-page-content, would
+         bring this bug back. If canvas or JS is unavailable the static
+         gradient still set on body in site.css shows through underneath
+         it. -->
+    <canvas id="ww-gradient-canvas" aria-hidden="true"></canvas>
+
+    <div id="ww-page-content">
+        <!-- Site header: brand link, Admin nav item (shown only to Admins), and the login/logout partial -->
+        <header>
+            @* Every color Bootstrap's navbar-dark/navbar-light modifiers would set is
+               already overridden explicitly below (site.css .navbar rule) for the
+               transparent-nav theme, so neither modifier class is used here. *@
+            <nav class="navbar navbar-expand-sm navbar-toggleable-sm">
+                <div class="container-fluid">
+                    <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                        <span class="ww-brand-badge"><span class="ww-shiny-text"><i class="bi bi-stars" aria-hidden="true"></i></span></span>
+                        @* "WhenWorks." is one flex item, not two — .navbar-brand's own
+                           gap (meant to space the badge from the wordmark) would
+                           otherwise also land between the wordmark text and the dot
+                           span if they were separate children of the flex container. *@
+                        <span>WhenWorks<span class="ww-brand-dot">.</span></span>
+                    </a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="ww-shiny-text"><i class="bi bi-list" aria-hidden="true"></i></span>
+                    </button>
+                    <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                        <ul class="navbar-nav flex-grow-1">
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="Admin" asp-page="/Users/ManageUsers"><span class="ww-shiny-text">Manage Users</span></a>
+                                </li>
+                            }
+                        </ul>
+                        <partial name="_LoginPartial" />
+                    </div>
                 </div>
-            </div>
-        </nav>
-        <hr class="navbar-divider" />
-    </header>
+            </nav>
+        </header>
 
-    <!-- Main content area: renders whichever view is being displayed -->
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
-
-    <!-- Site footer -->
-    <footer class="footer">
+        <!-- Main content area: renders whichever view is being displayed -->
         <div class="container">
-            &copy; 2026 - WhenWorksWeb - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            @* No pb-3 here — a page's own last element controls its own trailing
+               spacing (e.g. Home's .ww-feature-band sits flush against the
+               footer on purpose; see site.css). A shared bottom padding here
+               previously fought that per-page choice instead of just staying
+               out of its way. *@
+            <main role="main" class="pt-4">
+                @RenderBody()
+            </main>
         </div>
-    </footer>
+
+        <!-- Site footer -->
+        <footer class="footer">
+            <div class="container">
+                <span class="ww-footer-pill">&copy; 2026 - WhenWorksWeb - <a class="text-link" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a></span>
+            </div>
+        </footer>
+    </div>
 
     <!-- Shared scripts: jQuery, Bootstrap bundle, site-wide JS, then any per-view Scripts section -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
