@@ -1,0 +1,108 @@
+@page
+@model ExternalLoginModel
+@{
+    ViewData["Title"] = "Confirm your account";
+}
+
+<!-- External login confirmation page container. Only reached for a provider identity (e.g. Google) that
+     isn't linked to an existing account yet — an already-linked identity is signed in directly and redirected
+     without ever landing here. -->
+<div class="text-center">
+    <h1 class="display-4 font-display text-on-gradient mb-4">ONE MORE STEP</h1>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <section>
+                <div class="account-column-heading">
+                    <h2 class="h4 font-display text-on-gradient mb-2">
+                        FINISH SIGNING UP WITH @Model.ProviderDisplayName?.ToUpperInvariant()
+                    </h2>
+                </div>
+                <hr class="account-divider w-100" />
+
+                <p class="text-on-gradient">
+                    You've signed in with @Model.ProviderDisplayName. Pick a display name and color to finish
+                    creating your WhenWorks account.
+                </p>
+
+                <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+                <form id="externalLoginConfirmationForm" asp-page-handler="Confirmation" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center gap-2">
+                    <!-- Username input -->
+                    <div>
+                        <label asp-for="Input.UserName" class="visually-hidden"></label>
+                        <input asp-for="Input.UserName"
+                               class="form-control input-pill input-pill-yellow mx-auto"
+                               style="width: 16rem;"
+                               autocomplete="username"
+                               aria-required="true"
+                               placeholder="Username" />
+                        <span asp-validation-for="Input.UserName" class="text-danger d-block mt-1"></span>
+                    </div>
+
+                    <!-- Email input -->
+                    <div>
+                        <label asp-for="Input.Email" class="visually-hidden"></label>
+                        <input asp-for="Input.Email"
+                               class="form-control input-pill input-pill-yellow mx-auto"
+                               style="width: 16rem;"
+                               autocomplete="email"
+                               aria-required="true"
+                               placeholder="Email" />
+                        <span asp-validation-for="Input.Email" class="text-danger d-block mt-1"></span>
+                    </div>
+
+                    <!-- Display name input -->
+                    <div>
+                        <label asp-for="Input.DisplayName" class="visually-hidden"></label>
+                        <input asp-for="Input.DisplayName"
+                               class="form-control input-pill input-pill-blue mx-auto"
+                               style="width: 16rem;"
+                               autocomplete="nickname"
+                               aria-required="true"
+                               placeholder="Display Name" />
+                        <span asp-validation-for="Input.DisplayName" class="text-danger d-block mt-1"></span>
+                    </div>
+
+                    <!-- Color picker input that stores a hex value, styled as a circular swatch
+                         matching the same picker on the Register page. -->
+                    <div class="mt-1 d-flex flex-column align-items-center">
+                        <label class="text-on-gradient fw-bold mb-1" for="colorPicker">Pick your personal color!</label>
+                        <input type="color"
+                               id="colorPicker"
+                               class="color-swatch-picker"
+                               value="#@Model.Input.Color" />
+                        <input asp-for="Input.Color" type="hidden" id="Input_Color" />
+                        <span asp-validation-for="Input.Color" class="text-danger d-block mt-1"></span>
+                    </div>
+
+                    <button id="externalLoginConfirmationSubmit" type="submit" class="btn enter-button mt-3">CREATE ACCOUNT</button>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Client-side validation scripts -->
+    <partial name="_ValidationScriptsPartial" />
+
+    <!-- Synchronizes the visible color picker with the hidden posted value -->
+    <script>
+        const form = document.getElementById('externalLoginConfirmationForm');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorHidden = document.getElementById('Input_Color');
+
+        function syncColor() {
+            colorHidden.value = colorPicker.value.replace('#', '');
+        }
+
+        colorPicker.addEventListener('input', syncColor);
+
+        form.addEventListener('submit', () => {
+            syncColor();
+        });
+
+        syncColor();
+    </script>
+}
