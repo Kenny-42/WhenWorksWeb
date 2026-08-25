@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
-    @* The "WhenWorks" brand hover color is the same pink users get by default, so it's
-       linked here to Common/ModelConstants.DefaultParticipantColor instead of being a
-       separate hardcoded value that could drift out of sync. *@
+    @* The "WhenWorks" brand hover color is linked to
+       Common/ModelConstants.DefaultParticipantColor (the default participant color)
+       instead of a separate hardcoded value that could drift out of sync. *@
     <style>
         :root {
             --color-accent-pink-fill: #@WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
@@ -22,31 +22,21 @@
     </style>
 </head>
 <body>
-    <!-- Fixed full-viewport canvas the animated background blobs are drawn
-         onto in JS (see wwwroot/js/site.js) rather than via a CSS animation
-         — CSS animations of the background here (background-position/size,
-         then transform on pseudo-elements) turned out not to reliably
-         repaint for a live viewer across real browsers; a JS
-         requestAnimationFrame loop drives its own repaints directly instead
-         of depending on that. aria-hidden since it's purely decorative.
-         Must stay the first element in <body>, and #ww-page-content below
-         must stay the ONLY sibling after it — site.css positions this
-         canvas fixed/full-viewport but deliberately sets no z-index (a
-         negative z-index was tried instead and, specifically for a canvas
-         holding a *gradient* rather than a solid fill, turned out to
-         silently stop compositing to the screen at all — see the comment
-         on #ww-gradient-canvas in site.css). Without a z-index, position:
-         fixed still always opens its own stacking context, which — despite
-         being first in the DOM — paints ABOVE any plain static (non-
-         positioned) sibling content, not below it; #ww-page-content's own
-         position:relative (no z-index needed there either) is what
-         promotes the real page content into that same kind of stacking
-         context so DOM order (canvas first) decides the rest correctly.
-         Dropping that wrapper, or adding new top-level content as a
-         sibling of the canvas instead of inside #ww-page-content, would
-         bring this bug back. If canvas or JS is unavailable the static
-         gradient still set on body in site.css shows through underneath
-         it. -->
+    <!-- Fixed full-viewport canvas the animated background blobs are drawn onto in JS
+         (wwwroot/js/site.js) rather than via a CSS animation, which failed to reliably
+         repaint for a live viewer across real browsers. aria-hidden since it's purely
+         decorative.
+         Must stay the first element in <body>, with #ww-page-content below as the ONLY
+         sibling after it: site.css positions this canvas fixed/full-viewport with no
+         z-index (a negative z-index silently stopped a *gradient* canvas from
+         compositing at all — see #ww-gradient-canvas in site.css). Without a z-index,
+         position: fixed still opens its own stacking context, which paints ABOVE any
+         plain static sibling regardless of DOM order; #ww-page-content's own
+         position: relative promotes real page content into that same stacking context
+         so DOM order (canvas first) decides paint order correctly. Dropping that
+         wrapper, or adding new top-level content as a sibling of the canvas instead of
+         inside #ww-page-content, would bring the bug back. If canvas/JS is unavailable,
+         the static gradient set on body in site.css shows through underneath. -->
     <canvas id="ww-gradient-canvas" aria-hidden="true"></canvas>
 
     <div id="ww-page-content">
@@ -87,10 +77,8 @@
         <!-- Main content area: renders whichever view is being displayed -->
         <div class="container">
             @* No pb-3 here — a page's own last element controls its own trailing
-               spacing (e.g. Home's .ww-feature-band sits flush against the
-               footer on purpose; see site.css). A shared bottom padding here
-               previously fought that per-page choice instead of just staying
-               out of its way. *@
+               spacing (e.g. Home's .ww-feature-band sits flush against the footer
+               on purpose; see site.css). *@
             <main role="main" class="pt-4">
                 @RenderBody()
             </main>

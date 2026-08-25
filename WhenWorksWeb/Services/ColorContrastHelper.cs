@@ -2,9 +2,8 @@ namespace WhenWorksWeb.Services;
 
 /// <summary>
 /// Picks whichever of white or the site's dark "strong" text color reads better against a
-/// given background color, using the WCAG 2 relative-luminance contrast formula instead of a
-/// fixed brightness threshold — so it stays correct across the full range of user-picked colors
-/// rather than just the ones a simple midpoint cutoff happens to get right.
+/// given background, via the WCAG 2 relative-luminance contrast formula rather than a fixed
+/// brightness threshold — stays correct across the full range of user-picked colors.
 /// </summary>
 public static class ColorContrastHelper
 {

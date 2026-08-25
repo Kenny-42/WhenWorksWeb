@@ -16,39 +16,25 @@
     </li>
 
     <!-- Account dropdown: a person-icon toggle (yellow, matching the panel it
-         opens rather than the blue/green action pills) that reveals the greeting/manage link and
-         logout, which used to be two separate inline nav links. --user-color
-         is set once here on the wrapping li and inherited (CSS custom
-         properties cascade) by the toggle and the menu items below, same
-         source as before. --user-color-text is the whichever-reads-better
-         (white vs. the site's dark text color) pick computed against
-         --user-color server-side (ColorContrastHelper), since CSS alone has
-         no way to measure contrast against an arbitrary user-picked color —
-         used by .nav-link-username's hover/focus state (site.css) the same
-         way --user-color is. -->
+         opens) that reveals the manage-profile link and logout. --user-color is
+         set once here on the wrapping li and inherited by the toggle/menu items
+         below. --user-color-text is whichever of white/dark text reads better
+         against --user-color, computed server-side (ColorContrastHelper) since
+         CSS can't measure contrast against an arbitrary user-picked color. -->
     <li class="nav-item dropdown" style="--user-color: #@userColor; --user-color-text: @userColorText;">
         <a class="nav-link nav-link-account-toggle dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
-            @* Bootstrap icon-font glyph, not a hand-drawn <svg> — only actual
-               text/glyph content can sit inside a .ww-shiny-text span
-               (background-clip: text needs glyphs to clip to; an SVG's own
-               paths don't qualify), and this icon is one of those wrapped
-               targets now, same as .ww-brand-badge's own icon. *@
+            @* Bootstrap icon-font glyph, not a hand-drawn <svg> — only glyph content can
+               sit inside a .ww-shiny-text span (background-clip: text needs glyphs to
+               clip to), same as .ww-brand-badge's own icon. *@
             <span class="ww-shiny-text"><i class="bi bi-person-circle" aria-hidden="true"></i></span>
-            @* Not Bootstrap's .visually-hidden utility — every property on that
-               class is !important, which would fight the mobile-only reveal
-               below (see .nav-link-account-label in site.css) instead of
-               losing to it cleanly. Same visually-hidden technique, just
-               implemented locally so it can be turned back on at the
-               collapsed/hamburger breakpoint, where the toggle becomes a
-               full-width labeled pill matching its sibling nav links. *@
+            @* Local visually-hidden technique, not Bootstrap's utility — that class is
+               all !important, which would fight the mobile-only reveal below
+               (.nav-link-account-label in site.css) instead of losing to it cleanly. *@
             <span class="nav-link-account-label ww-shiny-text">Account</span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end account-dropdown-menu">
-            <!-- Account management link. Its hover is the shared white-pill
-                 one every .dropdown-item in this panel gets (site.css) — the
-                 older per-user tint driven by --user-color is not currently
-                 wired to any rule; the variable is still set on the list item
-                 above, ready if that treatment comes back. -->
+            <!-- Account management link. Hover is the shared white-pill treatment every
+                 .dropdown-item in this panel gets (site.css). -->
             <li>
                 <a class="dropdown-item nav-link-username" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage"><span class="ww-shiny-text">My Profile</span></a>
             </li>

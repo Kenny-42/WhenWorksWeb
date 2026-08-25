@@ -7,12 +7,9 @@
 <!-- Page container for the home screen content -->
 <div class="text-center">
 
-    <!-- Hero intro. The page's one <h1> lives here; the Create/Join section
-         headings below are demoted to <h2> to keep a single, correct heading
-         hierarchy (previously "CREATE A NEW EVENT" was also an <h1>). Sits
-         directly on the open gradient (no backdrop card) — matches the
-         reference mockups, whose own two-line/two-color heading this
-         reproduces exactly. -->
+    <!-- Hero intro. The page's one <h1> lives here; Create/Join headings below are
+         demoted to <h2> for a single correct heading hierarchy. Sits directly on the
+         open gradient (no backdrop card), matching the reference mockups. -->
     <section class="ww-hero">
         <span class="ww-hero-badge mb-3">
             <span class="ww-hero-badge-dot" aria-hidden="true"></span>
@@ -28,12 +25,10 @@
         </p>
     </section>
 
-    <!-- Create Event section. Input and submit button are merged into one
-         wide bordered/shadowed capsule (.ww-pill-group) rather than two
-         separate shapes side by side. No visible heading (reference
-         mockups don't show one either — Create reads as the hero's own
-         call to action) but the <h2> is kept for screen-reader heading
-         navigation, hidden visually, matching the Join section below it. -->
+    <!-- Create Event section. Input and submit button merge into one wide
+         bordered/shadowed capsule (.ww-pill-group) rather than two separate shapes.
+         No visible heading (reads as the hero's own CTA) but the <h2> stays for
+         screen-reader heading navigation. -->
     <div class="d-flex flex-column align-items-center gap-3">
         <h2 class="visually-hidden">Create a new event</h2>
 
@@ -58,10 +53,8 @@
         </form>
     </div>
 
-    <!-- Join Event section. Deliberately smaller/secondary to Create, sitting
-         inline beside its "or join with a code" tag rather than stacked
-         below with its own full heading (reference mockups). The <h2> is
-         kept for screen-reader heading navigation but hidden visually. -->
+    <!-- Join Event section. Deliberately smaller/secondary, sitting inline beside its
+         "or join with a code" tag rather than stacked with its own full heading. -->
     <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 mt-4">
         <h2 class="visually-hidden">Join an event</h2>
         <p class="ww-join-divider mb-0">
@@ -97,30 +90,21 @@
         </form>
     </div>
 
-    <!-- "Why WhenWorks" mini-feature row, sitting in its own soft banded
-         section (matching the reference mockups' section wrapper around
-         this row). Deliberately no bottom margin — the band sits flush
-         against the footer with a single shared divider line rather than a
-         gap framed by two borders; see .ww-feature-band in site.css. Copy
-         describes only what the app actually does today (create/join,
-         personalize, and find your events again) — availability voting and
-         chat aren't built yet (see CLAUDE.md), so this deliberately doesn't
-         advertise either. -->
+    <!-- "Why WhenWorks" mini-feature row, in its own soft banded section (matching the
+         reference mockups). No bottom margin — the band sits flush against the footer
+         (see .ww-feature-band in site.css). Copy describes only what the app does today
+         (create/join, personalize, find your events again) — availability voting and
+         chat aren't built yet (see CLAUDE.md), so this doesn't advertise either. -->
     <div class="ww-feature-band mt-5">
         <div class="ww-feature-band-inner">
             <div class="row g-4 justify-content-center">
-                <!-- ww-feature-card-slot: the actual :hover trigger for the
-                     bounce animation (site.css) lives on THIS column, not on
-                     .ww-feature-card itself. A Bootstrap grid column never
-                     moves (child transforms don't affect layout), so its hit
-                     box stays put even while the card inside it lifts up to
-                     ~19px on hover — hovering .ww-feature-card directly, as
-                     an earlier version did, meant the card's own hit box
-                     moved away from a stationary cursor near its bottom edge
-                     mid-animation, un-hovering and re-hovering it in a loop
-                     (confirmed with instrumented hover events) — the "jolt"/
-                     "flash" reported. See Home/Index.cshtml's script for the
-                     matching fix on the confetti hover listeners. -->
+                <!-- .ww-feature-card-slot: the hover trigger for the bounce animation
+                     (site.css) lives on this column, not on .ww-feature-card itself —
+                     a Bootstrap grid column never moves under a child transform, so its
+                     hit box stays put while the card lifts on hover. Hovering the card
+                     directly caused a re-entry loop near its bottom edge (see site.css's
+                     comment on .ww-feature-card-slot:hover, and site.js's matching fix
+                     on the confetti hover listeners). -->
                 <div class="col-sm-6 col-md-4 ww-feature-card-slot">
                     <div class="ww-feature-card ww-feature-card--yellow h-100">
                         <span class="ww-feature-icon"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i></span>
@@ -153,210 +137,6 @@
     </div>
 </div>
 
-<!-- Confetti particles spawned from the cursor while a feature card is
-     hovered (Magic Bento-inspired effect — see the comment atop site.js's
-     ambient-spotlight IIFE for the full context and why this is plain JS
-     rather than a React/GSAP port). The proximity border-glow and the
-     page-wide cursor spotlight are both shared-layout behavior driven
-     globally by site.js instead, since they apply to more than just this
-     page's cards — this script only owns the part that's actually specific
-     to Home: emitting confetti from the cursor while it's over a card. -->
-@section Scripts {
-    <script>
-        (function () {
-            const cards = document.querySelectorAll('.ww-feature-card');
-            if (cards.length === 0) {
-                return;
-            }
-
-            // Skip entirely for touch devices (no hovering cursor to react to)
-            // and for anyone who's asked their OS/browser to reduce motion —
-            // this effect is a pure decorative flourish, never required to use
-            // the page, same convention as .ww-fade-up in site.css.
-            const pointerQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
-            const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-            if (!pointerQuery.matches || reduceMotionQuery.matches) {
-                return;
-            }
-
-            // A slower/sparser pass (140ms/2-per-tick) was tried in between,
-            // suspecting these as the source of a reported hover flash — that
-            // turned out to be an unrelated animation-restart bug (see
-            // site.css's own comment on .ww-feature-card-slot), not this
-            // burst's pace. A denser 50ms/5-per-tick pass followed once more
-            // was asked for after that fix; nudged back down slightly from
-            // there per developer feedback, landing between the two.
-            const SPARKLE_INTERVAL_MS = 65;
-            // Spawned together each tick (rather than only shortening the
-            // interval further) so the cards read as busy with tiny
-            // particles without cranking the timer frequency high enough to
-            // add real overhead.
-            const SPARKLES_PER_TICK = 4;
-
-            // Max burst distance (px) a spawned sparkle can fly from its
-            // origin — used both to randomize --sparkle-dx/-dy and, further
-            // down, to map that same distance to a smaller end size for
-            // particles that happen to fly further. Bigger than an earlier
-            // 70px pass so the trail actually spreads across the card
-            // instead of staying clustered near the cursor.
-            const BURST_DISTANCE_PX = 140;
-
-            // Radius (px) each particle's own spawn point is randomized
-            // within around the cursor, instead of landing right on top of
-            // it — spreads the particles out from the moment they appear
-            // rather than having every one of them pile up densely on the
-            // exact same pixel before their burst motion (below) carries
-            // them apart.
-            const START_SPREAD_RADIUS_PX = 26;
-
-            // Spawns one confetti particle at the given origin point (card-
-            // relative pixel coordinates — see the cursor tracking below,
-            // which supplies the current cursor position so particles burst
-            // out from the cursor rather than appearing at random spots on
-            // the card), colored to match that card's own --card-glow-rgb
-            // accent (site.css's .ww-feature-card--yellow/--blue/--green).
-            // Announces its own start/end via the 'ww:sparkle-start'/
-            // 'ww:sparkle-end' events site.js listens for, to keep the
-            // page-wide spotlight visible for as long as sparkles are still
-            // flying (see its own comment on activeSparkleCount). Removed
-            // once its float-and-fade animation finishes (site.css's
-            // ww-sparkle-float keyframes) rather than left to accumulate.
-            function spawnSparkle(card, sparkleHost, originX, originY) {
-                const glowRgb = getComputedStyle(card).getPropertyValue('--card-glow-rgb').trim() || '239, 73, 169';
-
-                // Random direction + distance (a burst, not a straight
-                // random walk) — small jitter on the origin itself too, so a
-                // whole tick's worth of particles doesn't spawn stacked on
-                // the exact same pixel.
-                const angle = Math.random() * Math.PI * 2;
-                const distance = BURST_DISTANCE_PX * (0.35 + Math.random() * 0.65);
-                const dx = Math.cos(angle) * distance;
-                const dy = Math.sin(angle) * distance;
-
-                // Spawn point itself is spread over a wide-ish disc around
-                // the origin (not a tight jitter, and not the same angle as
-                // the burst direction above) — see START_SPREAD_RADIUS_PX's
-                // own comment for why: this is what keeps the cluster right
-                // at the cursor from reading as too dense.
-                const startAngle = Math.random() * Math.PI * 2;
-                const startRadius = Math.random() * START_SPREAD_RADIUS_PX;
-
-                const sparkle = document.createElement('div');
-                sparkle.className = 'ww-sparkle';
-                sparkle.style.left = (originX + Math.cos(startAngle) * startRadius) + 'px';
-                sparkle.style.top = (originY + Math.sin(startAngle) * startRadius) + 'px';
-                // Flat-colored rectangle, not the old glowing radial-
-                // gradient dot — confetti flakes, not sparks. Width/height
-                // randomized per particle (rather than one fixed size in
-                // site.css) so the burst reads as a mix of little squares
-                // and slivers the way real confetti does, and each flake's
-                // long axis is picked independently of its flight direction
-                // so they don't all look like they're pointing the same way.
-                const flakeWidth = 3 + Math.round(Math.random() * 3);
-                const flakeHeight = 3 + Math.round(Math.random() * 3);
-                sparkle.style.width = flakeWidth + 'px';
-                sparkle.style.height = flakeHeight + 'px';
-                sparkle.style.backgroundColor = 'rgb(' + glowRgb + ')';
-                sparkle.style.setProperty('--sparkle-dx', dx + 'px');
-                sparkle.style.setProperty('--sparkle-dy', dy + 'px');
-                // Full rotations, not a few degrees of wobble — reads as
-                // genuinely tumbling rather than just drifting. Randomized
-                // sign so flakes don't all spin the same way.
-                const spin = (360 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1);
-                sparkle.style.setProperty('--sparkle-rot', spin.toFixed(0) + 'deg');
-                // Particles that fly further end up smaller — distance maps
-                // linearly onto the 0.55-0.2 end-scale range rather than
-                // every particle shrinking to the same fixed final size
-                // regardless of how far its own burst actually carried it.
-                sparkle.style.setProperty('--sparkle-end-scale', (0.55 - (distance / BURST_DISTANCE_PX) * 0.35).toFixed(2));
-
-                document.dispatchEvent(new CustomEvent('ww:sparkle-start'));
-                sparkle.addEventListener('animationend', function () {
-                    sparkle.remove();
-                    document.dispatchEvent(new CustomEvent('ww:sparkle-end'));
-                });
-
-                // Into the card's clipping layer, not the card itself — this
-                // keeps particles inside the card's rounded bounds.
-                sparkleHost.appendChild(sparkle);
-            }
-
-            cards.forEach(function (card) {
-                let sparkleIntervalId = null;
-
-                // Per-card clipping layer the particles are appended into
-                // (site.css's .ww-feature-card-sparkles). Created here rather
-                // than authored into the markup since it's purely an artifact
-                // of this effect — nothing renders it if this script never
-                // runs (touch devices, reduced motion, JS disabled).
-                const sparkleHost = document.createElement('div');
-                sparkleHost.className = 'ww-feature-card-sparkles';
-                sparkleHost.setAttribute('aria-hidden', 'true');
-                card.appendChild(sparkleHost);
-
-                // The actual mouseenter/mouseleave/mousemove listeners below
-                // are bound to this stable wrapper (the Bootstrap grid column
-                // — site.css's .ww-feature-card-slot), not to `card` itself.
-                // `card` is what site.css's hover rule lifts up to ~19px on
-                // :hover; binding these listeners directly to it (an earlier
-                // version did) meant a cursor resting near the card's bottom
-                // edge got un-hovered the instant the lift carried that edge
-                // up past it, then re-hovered once it dropped back down —
-                // repeating in a loop for as long as the cursor stayed put,
-                // which fired an immediate burst of sparkles on every single
-                // re-entry and read as a flicker/flash. The wrapper's own box
-                // is unaffected by its child's transform, so it can't suffer
-                // that loop. Falls back to `card` itself if the slot class is
-                // ever missing, so this still degrades gracefully rather than
-                // throwing.
-                const hoverZone = card.closest('.ww-feature-card-slot') || card;
-
-                // Card-relative cursor position, kept current by the
-                // mousemove listener below and used as the sparkle spawn
-                // origin — starts centered so a mouseenter that fires before
-                // any mousemove (rare, but possible) still has somewhere
-                // sane to spawn from.
-                let cursorX = card.clientWidth / 2;
-                let cursorY = card.clientHeight / 2;
-
-                // Tracks card-relative cursor position for spawnSparkle's
-                // origin only — the border-glow tint itself (--glow-
-                // intensity) is driven globally by site.js's proximity
-                // system now, not per-card here, so this card also lights up
-                // when the cursor is merely nearby, not only while literally
-                // hovered (see site.js's updateGlowTargets). Coordinates are
-                // still computed against `card`'s own rect (not hoverZone's)
-                // so particles keep spawning at the correct spot relative to
-                // the card regardless of which element the listener is on.
-                hoverZone.addEventListener('mousemove', function (event) {
-                    const rect = card.getBoundingClientRect();
-                    cursorX = event.clientX - rect.left;
-                    cursorY = event.clientY - rect.top;
-                });
-
-                // Sparkles spawn on an interval only while actively hovered,
-                // not one-shot on entry, so lingering over a card keeps
-                // producing them rather than a single static burst.
-                hoverZone.addEventListener('mouseenter', function (event) {
-                    const rect = card.getBoundingClientRect();
-                    cursorX = event.clientX - rect.left;
-                    cursorY = event.clientY - rect.top;
-
-                    for (let i = 0; i < SPARKLES_PER_TICK; i++) {
-                        spawnSparkle(card, sparkleHost, cursorX, cursorY);
-                    }
-                    sparkleIntervalId = window.setInterval(function () {
-                        for (let i = 0; i < SPARKLES_PER_TICK; i++) {
-                            spawnSparkle(card, sparkleHost, cursorX, cursorY);
-                        }
-                    }, SPARKLE_INTERVAL_MS);
-                });
-
-                hoverZone.addEventListener('mouseleave', function () {
-                    window.clearInterval(sparkleIntervalId);
-                    sparkleIntervalId = null;
-                });
-            });
-        })();
-    </script>
-}
+@* The feature-card confetti effect lives in site.js (with the other shared-layout
+   ambient effects) rather than here, so it's cached/parsed once with the rest of the
+   site JS instead of re-downloaded as part of this page's HTML. *@
