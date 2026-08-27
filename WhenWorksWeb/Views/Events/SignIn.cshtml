@@ -86,14 +86,18 @@
                 <span asp-validation-for="SelectedExistingDisplayName" class="text-danger d-block mt-1"></span>
 
                 <!-- Participant color input. Centered within the card, unlike the
-                     left-aligned fields above. -->
+                     left-aligned fields above. Treated like a button (see site.css); the
+                     eyedropper glyph fades in on hover/focus as a "click to edit" cue. -->
                 <div class="ww-signin-color-block mt-4">
                     <span class="ww-signin-field-label">Your Color</span>
                     <label class="visually-hidden" for="colorPicker">Color</label>
-                    <input type="color"
-                           id="colorPicker"
-                           class="color-swatch-picker"
-                           value="#@Model.Color" />
+                    <div class="ww-color-picker-wrap">
+                        <input type="color"
+                               id="colorPicker"
+                               class="color-swatch-picker"
+                               value="#@Model.Color" />
+                        <i class="bi bi-eyedropper ww-color-picker-icon" aria-hidden="true"></i>
+                    </div>
                     <input asp-for="Color" type="hidden" id="Color" />
                     <span asp-validation-for="Color" class="text-danger d-block mt-1"></span>
                 </div>

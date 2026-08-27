@@ -1227,7 +1227,8 @@ body {
    below are the additions specific to this page's layout and controls (the
    intro column's left alignment, the card itself, a pill-shaped <select>
    with an inset arrow well, a circular color swatch, and a large "Enter!"
-   call-to-action pill).
+   call-to-action pill), brought up to the same animation/interaction-state
+   language as the shared layout and Home.
    ========================================================================== */
 
 /* Left column: same hero classes as Home (.ww-hero-badge/.ww-hero-title/
@@ -1235,37 +1236,90 @@ body {
    classes are otherwise shared as-is. .ww-hero-subtitle carries its own
    margin-left/right: auto for Home's centered layout, which would still
    visually center it here despite the container's own text-align; overridden
-   below since this column is a left-aligned intro, not a centered hero. */
+   below since this column is a left-aligned intro, not a centered hero.
+   .ww-hero-badge itself needs no changes — it already gets the glow/shimmer
+   effects from reusing that class as-is. */
 .ww-signin-intro .ww-hero-subtitle {
   margin-left: 0;
   margin-right: 0;
+}
+
+/* Same entrance fade-up as Home's .ww-hero / .ww-feature-card-slot, applied to
+   this page's own intro column and card. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-signin-intro,
+  .ww-signin-card {
+    animation: ww-fade-up 0.5s ease-out both;
+  }
+
+  /* The card loads a beat after the intro text beside it, rather than both
+     popping in at once. */
+  .ww-signin-card {
+    animation-delay: 0.1s;
+  }
 }
 
 /* Right column: the card holding the sign-in form. Same rounded/bordered
    "card" language as .my-events-card (radius, border, overflow: hidden) but
    with its own soft cream fill (the mockup's card isn't pure white) and the
    site's one hard-shadow pop, since unlike .my-events-card this one isn't
-   nested inside other chrome that already supplies depth. */
+   nested inside other chrome that already supplies depth.
+
+   Also a proximity-glow target (see the "PROXIMITY BORDER" block and
+   site.js's glowTargets), using the same yellow accent as
+   .ww-pill-group-yellow. No hover-bounce or sparkles like .ww-feature-card
+   though — those would fight a form the visitor is trying to type into. */
 .ww-signin-card {
   max-width: 30rem;
-  border: 3px solid var(--color-accent-yellow-border);
+  border: 3px solid var(--glow-border-color);
   border-radius: 1.75rem;
   background-color: #fffaf1;
   padding: 2rem;
   text-align: left;
-  box-shadow: var(--shadow-hard);
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
 }
 
 /* Left-align the pill controls inside the card — .input-pill's own base rule
    centers its text, which suits Home's centered layout but not this card's
-   left-aligned one. */
+   left-aligned one. Also gives these standalone fields the same hard-shadow
+   pop/hover-lift/focus states every pill uses, since — unlike Home's
+   Create/Join inputs — neither sits inside a .ww-pill-group to inherit it
+   from. No glow ring though: nested controls don't get one (see "PROXIMITY
+   BORDER" below). */
 .ww-signin-card .input-pill {
   width: 100%;
   text-align: left;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .ww-signin-card .input-pill::placeholder {
   text-align: left;
+}
+
+.ww-signin-card .input-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-signin-card .input-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Taller than :hover, like .ww-pill-group:focus-within on Home. !important
+   needed to beat the sitewide `.input-pill:focus { box-shadow: none !important; }`
+   rule. */
+.ww-signin-card .input-pill:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+/* Suppresses the sitewide outline ring — text inputs/selects match
+   :focus-visible even on a mouse click (unlike buttons/links), and the lift
+   + taller shadow above is already a sufficient focus indicator. */
+.ww-signin-card .input-pill:focus-visible {
+  outline: none;
 }
 
 /* The event name — this card's equivalent of the mockup's placeholder "Hi"
@@ -1383,6 +1437,10 @@ body {
   border-radius: 50%;
   cursor: pointer;
   background: none;
+  /* Same hard-shadow pop as .go-button/.enter-button, just circular (STYLE_GUIDE.md
+     flagged this as deferred). site.js separately tints border-color to match. */
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .color-swatch-picker::-webkit-color-swatch-wrapper {
@@ -1401,13 +1459,86 @@ body {
   border-radius: 50%;
 }
 
-.color-swatch-picker:focus {
-  box-shadow: none;
+.color-swatch-picker:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
 }
 
-/* Primary CTA for this page — same green accent/hover behavior as .go-button
+.color-swatch-picker:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Stays lifted while focused (e.g. dialog open), like .input-pill:focus —
+   not just a momentary hover bounce. */
+.color-swatch-picker:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus);
+}
+
+/* Visible keyboard-focus indicator, same pattern as .go-button:focus-visible. */
+.color-swatch-picker:focus-visible {
+  box-shadow: var(--shadow-hard-focus), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Positioning context for the eyedropper overlay below (SignIn only; named
+   generically in case Register/Manage adopt it too). The lift/press
+   transform moves here instead of on the swatch (via :has() below), so the
+   overlaid icon travels with it as one unit — the swatch's own transform is
+   cancelled to avoid doubling the distance. */
+.ww-color-picker-wrap {
+  position: relative;
+  display: inline-block;
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1);
+}
+
+.ww-color-picker-wrap .color-swatch-picker:hover,
+.ww-color-picker-wrap .color-swatch-picker:active,
+.ww-color-picker-wrap .color-swatch-picker:focus {
+  transform: none;
+}
+
+.ww-color-picker-wrap:has(.color-swatch-picker:hover) {
+  transform: translateY(-2px);
+}
+
+.ww-color-picker-wrap:has(.color-swatch-picker:active) {
+  transform: translateY(2px);
+}
+
+/* Declared last so it wins over :hover when both match, same as
+   .ww-pill-group:focus-within. */
+.ww-color-picker-wrap:has(.color-swatch-picker:focus) {
+  transform: translateY(-3px);
+}
+
+/* Eyedropper glyph shown on hover/focus as a "click to edit" cue. pointer-
+   events: none so clicks pass through to the input underneath. White +
+   drop-shadow instead of a computed contrast color, so it stays legible over
+   any picked fill without server-side logic. */
+.ww-color-picker-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.15rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.ww-color-picker-wrap:hover .ww-color-picker-icon,
+.ww-color-picker-wrap:focus-within .ww-color-picker-icon {
+  opacity: 1;
+}
+
+/* Primary CTA for this page — same green accent/hard-shadow-pop behavior as .go-button
    (STYLE_GUIDE.md's "GO!" pattern), a large labeled pill since this page has one
-   page-level action instead of one per input. */
+   page-level action instead of one per input. (STYLE_GUIDE.md flagged the old
+   box-shadow: none pattern here as deferred work.) */
 .enter-button {
   display: inline-flex;
   align-items: center;
@@ -1416,26 +1547,43 @@ body {
   border: 2px solid var(--color-accent-green-border);
   border-radius: var(--radius-pill);
   background-color: var(--color-accent-green);
-  color: var(--color-text-on-gradient);
+  /* --color-text-strong, not white — same reasoning as .go-button (white-on-green
+     fails WCAG contrast). Kept dark in every state below too. */
+  color: var(--color-text-strong);
   font-family: var(--font-display);
   font-size: 1.35rem;
   /* Safety net for longer labels (e.g. "CHANGE EMAIL") in narrower containers. */
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease;
 }
 
-/* Same hover/active/focus treatment as .go-button — see its comments above for why
-   !important is required here too. */
-.enter-button:hover,
+.enter-button:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* Same fill as :hover, only the bounce direction differs (down vs. up) — see
+   .go-button:active's own comment for why every property here needs !important
+   (Bootstrap's ":not(.btn-check)+.btn:active" rule outranks a plain
+   ".enter-button:active" since this button also carries .btn). */
 .enter-button:active {
   background-color: var(--color-accent-green-border) !important;
   border-color: var(--color-accent-green-border) !important;
-  color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  color: var(--color-text-strong) !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .enter-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
+}
+
+/* Visible keyboard-focus indicator, same pattern as .go-button:focus-visible. */
+.enter-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
 /* ==========================================================================
@@ -1984,17 +2132,20 @@ body {
 
    TARGETS ARE OUTERMOST CONTAINERS ONLY: nav links/toggle, the hamburger
    toggler, the hero badge, the brand's sparkle badge, the Create/Join
-   capsules, the account dropdown panel, and the feature cards. Never the
-   controls nested inside one (no .ww-pill-input or .go-button inside a
-   capsule, no .dropdown-item rows inside the account panel) — buttons in
-   particular get no proximity border at all, only the shiny-text sweep. */
+   capsules, the account dropdown panel, the feature cards, and the Event
+   Sign-In card. Never the controls nested inside one (no .ww-pill-input or
+   .go-button inside a capsule, no .dropdown-item rows inside the account
+   panel, no .input-pill/.enter-button/.color-swatch-picker inside the
+   Sign-In card) — buttons in particular get no proximity border at all, only
+   the shiny-text sweep. */
 .navbar .nav-link,
 .navbar-toggler,
 .ww-hero-badge,
 .ww-brand-badge,
 .ww-pill-group,
 .account-dropdown-menu,
-.ww-feature-card {
+.ww-feature-card,
+.ww-signin-card {
   --glow-intensity: 0;
   /* Resting border color, i.e. what --glow-border-color falls back to at intensity 0.
      Overridden per element below wherever that isn't white. */
@@ -2068,6 +2219,10 @@ body {
   --glow-rest-border: var(--color-accent-blue-border);
 }
 
+.ww-signin-card {
+  --glow-rest-border: var(--color-accent-yellow-border);
+}
+
 /* Accent per pill, reusing each one's own fill/border color rather than a single shared
    tone. Anything not listed here (the hero badge, the Admin-only "Manage Users" link)
    falls back to the shared glow block's own plain-white default, since an element with
@@ -2099,6 +2254,10 @@ body {
 
 .ww-pill-group-blue {
   --card-glow-rgb: 79, 184, 196;
+}
+
+.ww-signin-card {
+  --card-glow-rgb: 232, 147, 90;
 }
 
 /* .go-button gets no ring of its own (buttons are excluded from the shared pill ring
@@ -2192,7 +2351,8 @@ body {
   .ww-brand-badge,
   .ww-pill-group,
   .account-dropdown-menu,
-  .ww-feature-card {
+  .ww-feature-card,
+  .ww-signin-card {
     --glow-intensity: 0 !important;
   }
 

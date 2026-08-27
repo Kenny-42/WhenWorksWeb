@@ -286,12 +286,12 @@
     spotlight.style.setProperty("--spotlight-b", rgb[2]);
   }
 
-  // Every "pill container" this glow applies to, across the shared layout and Home —
-  // outermost containers only, never a control nested inside one (no .go-button, no
-  // .ww-pill-input, no .dropdown-item row). See site.css's own comment on the shared
-  // glow block for that rule. Queried once since this set doesn't change after load.
+  // Every "pill container" this glow applies to, across the shared layout, Home, and
+  // Event Sign-In — outermost containers only, never a nested control (see site.css's
+  // shared glow block for that rule). Queried once since this set doesn't change after
+  // load.
   var glowTargets = document.querySelectorAll(
-    ".ww-feature-card, .navbar .nav-link, .navbar-toggler, .ww-hero-badge, .ww-brand-badge, .ww-pill-group, .account-dropdown-menu"
+    ".ww-feature-card, .navbar .nav-link, .navbar-toggler, .ww-hero-badge, .ww-brand-badge, .ww-pill-group, .account-dropdown-menu, .ww-signin-card"
   );
 
   // How close the cursor needs to be to a glow target before it's "under the spotlight" —
