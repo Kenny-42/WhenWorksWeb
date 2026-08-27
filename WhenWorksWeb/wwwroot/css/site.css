@@ -644,6 +644,14 @@ body {
   font-size: 0.78rem;
   text-align: center;
   padding: 1.25rem 0;
+  /* Fixed bar height, like the navbar — content here is the same one-line
+     copyright/Privacy-link pill on every page, so this keeps the footer a
+     stable size instead of it flexing with whatever page sits above it. */
+  box-sizing: border-box;
+  min-height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .footer a {
@@ -1212,11 +1220,105 @@ body {
 }
 
 /* ==========================================================================
-   Event Sign-In page. Reuses the .input-pill/.input-pill-blue tokens from
-   the Home page pass above; the two additions below are specific to this
-   page's controls (a pill-shaped <select> with an inset arrow well, a
-   circular color swatch, and a large "Enter!" call-to-action pill).
+   Event Sign-In page. Two-column layout (hero intro + a card holding the
+   form) matching a reference mockup for this page specifically. Reuses the
+   .input-pill/.input-pill-yellow/.input-pill-blue tokens and the Home page's
+   .ww-hero-badge/.ww-hero-title/.ww-hero-subtitle hero classes; the rules
+   below are the additions specific to this page's layout and controls (the
+   intro column's left alignment, the card itself, a pill-shaped <select>
+   with an inset arrow well, a circular color swatch, and a large "Enter!"
+   call-to-action pill).
    ========================================================================== */
+
+/* Left column: same hero classes as Home (.ww-hero-badge/.ww-hero-title/
+   .ww-hero-subtitle), but left-aligned here instead of centered — those
+   classes are otherwise shared as-is. .ww-hero-subtitle carries its own
+   margin-left/right: auto for Home's centered layout, which would still
+   visually center it here despite the container's own text-align; overridden
+   below since this column is a left-aligned intro, not a centered hero. */
+.ww-signin-intro .ww-hero-subtitle {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Right column: the card holding the sign-in form. Same rounded/bordered
+   "card" language as .my-events-card (radius, border, overflow: hidden) but
+   with its own soft cream fill (the mockup's card isn't pure white) and the
+   site's one hard-shadow pop, since unlike .my-events-card this one isn't
+   nested inside other chrome that already supplies depth. */
+.ww-signin-card {
+  max-width: 30rem;
+  border: 3px solid var(--color-accent-yellow-border);
+  border-radius: 1.75rem;
+  background-color: #fffaf1;
+  padding: 2rem;
+  text-align: left;
+  box-shadow: var(--shadow-hard);
+}
+
+/* Left-align the pill controls inside the card — .input-pill's own base rule
+   centers its text, which suits Home's centered layout but not this card's
+   left-aligned one. */
+.ww-signin-card .input-pill {
+  width: 100%;
+  text-align: left;
+}
+
+.ww-signin-card .input-pill::placeholder {
+  text-align: left;
+}
+
+/* The event name — this card's equivalent of the mockup's placeholder "Hi"
+   heading. Dark text since the card is an opaque light surface (see
+   STYLE_GUIDE.md's white-glass/dark-text convention). */
+.ww-signin-heading {
+  color: var(--color-text-strong);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+/* Small uppercase field labels ("NICKNAME", "YOUR COLOR") above each control
+   — the card's equivalent of Home's visually-hidden <h2>s, but visible here
+   since the mockup treats them as part of the card's own content. */
+.ww-signin-field-label {
+  display: block;
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+/* "Already joined?" note above the existing-participant dropdown — muted
+   relative to the field labels above so it reads as a secondary hint, not
+   another field label. */
+.ww-signin-note {
+  color: var(--color-text-strong);
+  opacity: 0.75;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+/* Shorter and smaller-text than the other pills in this card — width is
+   untouched (still 100%, from .ww-signin-card .input-pill above) since this
+   dropdown is a secondary/deemphasized control, not the primary Nickname
+   field. */
+.ww-signin-select-compact {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+
+/* "Your Color" label + swatch — centered, unlike the left-aligned Nickname/
+   existing-participant fields above. */
+.ww-signin-color-block {
+  text-align: center;
+}
 
 /* Layered on top of .input-pill.input-pill-blue on the existing-participant <select> —
    that pair still supplies fill/border/font/focus styling; this class only replaces the
@@ -1267,11 +1369,16 @@ body {
 
 /* Native color input, restyled as a circular swatch via its own
    ::-webkit-color-swatch-* / ::-moz-color-swatch pseudo-elements (no cross-browser way
-   to circle it via a wrapper). White ring matches the mockup regardless of accent. */
+   to circle it via a wrapper). White ring matches the mockup regardless of accent — the
+   input's own padding (not just its border) is what creates that ring's width, since the
+   swatch fill sits inside the input's content box on both engines. */
 .color-swatch-picker {
   width: 3.5rem;
   height: 3.5rem;
-  padding: 0;
+  /* Matches the border's own 3px so the ring and the outline read as the same
+     thickness — px, not rem, for the same reason the border is: it should stay a
+     literal 3px regardless of html's scaled root font-size. */
+  padding: 3px;
   border: 3px solid var(--color-text-on-gradient);
   border-radius: 50%;
   cursor: pointer;

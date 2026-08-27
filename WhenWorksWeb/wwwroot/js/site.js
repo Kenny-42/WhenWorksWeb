@@ -544,3 +544,23 @@
     });
   });
 })();
+
+// Every circular color-swatch picker (Event Sign-In, Register, Manage account) shares
+// this one class, but each page wires its own "sync visible picker -> hidden posted
+// field" script separately (they post to different hidden field ids) — this IIFE only
+// owns the part that's identical everywhere: tinting the swatch's own outline to a
+// darker shade of whatever color is currently picked, via the same
+// color-mix(in srgb, <color> 80%, black 20%) formula the "My Profile" nav link uses for
+// its own --user-color border (site.css).
+(function () {
+  "use strict";
+
+  document.querySelectorAll(".color-swatch-picker").forEach(function (picker) {
+    function updateBorderColor() {
+      picker.style.borderColor = "color-mix(in srgb, " + picker.value + " 80%, black 20%)";
+    }
+
+    updateBorderColor();
+    picker.addEventListener("input", updateBorderColor);
+  });
+})();

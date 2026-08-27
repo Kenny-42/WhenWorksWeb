@@ -1,95 +1,109 @@
-﻿@model WhenWorksWeb.Models.EventSignInViewModel
+@model WhenWorksWeb.Models.EventSignInViewModel
 
 @{
     ViewData["Title"] = "Event Sign-In";
     var selectedExistingDisplayName = Model.SelectedExistingDisplayName ?? string.Empty;
 }
 
-<!-- Event sign-in container -->
-<div class="text-center">
-    <!-- Event name stays the page's primary heading; "Enter Your Nickname" from the
-         reference mockup is kept as a smaller subtitle, pushed down from the title so
-         the two read as visually distinct rather than one stacked block. -->
-    <h1 class="display-4 font-display text-on-gradient mb-2">@Model.EventName</h1>
-    <h2 class="h4 font-display text-on-gradient mt-4 mb-2">ENTER YOUR NICKNAME</h2>
+<!-- Event sign-in: a two-column layout (hero intro + a card holding the form), matching
+     the reference mockup for this page. The hero's "Bring your own color." heading is the
+     page's one <h1>; the event name inside the card is a secondary <h2> below it. -->
+<div class="row align-items-center g-5 mb-5">
+    <!-- Left column: hero intro. Reuses Home's .ww-hero-badge/.ww-hero-title/
+         .ww-hero-subtitle classes, left-aligned here instead of centered. -->
+    <div class="col-lg-6 text-center text-lg-start ww-signin-intro">
+        <span class="ww-hero-badge mb-3">
+            <i class="bi bi-magic" aria-hidden="true"></i>
+            <span class="ww-shiny-text">START HERE</span>
+        </span>
+        <h1 class="ww-hero-title font-display mb-3">
+            Bring your<br>
+            <span class="ww-hero-title-accent">own color.</span>
+        </h1>
+        <p class="ww-hero-subtitle mb-0">
+            Choose a nickname and a color. We'll use it to mark when you're free on the calendar.
+        </p>
+    </div>
 
-    <form asp-action="SignIn"
-          asp-controller="Events"
-          asp-route-code="@Model.Code"
-          method="post"
-          class="d-flex flex-column align-items-center gap-2"
-          id="eventSignInForm">
+    <!-- Right column: the sign-in form, in its own card. -->
+    <div class="col-lg-6">
+        <div class="ww-signin-card mx-auto">
+            <h2 class="ww-signin-heading font-display">@Model.EventName</h2>
 
-        <input type="hidden" asp-for="Code" />
+            <form asp-action="SignIn"
+                  asp-controller="Events"
+                  asp-route-code="@Model.Code"
+                  method="post"
+                  id="eventSignInForm">
 
-        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <input type="hidden" asp-for="Code" />
 
-        <!-- Participant name input -->
-        <div>
-            <label asp-for="DisplayName" class="visually-hidden"></label>
-            <input asp-for="DisplayName"
-                   class="form-control input-pill input-pill-yellow mx-auto"
-                   style="width: 16rem;"
-                   placeholder="Your Name"
-                   autocomplete="nickname" />
-            <span asp-validation-for="DisplayName" class="text-danger d-block mt-1"></span>
-        </div>
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-        <p class="text-on-gradient fw-bold small mb-1">Already joined? Choose your name from the dropdown below</p>
+                <!-- Participant name input -->
+                <label asp-for="DisplayName" class="ww-signin-field-label">Nickname</label>
+                <input asp-for="DisplayName"
+                       class="form-control input-pill input-pill-yellow"
+                       placeholder="Your Name"
+                       autocomplete="nickname" />
+                <span asp-validation-for="DisplayName" class="text-danger d-block mt-1"></span>
 
-        <!-- Existing participant dropdown -->
-        <div>
-            <label class="visually-hidden" for="existingDisplayNames">Participant</label>
-            <select asp-for="SelectedExistingDisplayName"
-                    class="form-select input-pill input-pill-blue select-arrow-inset mx-auto"
-                    style="width: 16rem;"
-                    id="existingDisplayNames">
-                @if (string.IsNullOrWhiteSpace(selectedExistingDisplayName))
-                {
-                    <option value="" selected="selected">New Participant</option>
-                }
-                else
-                {
-                    <option value="">New Participant</option>
-                }
+                <p class="ww-signin-note mb-1">Already joined? Choose your name from the dropdown below</p>
 
-                @foreach (var participant in Model.ExistingParticipants)
-                {
-                    if (participant.DisplayName == selectedExistingDisplayName)
+                <!-- Existing participant dropdown -->
+                <label class="visually-hidden" for="existingDisplayNames">Participant</label>
+                <select asp-for="SelectedExistingDisplayName"
+                        class="form-select input-pill input-pill-blue select-arrow-inset ww-signin-select-compact"
+                        id="existingDisplayNames">
+                    @if (string.IsNullOrWhiteSpace(selectedExistingDisplayName))
                     {
-                        <option value="@participant.DisplayName"
-                                data-color="@participant.Color"
-                                selected="selected">
-                            @participant.DisplayName
-                        </option>
+                        <option value="" selected="selected">New Participant</option>
                     }
                     else
                     {
-                        <option value="@participant.DisplayName"
-                                data-color="@participant.Color">
-                            @participant.DisplayName
-                        </option>
+                        <option value="">New Participant</option>
                     }
-                }
-            </select>
-            <span asp-validation-for="SelectedExistingDisplayName" class="text-danger d-block mt-1"></span>
+
+                    @foreach (var participant in Model.ExistingParticipants)
+                    {
+                        if (participant.DisplayName == selectedExistingDisplayName)
+                        {
+                            <option value="@participant.DisplayName"
+                                    data-color="@participant.Color"
+                                    selected="selected">
+                                @participant.DisplayName
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="@participant.DisplayName"
+                                    data-color="@participant.Color">
+                                @participant.DisplayName
+                            </option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="SelectedExistingDisplayName" class="text-danger d-block mt-1"></span>
+
+                <!-- Participant color input. Centered within the card, unlike the
+                     left-aligned fields above. -->
+                <div class="ww-signin-color-block mt-4">
+                    <span class="ww-signin-field-label">Your Color</span>
+                    <label class="visually-hidden" for="colorPicker">Color</label>
+                    <input type="color"
+                           id="colorPicker"
+                           class="color-swatch-picker"
+                           value="#@Model.Color" />
+                    <input asp-for="Color" type="hidden" id="Color" />
+                    <span asp-validation-for="Color" class="text-danger d-block mt-1"></span>
+                </div>
+
+                <button type="submit" class="btn enter-button w-100 mt-4">
+                    <span class="ww-shiny-text">Create and enter <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                </button>
+            </form>
         </div>
-
-        <h2 class="h4 font-display text-on-gradient mt-4 mb-2">CHOOSE YOUR COLOR</h2>
-
-        <!-- Participant color input -->
-        <div>
-            <label class="visually-hidden" for="colorPicker">Color</label>
-            <input type="color"
-                   id="colorPicker"
-                   class="color-swatch-picker"
-                   value="#@Model.Color" />
-            <input asp-for="Color" type="hidden" id="Color" />
-            <span asp-validation-for="Color" class="text-danger d-block mt-1"></span>
-        </div>
-
-        <button type="submit" class="btn enter-button mt-4">ENTER!</button>
-    </form>
+    </div>
 </div>
 
 @section Scripts {
@@ -122,6 +136,11 @@
                     const selectedColor = selectedOption.getAttribute('data-color');
                     if (selectedColor) {
                         colorPicker.value = `#${selectedColor}`;
+                        // Setting .value directly doesn't fire a native 'input' event, but
+                        // site.js listens for one on every .color-swatch-picker to keep its
+                        // outline tinted to the picked color — dispatch one so that stays in
+                        // sync here too.
+                        colorPicker.dispatchEvent(new Event('input'));
                         syncColor();
                     }
                 }
