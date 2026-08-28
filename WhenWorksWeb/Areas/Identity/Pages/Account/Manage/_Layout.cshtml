@@ -14,8 +14,8 @@
 
 <!-- Manage account container: page heading + pill sidebar nav, sitting
      directly on the gradient like the other Identity pages. -->
-<div class="text-center">
-    <h1 class="display-4 font-display text-on-gradient mb-4">ACCOUNT SETTINGS</h1>
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">ACCOUNT SETTINGS</h1>
 
     <!-- Columns go side-by-side starting at the lg breakpoint (992px), not md
          (768px) — the pill-shaped nav links and buttons in this section don't
@@ -31,15 +31,25 @@
                  reserves that exact height (not a guessed fixed margin, so it
                  stays correct if that heading's size/spacing ever changes)
                  so the nav's first pill starts below the divider line instead
-                 of sitting level with the heading text next to it. -->
-            <div class="invisible" aria-hidden="true">
+                 of sitting level with the heading text next to it. The extra
+                 padding-top matches .ww-account-card's own top padding below,
+                 since the real heading now sits inside that card instead of
+                 flush with the column top. -->
+            <div class="invisible" aria-hidden="true" style="padding-top: 2rem;">
                 <h2 class="h4 font-display mb-2">&nbsp;</h2>
                 <hr class="account-divider w-100 mb-3" />
             </div>
             <partial name="_ManageNav" />
         </div>
         <div class="col-lg-6">
-            @RenderBody()
+            <!-- Every Manage page's content (heading, status message, form) renders into
+                 one shared card here instead of each page wrapping its own — same
+                 opaque/glow-target treatment as the other Identity pages'
+                 .ww-account-card, just applied once at the layout level since every
+                 Manage page already starts with the same h2 + divider pattern. -->
+            <div class="ww-account-card ww-account-card-yellow">
+                @RenderBody()
+            </div>
         </div>
     </div>
 </div>

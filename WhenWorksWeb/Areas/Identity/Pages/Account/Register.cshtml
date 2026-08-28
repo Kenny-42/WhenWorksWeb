@@ -5,131 +5,139 @@
 }
 
 <!-- Register page container -->
-<div class="text-center">
-    <h1 class="display-4 font-display text-on-gradient mb-4">REGISTER</h1>
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">REGISTER</h1>
 
     <div class="row justify-content-center">
         <!-- Registration form -->
         <div class="col-md-5">
             <section>
-                <div class="account-column-heading">
-                    <h2 class="h4 font-display text-on-gradient mb-2">CREATE A NEW ACCOUNT</h2>
+                <div class="ww-account-card ww-account-card-yellow">
+                    <div class="account-column-heading">
+                        <h2 class="h4 font-display text-on-gradient mb-2">CREATE A NEW ACCOUNT</h2>
+                    </div>
+                    <hr class="account-divider w-100" />
+
+                    <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center gap-2">
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+                        <!-- Username input -->
+                        <div>
+                            <label asp-for="Input.UserName" class="visually-hidden"></label>
+                            <input asp-for="Input.UserName"
+                                   class="form-control input-pill input-pill-yellow mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="username"
+                                   aria-required="true"
+                                   placeholder="Username" />
+                            <span asp-validation-for="Input.UserName" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <!-- Email input -->
+                        <div>
+                            <label asp-for="Input.Email" class="visually-hidden"></label>
+                            <input asp-for="Input.Email"
+                                   class="form-control input-pill input-pill-yellow mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="username"
+                                   aria-required="true"
+                                   placeholder="Email" />
+                            <span asp-validation-for="Input.Email" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <!-- Display name input -->
+                        <div>
+                            <label asp-for="Input.DisplayName" class="visually-hidden"></label>
+                            <input asp-for="Input.DisplayName"
+                                   class="form-control input-pill input-pill-blue mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="nickname"
+                                   aria-required="true"
+                                   placeholder="Display Name" />
+                            <span asp-validation-for="Input.DisplayName" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <!-- Password input -->
+                        <div>
+                            <label asp-for="Input.Password" class="visually-hidden"></label>
+                            <input asp-for="Input.Password"
+                                   class="form-control input-pill input-pill-red mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="new-password"
+                                   aria-required="true"
+                                   placeholder="Password" />
+                            <span asp-validation-for="Input.Password" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <!-- Confirm password input -->
+                        <div>
+                            <label asp-for="Input.ConfirmPassword" class="visually-hidden"></label>
+                            <input asp-for="Input.ConfirmPassword"
+                                   class="form-control input-pill input-pill-red mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="new-password"
+                                   aria-required="true"
+                                   placeholder="Confirm Password" />
+                            <span asp-validation-for="Input.ConfirmPassword" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <!-- Color picker input that stores a hex value, styled as a circular swatch
+                             matching the participant color picker on the Event Sign-In page
+                             (including its hover/focus eyedropper icon overlay). -->
+                        <div class="mt-1 d-flex flex-column align-items-center">
+                            <label class="text-on-gradient fw-bold mb-1" for="colorPicker"> Pick your personal color!</label>
+                            <div class="ww-color-picker-wrap">
+                                <input type="color"
+                                       id="colorPicker"
+                                       class="color-swatch-picker"
+                                       value="#@Model.Input.Color" />
+                                <i class="bi bi-eyedropper ww-color-picker-icon" aria-hidden="true"></i>
+                            </div>
+                            <input asp-for="Input.Color" type="hidden" id="Input_Color" />
+                            <span asp-validation-for="Input.Color" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <button id="registerSubmit" type="submit" class="btn enter-button mt-3"><span class="ww-shiny-text">REGISTER</span></button>
+                    </form>
                 </div>
-                <hr class="account-divider w-100" />
-
-                <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center gap-2">
-                    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-
-                    <!-- Username input -->
-                    <div>
-                        <label asp-for="Input.UserName" class="visually-hidden"></label>
-                        <input asp-for="Input.UserName"
-                               class="form-control input-pill input-pill-yellow mx-auto"
-                               style="width: 16rem;"
-                               autocomplete="username"
-                               aria-required="true"
-                               placeholder="Username" />
-                        <span asp-validation-for="Input.UserName" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <!-- Email input -->
-                    <div>
-                        <label asp-for="Input.Email" class="visually-hidden"></label>
-                        <input asp-for="Input.Email"
-                               class="form-control input-pill input-pill-yellow mx-auto"
-                               style="width: 16rem;"
-                               autocomplete="username"
-                               aria-required="true"
-                               placeholder="Email" />
-                        <span asp-validation-for="Input.Email" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <!-- Display name input -->
-                    <div>
-                        <label asp-for="Input.DisplayName" class="visually-hidden"></label>
-                        <input asp-for="Input.DisplayName"
-                               class="form-control input-pill input-pill-blue mx-auto"
-                               style="width: 16rem;"
-                               autocomplete="nickname"
-                               aria-required="true"
-                               placeholder="Display Name" />
-                        <span asp-validation-for="Input.DisplayName" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <!-- Password input -->
-                    <div>
-                        <label asp-for="Input.Password" class="visually-hidden"></label>
-                        <input asp-for="Input.Password"
-                               class="form-control input-pill input-pill-red mx-auto"
-                               style="width: 16rem;"
-                               autocomplete="new-password"
-                               aria-required="true"
-                               placeholder="Password" />
-                        <span asp-validation-for="Input.Password" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <!-- Confirm password input -->
-                    <div>
-                        <label asp-for="Input.ConfirmPassword" class="visually-hidden"></label>
-                        <input asp-for="Input.ConfirmPassword"
-                               class="form-control input-pill input-pill-red mx-auto"
-                               style="width: 16rem;"
-                               autocomplete="new-password"
-                               aria-required="true"
-                               placeholder="Confirm Password" />
-                        <span asp-validation-for="Input.ConfirmPassword" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <!-- Color picker input that stores a hex value, styled as a circular swatch
-                         matching the participant color picker on the Event Sign-In page. -->
-                    <div class="mt-1 d-flex flex-column align-items-center">
-                        <label class="text-on-gradient fw-bold mb-1" for="colorPicker"> Pick your personal color!</label>
-                        <input type="color"
-                               id="colorPicker"
-                               class="color-swatch-picker"
-                               value="#@Model.Input.Color" />
-                        <input asp-for="Input.Color" type="hidden" id="Input_Color" />
-                        <span asp-validation-for="Input.Color" class="text-danger d-block mt-1"></span>
-                    </div>
-
-                    <button id="registerSubmit" type="submit" class="btn enter-button mt-3">REGISTER</button>
-                </form>
             </section>
         </div>
 
         <!-- External login providers -->
         <div class="col-md-5 mt-5 mt-md-0">
             <section>
-                <div class="account-column-heading">
-                    <h2 class="h4 font-display text-on-gradient mb-2">USE ANOTHER SERVICE</h2>
+                <div class="ww-account-card ww-account-card-blue ww-account-card-delayed">
+                    <div class="account-column-heading">
+                        <h2 class="h4 font-display text-on-gradient mb-2">USE ANOTHER SERVICE</h2>
+                    </div>
+                    <hr class="account-divider w-100" />
+                    @{
+                        if ((Model.ExternalLogins?.Count ?? 0) == 0)
+                        {
+                            <div>
+                                <p class="text-on-gradient">
+                                    There are no external authentication services configured. See this <a class="text-on-gradient text-link fw-semibold" href="https://go.microsoft.com/fwlink/?LinkID=532715">article
+                                    about setting up this ASP.NET application to support logging in via external services</a>.
+                                </p>
+                            </div>
+                        }
+                        else
+                        {
+                            <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center gap-2">
+                                @foreach (var provider in Model.ExternalLogins!)
+                                {
+                                    <button type="submit"
+                                            class="btn external-login-button"
+                                            name="provider"
+                                            value="@provider.Name"
+                                            title="Log in using your @provider.DisplayName account">
+                                        <span class="ww-shiny-text">@provider.DisplayName</span>
+                                    </button>
+                                }
+                            </form>
+                        }
+                    }
                 </div>
-                <hr class="account-divider w-100" />
-                @{
-                    if ((Model.ExternalLogins?.Count ?? 0) == 0)
-                    {
-                        <div>
-                            <p class="text-on-gradient">
-                                There are no external authentication services configured. See this <a class="text-on-gradient fw-semibold" href="https://go.microsoft.com/fwlink/?LinkID=532715">article
-                                about setting up this ASP.NET application to support logging in via external services</a>.
-                            </p>
-                        </div>
-                    }
-                    else
-                    {
-                        <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-flex flex-column align-items-center gap-2">
-                            @foreach (var provider in Model.ExternalLogins!)
-                            {
-                                <button type="submit"
-                                        class="btn external-login-button"
-                                        name="provider"
-                                        value="@provider.Name"
-                                        title="Log in using your @provider.DisplayName account">
-                                    @provider.DisplayName
-                                </button>
-                            }
-                        </form>
-                    }
-                }
             </section>
         </div>
     </div>

@@ -39,10 +39,9 @@ button.accept-policy {
   line-height: inherit;
 }
 
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
-}
+/* .footer intentionally has no rule here anymore. This file wins ties over site.css's
+   .footer rule at equal specificity (bundled after it into WhenWorksWeb.styles.css), so
+   the default ASP.NET template's fixed-height sticky-footer rule that used to live here
+   was silently overriding this site's redesigned (taller, in-flow, transparent) footer —
+   pinning it ~53px too high, overlapping the content above it. Dropped rather than kept
+   in sync with the new footer. */

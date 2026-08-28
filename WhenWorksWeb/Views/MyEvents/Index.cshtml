@@ -1,8 +1,9 @@
-﻿@using System.Security.Claims
+@using System.Security.Claims
 @using System.Text.Json
-@model IReadOnlyList<WhenWorksWeb.Models.MyEventViewModel>
+@model WhenWorksWeb.Models.MyEventsPageViewModel
 
-@* Displays the signed-in user's joined events, allows event selection, and routes the user to the event sign-in page. *@
+@* Displays one page of the signed-in user's joined events as a grid of cards, each with its own direct
+   "Enter" action and delete trigger, plus page-number navigation across however many pages of events exist. *@
 @{
     ViewData["Title"] = "My Events";
     var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
@@ -10,12 +11,37 @@
 }
 
 <!-- Page container -->
-<div class="container py-4" style="max-width: 42rem;">
-    <!-- Page heading -->
-    <h1 class="display-4 font-display text-on-gradient text-center mb-4">MY EVENTS</h1>
+<div class="container py-4" style="max-width: 64rem;">
+
+    <!-- Page header: hero badge/heading/subheading on the left, "New Event" action on the right -->
+    <div class="ww-myevents-header d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <span class="ww-hero-badge mb-3">
+                <span class="ww-hero-badge-dot" aria-hidden="true"></span>
+                <span class="ww-shiny-text">YOUR EVENTS</span>
+            </span>
+            <h1 class="ww-hero-title font-display mb-3">
+                Big plans,<br>
+                <span class="ww-hero-title-accent">all in one place.</span>
+            </h1>
+            <p class="ww-hero-subtitle mb-0">
+                Manage all the events you've joined, or pick up where the group left off.
+            </p>
+        </div>
+
+        <!-- Creates a new event immediately (default title, no name-entry step) and sends the user straight to
+             its sign-in page — the same quick-create action the navbar's own "New Event" button posts to. -->
+        <form asp-controller="Events" asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="CreateEventName" value="@WhenWorksWeb.Common.ModelConstants.DefaultEventTitle" />
+            <button type="submit" class="go-button ww-myevents-new-button">
+                <span class="ww-shiny-text"><i class="bi bi-plus-lg" aria-hidden="true"></i> New Event</span>
+            </button>
+        </form>
+    </div>
 
     <!-- Empty state shown when the user has not joined any events -->
-    @if (Model.Count == 0)
+    @if (Model.Events.Count == 0)
     {
         <p class="text-on-gradient fw-bold text-center mb-0">
             Oops! You have not joined any events yet.
@@ -23,56 +49,133 @@
     }
     else
     {
-        <!-- Event list card with a capped-height scrolling interior -->
-        <div class="card my-events-card">
+        <!-- Event card grid -->
+        <div class="row row-cols-1 row-cols-md-2 g-4" id="my-events-grid">
+            @for (var index = 0; index < Model.Events.Count; index++)
+            {
+                var myEvent = Model.Events[index];
+                var isCreatedByCurrentUser = string.Equals(myEvent.CreatedByUserId, currentUserId, StringComparison.Ordinal);
+                var participantsJson = JsonSerializer.Serialize(myEvent.Participants, participantsJsonOptions);
 
-            <!-- Scrollable container for the joined event list. Capped at 21rem
-                 (scrolls beyond that) but otherwise shrinks to fit however many
-                 rows exist, so a short list doesn't leave blank card space. -->
-            <div class="card-body p-0 overflow-auto my-events-list" id="my-events-list" style="max-height: 21rem;">
-                <div class="list-group list-group-flush">
-                    @foreach (var myEvent in Model)
-                    {
-                        var isCreatedByCurrentUser = string.Equals(myEvent.CreatedByUserId, currentUserId, StringComparison.Ordinal);
-                        var participantsJson = JsonSerializer.Serialize(myEvent.Participants, participantsJsonOptions);
+                <div class="col ww-myevent-card-slot" style="--ww-card-index: @index;">
+                    <div class="ww-myevent-card"
+                         data-event-id="@myEvent.EventId"
+                         data-participants="@participantsJson"
+                         data-has-participant="@((myEvent.Participants.Count > 0).ToString().ToLowerInvariant())"
+                         data-created-by-current-user="@isCreatedByCurrentUser.ToString().ToLowerInvariant()">
 
-                        <!-- Clickable event row -->
-                        <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 my-event-item fw-semibold"
-                             role="button"
-                             tabindex="0"
-                             data-signin-url="@myEvent.SignInUrl"
-                             data-event-id="@myEvent.EventId"
-                             data-participants="@participantsJson"
-                             data-has-participant="@((myEvent.Participants.Count > 0).ToString().ToLowerInvariant())"
-                             data-created-by-current-user="@isCreatedByCurrentUser.ToString().ToLowerInvariant()">
-                            <!-- Event emoji -->
-                            <span class="fs-4">@myEvent.Emoji</span>
-
-                            <!-- Event title and code -->
-                            <span class="d-flex flex-row align-items-center gap-2 flex-grow-1 text-start text-break">
-                                <span class="fw-semibold flex-grow-1">@myEvent.Title</span>
-                                <small class="ms-auto flex-shrink-0 d-inline-flex align-items-center gap-2">
-                                    <strong>@myEvent.Code</strong>
-                                    <button type="button"
-                                            class="btn btn-link p-0 invisible my-event-delete-button text-decoration-none"
-                                            aria-label="Delete event"
-                                            title="Delete event">
-                                        &#x1F5D1;&#xFE0F; <!-- Wastebasket emoji 🗑️ (trailing U+FE0F forces the
-                                             color emoji glyph instead of the monochrome text-style glyph
-                                             some browsers/fonts fall back to without it) -->
-                                    </button>
-                                </small>
-                            </span>
+                        <!-- Top row: copiable event code + total participant count, and the event's own emoji -->
+                        <div class="ww-myevent-card-top d-flex align-items-start justify-content-between">
+                            <div class="ww-myevent-code-row">
+                                <span class="ww-myevent-code font-mono">@myEvent.Code</span>
+                                <button type="button" class="ww-myevent-copy-button" data-code="@myEvent.Code" aria-label="Copy event code" title="Copy event code">
+                                    <i class="bi bi-clipboard" aria-hidden="true"></i>
+                                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                                </button>
+                                <span class="ww-myevent-people">
+                                    &middot; @myEvent.TotalParticipantCount @(myEvent.TotalParticipantCount == 1 ? "PERSON" : "PEOPLE")
+                                </span>
+                            </div>
+                            <span class="ww-myevent-emoji" aria-hidden="true">@myEvent.Emoji</span>
                         </div>
-                    }
+
+                        <h3 class="ww-myevent-title font-display ww-autofit-title">@myEvent.Title</h3>
+                        <p class="ww-myevent-description">@myEvent.Description</p>
+
+                        <div class="ww-myevent-divider"></div>
+
+                        <!-- Bottom row: organizer avatars, delete trigger, and the direct Enter action -->
+                        <div class="ww-myevent-footer d-flex align-items-center justify-content-between gap-2">
+                            <div class="ww-myevent-avatars">
+                                @foreach (var participant in myEvent.Participants)
+                                {
+                                    <span class="ww-myevent-avatar" style="--avatar-color:#@participant.Color" title="@participant.DisplayName">
+                                        @participant.DisplayName.Substring(0, 1).ToUpperInvariant()
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="ww-myevent-delete-button" aria-label="Delete event" title="Delete event">
+                                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                                </button>
+                                <a href="@myEvent.SignInUrl" class="go-button ww-myevent-enter-button">
+                                    <span class="ww-shiny-text">Enter <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            }
         </div>
 
-        <!-- GO button shown only after the user selects an event -->
-        <div class="mt-4 d-none text-center" id="my-events-go-container">
-            <button type="button" class="btn my-events-go-button" id="my-events-go-button">GO!</button>
-        </div>
+        <!-- Page navigation: previous/next, a window of nearby page numbers, a jump-to-page box, and a link to
+             the last page. Plain links (a full page load) since events are paginated server-side. -->
+        @if (Model.TotalPages > 1)
+        {
+            var windowStart = Math.Max(1, Model.CurrentPage - 2);
+            var windowEnd = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+
+            <nav class="ww-myevents-pagination mt-4" aria-label="Events pages">
+                <a asp-action="Index"
+                   asp-route-page="@(Model.CurrentPage - 1)"
+                   class="ww-page-button ww-page-nav-button @(Model.CurrentPage <= 1 ? "disabled" : "")"
+                   aria-label="Previous page"
+                   aria-disabled="@(Model.CurrentPage <= 1 ? "true" : "false")">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </a>
+
+                @if (windowStart > 1)
+                {
+                    <a asp-action="Index" asp-route-page="1" class="ww-page-button">1</a>
+                    @if (windowStart > 2)
+                    {
+                        <span class="ww-page-ellipsis">&hellip;</span>
+                    }
+                }
+
+                @for (var pageNumber = windowStart; pageNumber <= windowEnd; pageNumber++)
+                {
+                    <a asp-action="Index"
+                       asp-route-page="@pageNumber"
+                       class="ww-page-button @(pageNumber == Model.CurrentPage ? "active" : "")"
+                       aria-current="@(pageNumber == Model.CurrentPage ? "page" : null)">
+                        @pageNumber
+                    </a>
+                }
+
+                @if (windowEnd < Model.TotalPages)
+                {
+                    @if (windowEnd < Model.TotalPages - 1)
+                    {
+                        <span class="ww-page-ellipsis">&hellip;</span>
+                    }
+                    <a asp-action="Index" asp-route-page="@Model.TotalPages" class="ww-page-button">@Model.TotalPages</a>
+                }
+
+                <a asp-action="Index"
+                   asp-route-page="@(Model.CurrentPage + 1)"
+                   class="ww-page-button ww-page-nav-button @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")"
+                   aria-label="Next page"
+                   aria-disabled="@(Model.CurrentPage >= Model.TotalPages ? "true" : "false")">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </a>
+
+                <form asp-action="Index" method="get" class="ww-page-jump-form" id="my-events-page-jump-form">
+                    <label for="my-events-page-jump-input" class="visually-hidden">Go to page</label>
+                    <input type="number"
+                           inputmode="numeric"
+                           name="page"
+                           id="my-events-page-jump-input"
+                           class="input-pill ww-page-jump-input"
+                           min="1"
+                           max="@Model.TotalPages"
+                           value="@Model.CurrentPage"
+                           data-current-page="@Model.CurrentPage"
+                           aria-label="Go to page (1 to @Model.TotalPages)" />
+                </form>
+            </nav>
+        }
 
         <!-- Delete confirmation modal -->
         <div class="modal fade" id="delete-event-modal" tabindex="-1" aria-hidden="true">
@@ -83,13 +186,14 @@
 
                         <div class="modal-header">
                             <h5 class="modal-title font-display" id="delete-event-modal-title">Delete Confirmation</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
 
                         <div class="modal-body">
                             <input type="hidden" name="eventId" id="delete-event-id" />
                             <input type="hidden" name="participantId" id="delete-participant-id" />
                             <input type="hidden" name="deleteMode" id="delete-mode" />
+                            <input type="hidden" name="page" value="@Model.CurrentPage" />
 
                             <div class="mb-3">
                                 <div class="form-check">
@@ -98,7 +202,7 @@
                                 </div>
 
                                 <div class="ms-4 mt-2" id="participant-delete-container">
-                                    <select class="form-select input-pill input-pill-blue select-arrow-inset w-100" id="participant-delete-select">
+                                    <select class="form-select input-pill input-pill-red select-arrow-inset w-100" id="participant-delete-select">
                                         <option value="">Select a participant</option>
                                     </select>
 
@@ -131,13 +235,11 @@
     }
 </div>
 
-<!-- Client-side selection behavior for highlighting the chosen event and navigating to sign-in -->
+<!-- Client-side behavior: per-card delete trigger, code-copy button, and the jump-to-page form -->
 @section Scripts {
     <script>
         (function () {
-            const list = document.getElementById('my-events-list');
-            const goContainer = document.getElementById('my-events-go-container');
-            const goButton = document.getElementById('my-events-go-button');
+            const grid = document.getElementById('my-events-grid');
 
             const deleteModalElement = document.getElementById('delete-event-modal');
             const deleteModalTitle = document.getElementById('delete-event-modal-title');
@@ -153,36 +255,63 @@
             const participantUnavailableText = document.getElementById('participant-delete-unavailable-text');
             const eventUnavailableText = document.getElementById('event-delete-unavailable-text');
 
-            if (!list || !goContainer || !goButton || !deleteModalElement || !deleteModalTitle || !deleteForm ||
+            const pageJumpForm = document.getElementById('my-events-page-jump-form');
+            const pageJumpInput = document.getElementById('my-events-page-jump-input');
+
+            // The jump-to-page box and the delete modal are independent features — a missing grid (empty state) or
+            // missing modal (also only rendered when there are events) shouldn't stop the other from wiring up.
+            if (pageJumpForm && pageJumpInput) {
+                var maxPage = parseInt(pageJumpInput.getAttribute('max') || '1', 10);
+                var currentPage = parseInt(pageJumpInput.dataset.currentPage || '1', 10);
+
+                pageJumpForm.addEventListener('submit', function (event) {
+                    // An emptied/invalid box falls back to the page already being displayed, not page 1 — the
+                    // input's own default value is the current page, so this only matters if the user cleared it.
+                    var requested = parseInt(pageJumpInput.value, 10);
+                    if (!requested || requested < 1) {
+                        requested = currentPage;
+                    }
+                    else if (requested > maxPage) {
+                        requested = maxPage;
+                    }
+                    pageJumpInput.value = requested.toString();
+                });
+            }
+
+            // Copy-to-clipboard for each card's event code, with a brief "copied" confirmation state.
+            if (grid) {
+                grid.addEventListener('click', function (event) {
+                    const copyButton = event.target.closest('.ww-myevent-copy-button');
+                    if (!copyButton || !grid.contains(copyButton)) {
+                        return;
+                    }
+
+                    const code = copyButton.dataset.code || '';
+                    if (!code || !navigator.clipboard) {
+                        return;
+                    }
+
+                    navigator.clipboard.writeText(code).then(function () {
+                        copyButton.classList.add('copied');
+                        window.clearTimeout(copyButton._copiedTimeout);
+                        copyButton._copiedTimeout = window.setTimeout(function () {
+                            copyButton.classList.remove('copied');
+                        }, 1500);
+                    }).catch(function () {
+                        // Clipboard access can be denied by the browser/OS — silently no-op rather than
+                        // surfacing a broken-looking error for a purely convenience feature.
+                    });
+                });
+            }
+
+            if (!grid || !deleteModalElement || !deleteModalTitle || !deleteForm ||
                 !deleteEventIdInput || !deleteParticipantIdInput || !deleteModeInput || !deleteSubmitButton ||
                 !participantRadio || !eventRadio || !participantSelect || !participantDeleteContainer ||
                 !participantUnavailableText || !eventUnavailableText) {
                 return;
             }
 
-            let selectedItem = null;
             const deleteModal = bootstrap.Modal.getOrCreateInstance(deleteModalElement);
-
-            function setSelectedItem(item) {
-                if (selectedItem && selectedItem !== item) {
-                    selectedItem.classList.remove('selected');
-
-                    const previousDeleteButton = selectedItem.querySelector('.my-event-delete-button');
-                    if (previousDeleteButton) {
-                        previousDeleteButton.classList.add('invisible');
-                    }
-                }
-
-                selectedItem = item;
-                selectedItem.classList.add('selected');
-
-                const deleteButton = selectedItem.querySelector('.my-event-delete-button');
-                if (deleteButton) {
-                    deleteButton.classList.remove('invisible');
-                }
-
-                goContainer.classList.remove('d-none');
-            }
 
             function syncDeleteButtonState() {
                 const selectedRadio = deleteForm.querySelector('input[name="deleteChoice"]:checked');
@@ -220,22 +349,22 @@
                 eventUnavailableText.classList.add('d-none');
             }
 
-            function openDeleteModal(item) {
+            function openDeleteModal(card) {
                 resetDeleteModal();
 
-                deleteEventIdInput.value = item.dataset.eventId || '';
+                deleteEventIdInput.value = card.dataset.eventId || '';
                 deleteModalTitle.textContent = 'Delete Confirmation';
 
                 let participants = [];
                 try {
-                    participants = JSON.parse(item.dataset.participants || '[]');
+                    participants = JSON.parse(card.dataset.participants || '[]');
                 }
                 catch {
                     participants = [];
                 }
 
-                const hasParticipant = item.dataset.hasParticipant === 'true' && participants.length > 0;
-                const isCreatedByCurrentUser = item.dataset.createdByCurrentUser === 'true';
+                const hasParticipant = card.dataset.hasParticipant === 'true' && participants.length > 0;
+                const isCreatedByCurrentUser = card.dataset.createdByCurrentUser === 'true';
 
                 if (hasParticipant) {
                     participantSelect.innerHTML = '';
@@ -273,51 +402,20 @@
                 deleteModal.show();
             }
 
-            // Highlight the selected event and reveal the GO button
-            list.addEventListener('click', function (event) {
-                const deleteButton = event.target.closest('.my-event-delete-button');
-                const item = event.target.closest('.my-event-item');
-
-                if (!item || !list.contains(item)) {
+            // Each card's trash icon opens the delete modal for that specific event.
+            grid.addEventListener('click', function (event) {
+                const deleteButton = event.target.closest('.ww-myevent-delete-button');
+                if (!deleteButton || !grid.contains(deleteButton)) {
                     return;
                 }
 
-                if (deleteButton) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setSelectedItem(item);
-                    openDeleteModal(item);
-                    return;
-                }
-
-                setSelectedItem(item);
-            });
-
-            // Allow keyboard selection for the event rows
-            list.addEventListener('keydown', function (event) {
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                }
-
-                const item = event.target.closest('.my-event-item');
-                if (!item || !list.contains(item)) {
+                const card = deleteButton.closest('.ww-myevent-card');
+                if (!card) {
                     return;
                 }
 
                 event.preventDefault();
-                setSelectedItem(item);
-            });
-
-            // Navigate to the event sign-in page for the selected event
-            goButton.addEventListener('click', function () {
-                if (!selectedItem) {
-                    return;
-                }
-
-                const signInUrl = selectedItem.getAttribute('data-signin-url');
-                if (signInUrl) {
-                    window.location.href = signInUrl;
-                }
+                openDeleteModal(card);
             });
 
             participantRadio.addEventListener('change', function () {

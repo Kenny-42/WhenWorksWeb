@@ -3,17 +3,25 @@
    This block is the single source of truth for actual values.
    ========================================================================== */
 :root {
-  /* --color-accent-pink-fill is overridden inline in _Layout.cshtml, echoing
-  ModelConstants.DefaultParticipantColor so the "default pink" users get
-  stays a single source of truth. This value is only a fallback in case
-  that override is ever missing. */
+  /* The site's global "hot pink" accent — hover/active state for .text-link and other
+     plain-text links, the checked fill for checkboxes, and the ::selection override on
+     surfaces that measure better against pink than the default dark-plum selection
+     color. This is the single source of truth for that hue: Common/ModelConstants.
+     DefaultParticipantColor (the default participant/user color) is a literal copy of
+     this same value, not the other way around — update both together if this ever
+     changes, but treat this variable as the one being changed and that constant as the
+     one following it. */
   --color-accent-pink-fill: #ff66c4;
+  /* Reference mockups' brand-badge pink — kept separate from --color-accent-pink-fill so
+     a change to the site's global pink accent can never accidentally also change the
+     brand mark's own color. Same underlying pink family, deliberately separate
+     variables. */
+  --color-brand-badge-fill: #ef49a9;
   --color-accent-orange-fill: #ffa48c;
   --color-accent-yellow-fill: #f2d675;
   --color-accent-yellow-border: #e8935a;
-  /* Selected-row fill for the My Events list — deliberately distinct from
-  --color-accent-orange-fill (the row hover color) so hovering and
-  selecting read as two different states, not the same color twice. */
+  /* Selected-row fill for My Events — distinct from --color-accent-orange-fill (the row
+  hover color) so hover and selected read as two different states. */
   --color-accent-selected-fill: #ec6ea8;
   --color-accent-blue-fill: #8fd8e0;
   --color-accent-blue-border: #4fb8c4;
@@ -22,18 +30,55 @@
   --color-accent-red: #ef5d5d;
   --color-accent-red-border: #d84343;
   --color-text-on-gradient: #ffffff;
+  /* Default dark text color on light surfaces (white-glass pills/cards, accent fills). */
+  --color-text-strong: #514c54;
+  /* Bright yellow-green accent (reference mockups) for the hero heading's second line
+  and the brand wordmark's trailing period. */
+  --color-accent-brand-glow: #dfff5c;
+  /* Shared dark-plum glass tint for the navbar, hero badge, and feature-card band — one
+  consistent "chrome" color instead of a different treatment per element. */
+  --color-chrome-tint: rgba(73, 18, 50, 0.12);
+  /* Same dark plum as --color-chrome-tint, near-opaque (not fully, or overlapping
+  text-selection boxes on tightly-leaded lines like .ww-hero-title would visibly slice
+  into each other's glyphs). Currently just the text-selection fallback below. */
+  --color-chrome-tint-strong: rgba(73, 18, 50, 0.93);
+  /* Hard, unblurred drop shadows — the site's one shadow language: a solid offset block,
+  no blur, one neutral plum regardless of the element's own accent (an accent-colored
+  blurred shadow read as a second border in a slightly different color). Three offsets,
+  one per interaction state — a control's rest/hover/press is expressed by shadow height
+  (paired with translateY on each rule): taller when it lifts, shorter when pressed. */
+  --shadow-hard-color: rgba(73, 18, 50, 0.22);
+  --shadow-hard: 0 4px 0 var(--shadow-hard-color);
+  --shadow-hard-hover: 0 6px 0 var(--shadow-hard-color);
+  --shadow-hard-active: 0 2px 0 var(--shadow-hard-color);
+  /* Tallest of the four, reserved for "this container is the active/selected one"
+  (.ww-pill-group:focus-within) rather than ordinary hover. */
+  --shadow-hard-focus: 0 8px 0 var(--shadow-hard-color);
   --radius-pill: 999px;
-  --font-display: 'Cherry Bomb One', sans-serif;
-  --font-body: 'Quicksand', sans-serif;
-  
-  --gradient-page: linear-gradient(135deg, var(--color-accent-selected-fill), #f5d76e);
+  --font-display: 'Fredoka', sans-serif;
+  --font-body: 'Nunito', sans-serif;
+  /* Small/uppercase "eyebrow" text (event codes, badges) — not a sitewide body font. */
+  --font-mono: 'DM Mono', monospace;
+
+  /* The three core hues the animated background is built from (a Grainient reference
+  config's color1/2/3, brightened a few points from the original values). This is a
+  plain-CSS approximation — layered, independently-drifting radial "blobs" drawn on
+  #ww-gradient-canvas via site.js — since this project has no runtime for the reference
+  component's React/WebGL shader. site.js keeps its own copies of these three hues
+  (PINK/CORAL/PEACH/ORANGE/YELLOW) rather than reading them via getComputedStyle; both
+  lists must move together if these change. */
+  --gradient-color-1: #ff6ec0;
+  --gradient-color-2: #ffb0ad;
+  --gradient-color-3: #ffec8a;
+
+  /* Flat diagonal wash under the animated blobs (see body's background-image) — keeps
+  any gap between blobs reading as part of the same gradient. */
+  --gradient-page: linear-gradient(118deg, var(--gradient-color-1) 0%, #ff8bbd 25%, var(--gradient-color-2) 50%, #ffd08e 75%, var(--gradient-color-3) 100%);
 }
 
 html {
-  /* Base scale is 125% of the original 14px/16px tokens (Spec request:
-     the site reads as too small/sparse at 100% browser zoom). Since
-     nearly every size in this stylesheet is expressed in rem, scaling
-     these two root values scales the whole site proportionally. */
+  /* 125% of the original 14px/16px tokens (site read too small/sparse at 100% browser
+     zoom). Nearly every size in this file is rem-based, so this scales the whole site. */
   font-size: 17.5px;
 }
 
@@ -44,7 +89,24 @@ html {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--color-accent-pink-fill);
+}
+
+/* Bootstrap's own .form-check-input:focus sets border-color: #86b7fe (blue) independent of
+   the box-shadow above — it lingers on click/tap until focus moves elsewhere, most visibly
+   right after unchecking. Overridden to match the pink ring instead. */
+.form-check-input:focus {
+  border-color: var(--color-accent-pink-fill);
+}
+
+/* Checkboxes site-wide: checked state uses the same global hot-pink accent as
+   .text-link's hover state (--color-accent-pink-fill) — one consistent "this is
+   active/selected" pink across both links and checkboxes. Bootstrap's own white
+   checkmark glyph (--bs-form-check-input-checked-bg-image) still reads fine against this
+   fill, so only the fill/border need overriding. */
+.form-check-input:checked {
+  background-color: var(--color-accent-pink-fill);
+  border-color: var(--color-accent-pink-fill);
 }
 
 html {
@@ -53,20 +115,75 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+  /* Static (non-animated) diagonal wash — the fallback if canvas/JS is ever
+     unavailable, and what shows through anywhere the drawn blobs don't reach.
+     The moving part is drawn on #ww-gradient-canvas via requestAnimationFrame in
+     site.js, not a CSS animation — see that rule's own comment for why. */
   background: var(--gradient-page);
   background-attachment: fixed;
+  background-size: 220% 220%;
   font-family: var(--font-body);
+  /* Tighter tracking site-wide — reference mockups read noticeably tighter than this
+     font's own default. */
+  letter-spacing: -0.015em;
+  /* Safety net for .ww-feature-band's full-bleed breakout (100vw can exceed the visible
+     viewport by the scrollbar's width in some browsers). */
+  overflow-x: hidden;
 }
 
-/* ASP.NET Core's asp-validation-summary tag helper always renders errors as
-   a <ul>/<li> list and stamps ".validation-summary-errors" onto the summary
-   element itself (alongside whatever class, e.g. "text-danger", the view
-   adds) — so this targets every validation summary sitewide (Home, Sign-In,
-   Login, Register, ...) rather than needing a per-page override. Every page
-   in this style centers its validation text and stacks messages on separate
-   lines already; only the bullet/indent is Bootstrap/browser default and
-   doesn't fit the site's plainer look. */
+/* Text-selection highlight. The default participant pink barely clears WCAG contrast
+   against the raw page gradient and several accent fills (too close in hue/lightness),
+   so the site-wide default is the safe dark plum (--color-chrome-tint-strong) instead —
+   darker than --color-text-strong so white text reads well against it too. Pink is
+   opted back in below only on the specific opaque surfaces that measure comfortably
+   better against it (white cards, blue/green/yellow accent fills); anything not listed
+   falls back to the safe default rather than silently getting low contrast. */
+::selection {
+  background-color: var(--color-chrome-tint-strong);
+  color: var(--color-text-on-gradient);
+}
+
+.ww-myevent-card::selection,
+.input-pill-yellow::selection,
+.input-pill-blue::selection,
+.select-arrow-inset.input-pill-blue::selection,
+.account-dropdown-menu::selection,
+.modal-content.delete-modal-content::selection,
+.go-button::selection,
+.enter-button::selection {
+  background-color: var(--color-accent-pink-fill);
+  color: var(--color-text-on-gradient);
+}
+
+/* Positioning only — the blobs themselves are pixels drawn by site.js, not CSS. A
+   requestAnimationFrame loop repaints every frame rather than relying on a CSS
+   animation, which repeatedly failed to visibly repaint in this site's target browsers.
+
+   Deliberately no z-index here (not even -1): a gradient painted on a negative-z-index
+   canvas silently failed to composite at all in testing, even though the canvas's pixel
+   buffer had the right content. Leaving z-index unset avoids that, but position: fixed
+   still opens its own stacking context regardless — which paints ABOVE any plain static
+   sibling by default. #ww-page-content below fixes that by promoting real page content
+   into the same kind of stacking context via its own position: relative, so DOM order
+   (canvas first) decides paint order everywhere it isn't purely decorative background. */
+#ww-gradient-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Establishes its own stacking context (via position, no z-index) so it paints above the
+   canvas by DOM order alone — see #ww-gradient-canvas above. Pure positioning hook, no
+   layout effect. */
+#ww-page-content {
+  position: relative;
+}
+
+/* asp-validation-summary always renders a <ul>/<li> list and stamps
+   .validation-summary-errors onto the summary itself — targets every validation summary
+   site-wide rather than needing a per-page override. Every page here centers validation
+   text and stacks messages on separate lines already; only the bullet/indent is
+   Bootstrap/browser default and doesn't fit the site's plainer look. */
 .validation-summary-errors ul {
   list-style: none;
   padding-left: 0;
@@ -79,87 +196,223 @@ body {
    only their visual treatment is restyled here.
    ========================================================================== */
 .navbar {
-  background: transparent;
-  /* Bootstrap's navbar-dark scheme bakes translucency into these tokens
-     (e.g. nav-link at 55% alpha, toggler border/icon well below that) —
-     override them at the source so every navbar element, including the
-     collapsed-view hamburger, is fully opaque like the home page headings. */
+  /* Same --color-chrome-tint as the hero badge and feature-card band — one consistent
+  "chrome" treatment site-wide. Flat tint, no backdrop-filter: a blurred glass surface on
+  top of the flat --shadow-hard language read as two conflicting depth treatments. */
+  background-color: var(--color-chrome-tint);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.75);
   --bs-navbar-color: var(--color-text-on-gradient);
   --bs-navbar-hover-color: var(--color-text-on-gradient);
   --bs-navbar-active-color: var(--color-text-on-gradient);
   --bs-navbar-brand-color: var(--color-text-on-gradient);
   --bs-navbar-toggler-color: var(--color-text-on-gradient);
   --bs-navbar-toggler-border-color: var(--color-text-on-gradient);
-  --bs-navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='white' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-}
-
-.navbar-brand,
-.navbar .nav-link {
-  color: var(--color-text-on-gradient) !important;
-  font-family: var(--font-body);
-  font-weight: 600;
 }
 
 .navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-on-gradient) !important;
   font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: normal;
+  font-size: 1.3rem;
+  font-weight: 600;
   line-height: 1;
-  /* Cherry Bomb One's glyphs sit low within their own line box (large built-in
-     descender space relative to other faces), so even once vertically
-     centered by the flex navbar it reads as sitting below the nav links.
-     Nudge it up to compensate — enough to center the (larger) brand glyphs
-     on the nav links' vertical center, not all the way to a shared bottom
-     edge, since the brand is bigger and should overhang evenly top/bottom. */
-  transform: translateY(-3px);
 }
 
+/* Below ~420px the brand (badge + wordmark) plus the toggler no longer both fit on one
+   row — with body's overflow-x: hidden (needed for .ww-feature-band's full-bleed
+   breakout), an overflow here would silently clip the toggler off-screen rather than
+   show a discoverable scrollbar, so this needs to actually fit. */
+@media (max-width: 500px) {
+  .navbar > .container-fluid {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .navbar-brand {
+    gap: 0.35rem;
+    font-size: 1rem;
+  }
+
+  .ww-brand-badge {
+    width: 1.6rem;
+    height: 1.6rem;
+    font-size: 0.7rem;
+  }
+
+  .navbar-toggler {
+    padding: 0.3rem 0.5rem;
+  }
+}
+
+/* Trailing "." on the wordmark (reference mockups), in the hero heading's accent color. */
+.ww-brand-dot {
+  color: var(--color-accent-brand-glow);
+}
+
+/* Small circular "sparkle" badge before the wordmark (reference mockups) — and, since the
+   separate "Home" nav pill was removed, the visual anchor of the site's home link (the
+   whole .navbar-brand anchor navigates home). Styled like the nav pills next to it: same
+   border/shadow language, hover lift, and proximity glow (see the shared glow block
+   further down), just circular. Icon wrapped in .ww-shiny-text (markup) for the shimmer. */
+.ww-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  /* Border color from the shared proximity-glow block further down. */
+  border: 2px solid var(--glow-border-color);
+  background-color: var(--color-brand-badge-fill);
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* .ww-shiny-text is inline-block with no line-height of its own, so it inherits body
+   copy's — taller than the glyph, which left the flex-centered icon visibly off-center.
+   line-height: 1 (matching the <i> itself) fixes it; .nav-link-account-toggle needs the
+   same fix for the same reason. */
+.ww-brand-badge .ww-shiny-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Hover/active driven off the whole .navbar-brand anchor, not the badge itself, so
+   hovering anywhere on "WhenWorks." lights it up. Same lift/shadow-growth as
+   .navbar .nav-link:hover below. */
+.navbar-brand:hover .ww-brand-badge {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover), var(--glow-tint-shadow);
+}
+
+.navbar-brand:active .ww-brand-badge {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active), var(--glow-tint-shadow);
+}
+
+/* Every nav link shares the same pill shape/border-width/shadow language, just with a
+   different accent fill per link, like the Home page's yellow/blue/green pills. This
+   neutral white-glass base is the fallback for links with no accent of their own (the
+   Admin-only "Manage Users" link) — Login takes the blue override below instead since
+   white read as too quiet against the pale gradient. */
 .navbar .nav-link {
-  padding: 0.25rem 1rem;
+  /* Generous padding relative to the small font-size — a plump pill around a small
+     label, matching the reference mockups. The circular account toggle overrides this
+     back to 0 below and is unaffected. */
+  padding: 0.55rem 1.65rem;
   margin: 0.15rem 0.25rem;
+  /* Static resting border, not a live glow — nav links aren't in site.js's glowTargets,
+     so --glow-border-color (shared block further down) never blends past its resting
+     color. Per-link resting colors are set there too, as --glow-rest-border. */
+  border: 2px solid var(--glow-border-color);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong) !important;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.72rem;
+  /* Hard offset "3D pop" (see --shadow-hard in :root) — the site's one shadow language. */
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Per-link hover/click color. :hover and :active share the same accent
-   color now — clicking previews/holds the identical color a hover does,
-   instead of shifting to a separate darker variant — and reverts the
-   instant the click ends since :focus is deliberately not used here.
-   !important is required to win over the !important base color set above. */
-.nav-link-home:hover,
-.nav-link-home:active {
-  color: var(--color-accent-yellow-fill) !important;
+.navbar .nav-link:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover), var(--glow-tint-shadow);
 }
 
-.nav-link-register:hover,
-.nav-link-myevents:hover,
-.nav-link-register:active,
-.nav-link-myevents:active {
-  color: var(--color-accent-blue-fill) !important;
+/* Click/press: same brightened fill as hover, bounces DOWN (shorter shadow, positive
+   translateY) instead of up — mirrors .go-button/.navbar-toggler's hover-up/active-down
+   pairing. */
+.navbar .nav-link:active {
+  background-color: #fff;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active), var(--glow-tint-shadow);
 }
 
-.nav-link-login:hover,
-.nav-link-login:active {
-  color: var(--color-accent-green) !important;
+/* Each per-link override below is fill-only — shape, border width, and both shadow
+   states come from the base rule above; every control shares one neutral hard shadow
+   now, so there's nothing shadow-shaped left to restate per color. */
+.navbar .nav-link.nav-link-myevents {
+  background-color: var(--color-accent-blue-fill);
 }
 
-/* Hello Name! link's color comes from the signed-in user's own account
-   color, passed in as --user-color via an inline style on the element
-   (Views/Shared/_LoginPartial.cshtml). */
-.nav-link-username:hover,
-.nav-link-username:active {
-  color: var(--user-color) !important;
+.navbar .nav-link.nav-link-myevents:hover,
+.navbar .nav-link.nav-link-myevents:active {
+  background-color: var(--color-accent-blue-border);
 }
 
+/* Login gets the same blue as My Events (and the hamburger toggler) — white-glass was
+   its original treatment but barely registered as a control against the pale gradient.
+   Safe to reuse blue here since Login and My Events are mutually exclusive (signed-out
+   vs. signed-in), so the two blue pills are never on screen together. */
+.navbar .nav-link.nav-link-login {
+  background-color: var(--color-accent-blue-fill);
+}
+
+.navbar .nav-link.nav-link-login:hover,
+.navbar .nav-link.nav-link-login:active {
+  background-color: var(--color-accent-blue-border);
+}
+
+/* Register is the nav's one primary CTA — filled solid like .go-button rather than the
+   quiet pill every other link gets. Needs the extra ".nav-link-register" specificity
+   (compound selector) to beat the base ".navbar .nav-link" rule for shared properties. */
+.navbar .nav-link.nav-link-register {
+  background-color: var(--color-accent-green);
+}
+
+.navbar .nav-link.nav-link-register:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+}
+
+.navbar .nav-link.nav-link-register:active {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(2px);
+}
+
+/* New Event — the signed-in nav's own primary CTA, same green solid-fill treatment as
+   Register (the signed-out nav's primary CTA) rather than the quiet white-glass pill
+   every other link gets. A <button> submitting a POST to Events/Create (not an <a>,
+   since this creates an event immediately rather than just navigating), but takes the
+   same .nav-link classes directly — same pattern .navbar-toggler/.nav-link-logout
+   already use to style a native button as one of these pills with no separate reset
+   needed. */
+.navbar .nav-link.nav-link-newevent {
+  background-color: var(--color-accent-green);
+}
+
+.navbar .nav-link.nav-link-newevent:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+}
+
+.navbar .nav-link.nav-link-newevent:active {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(2px);
+}
+
+/* Logout lives inside the account dropdown as one of its pill rows, not a standalone
+   navbar pill, so it skips the per-link color treatment above — its hover/focus tints
+   red (matching --color-accent-red elsewhere for destructive actions) instead of the
+   plain white every other dropdown pill brightens to. It's a <button>, not an <a>, so it
+   also hits Bootstrap's own focus-ring rules — suppressed below so it behaves purely by
+   color like its sibling rows. */
 .nav-link-logout:hover,
-.nav-link-logout:active {
-  color: var(--color-accent-red) !important;
+.nav-link-logout:focus {
+  background-color: var(--color-accent-red) !important;
+  border-color: var(--color-accent-red-border) !important;
+  color: #fff !important;
 }
 
-/* Logout is a <button>, not an <a> like the other nav links, so it's also
-   caught by two Bootstrap/site rules the plain links never hit: the generic
-   ".btn-link.nav-link:focus" ring defined near the top of this file, and
-   Bootstrap's own ".btn:focus-visible" ring — both are what draw the boxy
-   outline after a click. Suppressed here so Logout behaves purely by color,
-   exactly like every other navbar link. */
 .nav-link-logout:focus,
 .nav-link-logout:focus-visible,
 .nav-link-logout:active:focus {
@@ -167,220 +420,329 @@ body {
   outline: none !important;
 }
 
-/* Account dropdown toggle (person icon) — replaces the old inline "Hello
-   Name!"/Logout links. Stays white like every other navbar control by
-   default (inherited from ".navbar .nav-link" above) and only switches to
-   the signed-in user's own account color while actually hovered/clicked —
-   deliberately not while the dropdown is merely left open (no
-   "[aria-expanded=true]" rule here), so the icon reverts to white the
-   moment the click ends instead of staying colored for as long as the menu
-   is open. */
-.nav-link-account-toggle {
+/* My Profile tints to the signed-in user's own color on hover/focus (--user-color, set
+   on the wrapping <li> in _LoginPartial.cshtml) instead of a fixed red. Text swaps
+   between white and the site's dark text color via --user-color-text (computed
+   server-side by ColorContrastHelper) since a user-picked color can be light or dark. */
+.nav-link-username:hover,
+.nav-link-username:focus {
+  background-color: var(--user-color) !important;
+  border-color: color-mix(in srgb, var(--user-color) 80%, black 20%) !important;
+  color: var(--user-color-text) !important;
+}
+
+/* Account dropdown toggle (person icon) — yellow fill, so the one pill that opens a
+   panel (rather than navigating directly) stands out from the neutral white-glass pills.
+   Circular for an icon instead of padded for a label. Compound selector needed to beat
+   the base ".navbar .nav-link" rule. */
+.navbar .nav-link.nav-link-account-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 !important;
+  background-color: var(--color-accent-yellow-fill);
 }
 
-.nav-link-account-toggle svg {
-  width: 1.4rem;
-  height: 1.4rem;
+.navbar .nav-link.nav-link-account-toggle:hover,
+.navbar .nav-link.nav-link-account-toggle:active,
+.navbar .nav-link.nav-link-account-toggle[aria-expanded="true"] {
+  background-color: var(--color-accent-yellow-border);
 }
 
-.nav-link-account-toggle:hover,
-.nav-link-account-toggle:active {
-  color: var(--user-color) !important;
+/* Bootstrap icon-font glyph (bi-person-circle), not a hand-drawn <svg> — only actual
+   glyph content can sit inside a .ww-shiny-text span (background-clip: text needs
+   glyphs to clip to). */
+.nav-link-account-toggle i {
+  font-size: 1.3rem;
+  line-height: 1;
+  /* body sets a sitewide -0.015em letter-spacing; browsers still apply it after a lone
+     generated-content glyph with nothing to space from, visibly nudging the icon
+     off-center. An icon has no natural letter-spacing meaning anyway, so reset it. */
+  letter-spacing: normal;
+  /* Prevents the icon being squashed once the mobile-width override below turns this
+     toggle into a flex row sharing space with the visible "Account" label. */
+  flex-shrink: 0;
 }
 
-/* Icon-only toggle — suppress Bootstrap's default dropdown caret. */
+/* Same inline-block/line-height fix as .ww-brand-badge .ww-shiny-text above, for the
+   same reason. */
+.nav-link-account-toggle .ww-shiny-text {
+  line-height: 1;
+}
+
+/* Icon-only toggle — suppress Bootstrap's default dropdown caret. Still applies once the
+   "Account" label is visible at the mobile breakpoint below; the label is disclosure
+   affordance enough on its own. */
 .nav-link-account-toggle.dropdown-toggle::after {
   display: none;
 }
 
-/* Dropdown panel: the same transparent, white-outlined "merged pill group"
-   treatment the collapsed mobile navbar-collapse block uses above, reused
-   here since both are just a short list of nav links sitting on the page's
-   gradient background (the gradient is applied at the body level, so it's
-   still what's behind this panel wherever it opens on the page — a solid
-   fill here would read as a flat patch breaking the diagonal gradient
-   instead of blending into it like the rest of the navbar does). */
-.account-dropdown-menu {
-  background-color: transparent;
-  border: 2px solid var(--color-text-on-gradient);
-  border-radius: 1rem;
-  margin-top: 0.5rem;
+/* Local visually-hidden technique (not Bootstrap's .visually-hidden) for the toggle's
+   "Account" text — Bootstrap's utility is all !important, which would fight the mobile
+   reveal below instead of losing to it via ordinary specificity. */
+.nav-link-account-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
+  margin: -1px;
   overflow: hidden;
-  box-shadow: none;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
+/* Dropdown panel: solid yellow, matching the toggle it hangs off of and every other
+   yellow-filled nav element, so it reads as that toggle's own panel unfolding. Opaque,
+   so no backdrop-filter blur is needed. Padding + flex column gap space the pill rows
+   inside (see .dropdown-item below). */
+.account-dropdown-menu {
+  background-color: var(--color-accent-yellow-fill);
+  /* Static resting border (this panel isn't in site.js's glowTargets, so it never blends
+     past its resting tone) — see the shared proximity-glow block further down. */
+  border: 2px solid var(--glow-border-color);
+  border-radius: 1rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem;
+  box-shadow: var(--shadow-hard-hover), var(--glow-tint-shadow);
+}
+
+/* Scoped to .show, not the base rule above: Bootstrap hides a closed .dropdown-menu with
+   display: none and reveals it via display: block on .show, so setting display: flex
+   unconditionally would override that and the menu could never close. */
+.account-dropdown-menu.show {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Each row is its own pill — same white-glass fill/border/shape/font/shadow as
+   .navbar .nav-link, scaled down so they read as sub-items of the account toggle.
+
+   These rows deliberately do NOT get the proximity glow themselves — the panel that
+   contains them does. The rule is universal: a glow goes on the outermost pill
+   container, never on controls nested inside one. */
 .account-dropdown-menu .dropdown-item {
   display: block;
   width: 100%;
   text-align: center;
-  border: none;
-  border-radius: 0;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-pill);
   margin: 0;
-  padding: 0.6rem 1.25rem;
-  background-color: transparent;
-  color: var(--color-text-on-gradient);
+  padding: 0.4rem 1rem;
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.68rem;
+  box-shadow: var(--shadow-hard-active);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Light hover tint for affordance; .nav-link-username/.nav-link-logout's own
-   !important hover color rules above still win for text color, same as they
-   do everywhere else in the navbar. */
 .account-dropdown-menu .dropdown-item:hover,
 .account-dropdown-menu .dropdown-item:focus {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: var(--color-text-on-gradient);
+  background-color: #fff;
+  color: var(--color-text-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard);
 }
 
-/* At the sm breakpoint and up, this dropdown is an actual floating panel
-   (unlike the mobile nested one below, it sits in normal flow inside a
-   horizontal nav — see the sm-and-up nudge rule further down — and visually
-   overlaps whatever page content is beneath it, e.g. the navbar divider or
-   a heading). Truly transparent there would let that content show through,
-   which reads as a bug rather than "blending with the gradient". Instead,
-   paint the exact same gradient the body has, pinned to the viewport via
-   background-attachment: fixed like the body's own — since both are fixed
-   to the same viewport, the slice rendered here lines up pixel-for-pixel
-   with what the body would show anyway, so it's opaque (nothing behind it
-   is visible) while still looking like it's just showing the page through
-   it. */
-@media (min-width: 576px) {
-  .account-dropdown-menu {
-    background-image: var(--gradient-page);
-    background-attachment: fixed;
-  }
+/* Click bounces DOWN instead of up. Declared after :hover so it wins the tie on
+   `transform` when a click is also, as usual, still hovering the row.
+   --shadow-hard-active is already this pill's resting shadow, so there's no shorter
+   token to shrink to on press — translateY alone carries the "pushed in" feel. */
+.account-dropdown-menu .dropdown-item:active {
+  background-color: #fff;
+  color: var(--color-text-strong);
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
 }
 
-/* Same rounded-capsule divider technique as .navbar-collapse's own dividers
-   below — an inset, rounded-end filled bar rather than a full-bleed
-   square-cornered border-top, so both the desktop dropdown and the mobile
-   nested one below read as the same menu style. */
-.account-dropdown-menu li + li::before {
-  content: "";
-  display: block;
-  height: 2px;
-  margin: 0 1rem;
-  background-color: var(--color-text-on-gradient);
-  border-radius: var(--radius-pill);
-}
-
-/* Below the sm breakpoint this dropdown renders nested inside the collapsed
-   hamburger box (Bootstrap forces ".navbar-nav .dropdown-menu" to
-   position:static there, so it's a plain block in normal flow, not a
-   floating panel) and by default stretches edge-to-edge inside it. Inset it
-   with its own side/bottom margins so its outline reads as a distinct,
-   smaller group nested inside the hamburger box's outline rather than
-   sharing its border. */
+/* Below sm, this dropdown renders nested inside the collapsed hamburger box (Bootstrap
+   forces the dropdown-menu to position:static there) and by default stretches
+   edge-to-edge. Inset it so it reads as a distinct, smaller group. The toggle and its
+   "Account" label are un-done here too (at !important-or-higher specificity) so the
+   toggle stretches to a full-width pill like every other stacked nav-link instead of
+   staying a small circle. */
 @media (max-width: 575.98px) {
   .account-dropdown-menu {
     margin-left: 0.75rem;
     margin-right: 0.75rem;
     margin-bottom: 0.5rem;
   }
+
+  .navbar .nav-link.nav-link-account-toggle {
+    display: flex;
+    width: 100%;
+    height: auto;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.65rem !important;
+  }
+
+  .nav-link-account-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
 }
 
-/* In the expanded (desktop) layout, nudge the pill links down slightly so
-   they read as aligned with the lowercase letters of "WhenWorks" rather
-   than its full cap-height — matches the brand's own upward nudge above.
-   Scoped past the sm breakpoint only; the collapsed hamburger menu's merged
-   list keeps its own (unshifted) vertical rhythm. */
+/* In the expanded (desktop) layout, nudge the pill links down slightly so they align
+   with the lowercase letters of "WhenWorks" rather than its cap-height. Scoped past the
+   sm breakpoint only; the collapsed hamburger menu keeps its own unshifted rhythm. */
 @media (min-width: 576px) {
   .navbar .nav-link {
     transform: translateY(2px);
   }
+
+  /* bi-person-circle's own glyph sits slightly high within its em box — only shows up
+     here, where the icon is alone in a fixed-diameter circle with nothing else to
+     anchor it. */
+  .nav-link-account-toggle i {
+    transform: translateY(1px);
+  }
 }
 
+/* Same pill + shadow language as every other nav control. Blue accent fill — the same
+   token Login uses — so the two "unaccented" navbar controls read as one family.
+   No backdrop-filter: it creates a stacking context, which would float this button's
+   whole box (glow included) above earlier non-positioned siblings, breaking the shared
+   proximity-glow block's paint order. */
 .navbar-toggler {
-  border-width: 2px;
+  padding: 0.3rem 0.55rem;
+  /* Static resting border — not in site.js's glowTargets, so this never blends past its
+     resting color (shared proximity-glow block further down). */
+  border: 2px solid var(--glow-border-color);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-blue-fill);
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Bootstrap adds a thick focus ring on :focus, which lingers after the click
-   (the button keeps focus until something else is clicked). We only want
-   that emphasis while the button is actively being pressed. */
+/* Bootstrap icon-font glyph (bi-list) replacing the default SVG data-URI icon, for the
+   same reason as .nav-link-account-toggle above. */
+.navbar-toggler i {
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--color-text-strong);
+}
+
+.navbar-toggler:hover {
+  background-color: var(--color-accent-blue-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover), var(--glow-tint-shadow);
+}
+
+/* Bootstrap's default :focus ring lingers after a click (until something else is
+   clicked) — suppressed so that emphasis only shows while actively pressed.
+   :focus-visible below still supplies a keyboard-focus indicator (WCAG 2.4.7). */
 .navbar-toggler:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
 }
 
 .navbar-toggler:active {
-  box-shadow: 0 0 0 var(--bs-navbar-toggler-focus-width, 0.25rem);
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active), var(--glow-tint-shadow);
 }
 
-/* Below the sm breakpoint the navbar collapses behind the hamburger and the
-   nav items stack vertically. Individually-pilled links look cluttered
-   stacked like that, so merge them into one outlined group with dividers
-   between entries instead. Scoped to the collapsed layout only — the
-   expanded (desktop) pill-per-link look above is unaffected. */
+.navbar-toggler:focus-visible {
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Below sm the navbar collapses behind the hamburger and items stack vertically. Each
+   link is already its own visible pill, so they just stack with breathing room. */
 @media (max-width: 575.98px) {
   .navbar-collapse {
     margin-top: 0.5rem;
-    border: 2px solid var(--color-text-on-gradient);
-    border-radius: 1rem;
-    overflow: hidden;
   }
 
   .navbar-collapse .nav-link {
     display: block;
     width: 100%;
     text-align: center;
-    border: none;
-    border-radius: 0;
-    margin: 0;
-    padding: 0.5rem 1rem;
+    /* Roomier than the 0.15rem the pills carry in the horizontal desktop row — stacked
+       full-width pills are only their margins apart, and the proximity glow reaches
+       ~12px past a pill's border box, so this gives it somewhere to go instead of
+       landing on the labels above/below. */
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
   }
-
-  /* Same rounded-capsule technique as .navbar-divider — a border can't get
-     rounded ends, and these dividers should sit inset from the group's
-     edges rather than spanning full width, so a filled block stands in. */
-  .navbar-collapse .navbar-nav + .navbar-nav::before,
-  .navbar-collapse .nav-item + .nav-item::before {
-    content: "";
-    display: block;
-    height: 2px;
-    margin: 0 1rem;
-    background-color: var(--color-text-on-gradient);
-    border-radius: var(--radius-pill);
-  }
-}
-
-.navbar-divider {
-  /* A border-top always has square ends, no matter what border-radius says —
-     rounding the line itself needs an actual filled block instead of a
-     border, so height + background + border-radius stand in for one here. */
-  height: 2px;
-  margin: 0 1rem 1rem;
-  border: none;
-  background-color: var(--color-text-on-gradient);
-  border-radius: var(--radius-pill);
-  /* Bootstrap's reboot styles every <hr> at opacity: 0.25 by default — this
-     divider is never meant to be sheer, so override it explicitly. */
-  opacity: 1;
 }
 
 .footer {
+  /* No background fill — transparent like the navbar, per the reference mockups. A top
+  border gives it the same visible edge/separation the navbar's bottom border gives it.
+  The copyright text itself is a chrome-tint pill (.ww-footer-pill below), not bare
+  white text. */
   background: transparent;
+  border-top: 3px solid rgba(255, 255, 255, 0.75);
   color: var(--color-text-on-gradient);
   font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.78rem;
   text-align: center;
-  padding: 1rem 0;
+  padding: 1.25rem 0;
+  /* Fixed bar height, like the navbar — content here is the same one-line
+     copyright/Privacy-link pill on every page, so this keeps the footer a
+     stable size instead of it flexing with whatever page sits above it. */
+  box-sizing: border-box;
+  min-height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .footer a {
   color: var(--color-text-on-gradient);
 }
 
-/* Utility: opt any element sitting directly on the gradient background (no
-   card/surface underneath it) into readable white text. Default body text
-   elsewhere stays Bootstrap's default dark color. See STYLE_GUIDE.md. */
-.text-on-gradient {
-  color: var(--color-text-on-gradient);
+/* The footer's copyright/Privacy-link text sits directly on the open gradient (the bar
+   itself is transparent), so it gets the same thin --color-chrome-tint pill as
+   .ww-hero-subtitle and .ww-join-divider. inline-flex so the pill shrink-wraps instead
+   of stretching the full footer width. */
+.ww-footer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  background-color: var(--color-chrome-tint);
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.9rem;
 }
 
-/* Utility: opt an element into the bubble display font. Reserved for short,
-   large text (headings, button labels) per STYLE_GUIDE.md — not a sitewide
-   default, applied per-element as pages are styled. */
+/* Utility: opt an element sitting directly on the gradient (no card/surface underneath)
+   into readable dark text instead of white. Most large/bold headings use plain white
+   directly on the gradient instead (e.g. .ww-hero-title) since full contrast compliance
+   isn't a hard requirement (see STYLE_GUIDE.md); this remains for anything that still
+   wants the dark-on-gradient look. */
+.text-on-gradient {
+  color: var(--color-text-strong);
+}
+
+/* Utility: hover/focus/active feedback for a plain inline text link — bare text with
+   just an underline, unlike .go-button/.navbar .nav-link/etc. which define their own
+   pill chrome. Goes to the default participant pink on hover/focus regardless of resting
+   color; :active switches to the blue accent so resting/hover/click are each distinct. */
+.text-link {
+  transition: color 0.15s ease;
+}
+
+.text-link:hover,
+.text-link:focus {
+  color: var(--color-accent-pink-fill);
+}
+
+.text-link:active {
+  color: var(--color-accent-blue-border);
+}
+
+/* Utility: opt an element into the bubble display font. Reserved for short, large text
+   (headings, button labels) per STYLE_GUIDE.md — not a sitewide default. */
 .font-display {
   font-family: var(--font-display);
 }
@@ -393,14 +755,16 @@ body {
   font-family: var(--font-body);
   font-weight: 600;
   text-align: center;
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
+  /* Cursor matches the text color instead of the browser default. */
+  caret-color: var(--color-text-strong);
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
 }
 
 .input-pill::placeholder {
-  color: var(--color-text-on-gradient);
-  opacity: 0.85;
+  color: var(--color-text-strong);
+  opacity: 0.75;
 }
 
 .input-pill-yellow {
@@ -413,25 +777,27 @@ body {
   border: 2px solid var(--color-accent-blue-border);
 }
 
-/* Red pill variant — first used on the Register page's password fields.
-   Reuses the same --color-accent-red/-border tokens as the destructive
-   modal buttons, but here it isn't signaling a destructive action; it's
-   just a third input accent alongside yellow/blue for pages with more
-   fields than that pair can distinguish. */
+/* Red pill variant, first used on Register's password fields — reuses the destructive
+   modal's red tokens, but here it's just a third input accent alongside yellow/blue. */
 .input-pill-red {
   background-color: var(--color-accent-red);
   border: 2px solid var(--color-accent-red-border);
 }
 
-/* Event Name / Event Code inputs never change appearance, focused or not.
-   Bootstrap's own .form-control:focus rule (same 0,2,0 specificity as the
-   variant selectors below) swaps in its default white background, blue
-   border, and body text color and adds a focus ring — so each color that
-   rule touches has to be explicitly restated here, not just the ring
-   suppressed, or the "basic Bootstrap" focus look leaks through. */
+/* Event Name / Event Code inputs never change appearance, focused or not. Bootstrap's
+   own .form-control:focus rule swaps in its default white/blue/ring look at the same
+   specificity, so each color it touches has to be explicitly restated here. */
 .input-pill:focus {
-  color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-strong) !important;
   box-shadow: none !important;
+}
+
+/* box-shadow is suppressed above (Bootstrap's default ring clashes with the pill's own
+   border) — this restores a keyboard-focus indicator (WCAG 2.4.7) via :focus-visible
+   (not :focus, so a mouse click doesn't show it). */
+.input-pill:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
 }
 
 .input-pill-yellow:focus {
@@ -449,21 +815,18 @@ body {
   border-color: var(--color-accent-red-border) !important;
 }
 
-/* Chrome/Edge/Safari paint autofilled fields (e.g. picking a suggestion
-   from the browser's own dropdown) with a baked-in yellow background and
-   dark text that even background-color/color with !important can't touch —
-   the standard workaround is an inset box-shadow large enough to cover the
-   whole field, plus -webkit-text-fill-color for the text. Listed per
-   pseudo-state because Chrome re-applies its own styling for each one.
-   Firefox's :autofill is included too, though it's less aggressive. */
+/* Chrome/Edge/Safari paint autofilled fields with a baked-in yellow background/dark text
+   that even background-color/color with !important can't touch — the standard
+   workaround is a covering inset box-shadow plus -webkit-text-fill-color. Listed per
+   pseudo-state since Chrome reapplies its own styling for each one. */
 .input-pill-yellow:-webkit-autofill,
 .input-pill-yellow:-webkit-autofill:hover,
 .input-pill-yellow:-webkit-autofill:focus,
 .input-pill-yellow:-webkit-autofill:active,
 .input-pill-yellow:autofill {
   box-shadow: 0 0 0 1000px var(--color-accent-yellow-fill) inset !important;
-  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
-  caret-color: var(--color-text-on-gradient);
+  -webkit-text-fill-color: var(--color-text-strong) !important;
+  caret-color: var(--color-text-strong);
 }
 
 .input-pill-blue:-webkit-autofill,
@@ -472,8 +835,8 @@ body {
 .input-pill-blue:-webkit-autofill:active,
 .input-pill-blue:autofill {
   box-shadow: 0 0 0 1000px var(--color-accent-blue-fill) inset !important;
-  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
-  caret-color: var(--color-text-on-gradient);
+  -webkit-text-fill-color: var(--color-text-strong) !important;
+  caret-color: var(--color-text-strong);
 }
 
 .input-pill-red:-webkit-autofill,
@@ -482,44 +845,97 @@ body {
 .input-pill-red:-webkit-autofill:active,
 .input-pill-red:autofill {
   box-shadow: 0 0 0 1000px var(--color-accent-red) inset !important;
-  -webkit-text-fill-color: var(--color-text-on-gradient) !important;
-  caret-color: var(--color-text-on-gradient);
+  -webkit-text-fill-color: var(--color-text-strong) !important;
+  caret-color: var(--color-text-strong);
 }
 
+/* "3D pop" button — the reference mockups' signature control, and the element the
+   site's whole shadow language is modeled on: a solid offset block, no blur.
+   !important on :active (box-shadow, background/border/color) since Bootstrap's own
+   ":not(.btn-check)+.btn:active" rule outranks a plain ".go-button:active" (this button
+   also carries .btn). */
 .go-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  border: 2px solid var(--color-accent-green-border);
-  border-radius: 50%;
+  flex-shrink: 0;
+  white-space: nowrap;
+  gap: 0.4rem;
+  padding: 0.7rem 1.6rem;
+  border: 3px solid var(--color-accent-green-border);
+  border-radius: var(--radius-pill);
   background-color: var(--color-accent-green);
-  color: var(--color-text-on-gradient);
+  /* --color-text-strong, not white — white-on-green measured ~1.4:1, badly failing WCAG
+  AA. See the --color-text-strong token comment in :root. */
+  color: var(--color-text-strong);
+  /* .go-button is also used on <a> elements (e.g. .ww-myevents-new-button,
+     .ww-myevent-enter-button) — anchors get a browser-default underline that <button>s
+     never do, so it's suppressed unconditionally here. */
+  text-decoration: none;
   font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.65rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease;
 }
 
-/* Outline stays put at all times. Hover and click share one fill — the
-   button's own outline color — instead of click going to a separate darker
-   shade, reverting the instant the click/hover ends. Text stays white
-   throughout. Bootstrap's own :active selector (":not(.btn-check)+.btn:active",
-   plus ":first-child:active") out-specifies a plain ".go-button:active", and
-   its base .btn:hover/:active rules would otherwise reset color/background
-   back to Bootstrap's defaults — so !important is needed here, matching the
-   navbar link rules above. */
-.go-button:hover,
+/* "Create event"'s label needs a real minimum width (white-space: nowrap + flex-shrink:
+   0 above so it never wraps mid-word) — that minimum overflowed some phone screens, so
+   smaller padding/font/gap here keeps it small enough to fit. */
+@media (max-width: 420px) {
+  .go-button {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.78rem;
+    gap: 0.3rem;
+  }
+}
+
+/* .go-button's own `gap` only spaces direct flex children — now that the label and icon
+   both live inside one wrapping .ww-shiny-text span, that gap has nothing to apply to,
+   so the spacing is restored directly on the icon instead. Assumes the icon trails the
+   label (every other .go-button instance) — .ww-myevents-new-button below overrides
+   this the other way since its icon leads. */
+.go-button .ww-shiny-text i {
+  margin-left: 0.4rem;
+}
+
+@media (max-width: 420px) {
+  .go-button .ww-shiny-text i {
+    margin-left: 0.3rem;
+  }
+}
+
+/* Hover darkens the fill (the same tone as the border/shadow) instead of only
+   lifting/shadowing — shadow-only hover didn't read as distinct enough. */
+.go-button:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* Same fill as :hover, only the bounce direction differs (down vs. up). All four
+   properties need !important: Bootstrap's own ":not(.btn-check)+.btn:active" rule
+   (higher specificity, since this button carries .btn) points color/background/border
+   at its own --bs-btn-active-* properties, which this button never defines — those
+   resolve to invalid/initial values (transparent fill, near-black border/text)
+   otherwise. */
 .go-button:active {
   background-color: var(--color-accent-green-border) !important;
   border-color: var(--color-accent-green-border) !important;
-  color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  color: var(--color-text-strong) !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .go-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
+}
+
+/* Visible keyboard-focus indicator, layered into the box-shadow stack so the ring
+   follows the pill's own shape. See .input-pill:focus-visible above for why
+   :focus-visible (not :focus). */
+.go-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -531,22 +947,492 @@ body {
   text-align: start;
 }
 
+/* Hero intro above the Create/Join forms, and the "why WhenWorks" mini-feature row below
+   them. Sits directly on the raw gradient with no card/scrim behind it. The subtitle
+   paragraph is intentionally left uncolored (Bootstrap's default dark body text),
+   matching the "ordinary content stays dark" convention in STYLE_GUIDE.md. */
+.ww-hero {
+  max-width: 44rem;
+  margin-left: auto;
+  margin-right: auto;
+  /* Between Bootstrap's mb-5 (too far from the Create pill) and mb-4 (too close) — splits
+  the difference so the Create pill reads roughly centered between the subtitle and the
+  "or join with a code" text below. */
+  margin-bottom: 2.25rem;
+}
+
+/* No backdrop panel behind the hero text — matches the reference mockups, which put the
+   heading directly on the open gradient. The badge is soft white-glass like the rest of
+   the page's "tag" elements, and compact — an eyebrow label, not a headline pill. */
+.ww-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  /* Same flat --color-chrome-tint as the navbar and feature-card band. No backdrop blur,
+  same reason as .navbar above. */
+  background-color: var(--color-chrome-tint);
+  /* Static resting border — not in site.js's glowTargets, so this never blends past its
+     resting color (shared proximity-glow block further down). */
+  border: 2px solid var(--glow-border-color);
+  /* Deliberately no drop shadow — a flat tinted chip, not a raised control. */
+  border-radius: var(--radius-pill);
+  padding: 0.18rem 0.6rem;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.5rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ww-hero-badge-dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background-color: var(--color-accent-green);
+  flex: none;
+}
+
+/* Two-line treatment matching the reference mockups: first line white, second line
+   (.ww-hero-title-accent) a bright yellow-green. The line break is a literal <br> in the
+   markup (the copy is two short phrases, not one that happens to wrap). */
+.ww-hero-title {
+  color: var(--color-text-on-gradient);
+  /* Hard floor clamp() never goes below — needed so the longer line can still shrink to
+     fit on narrow phones (~400px and under) instead of overflowing. */
+  font-size: clamp(2rem, 9vw, 6rem);
+  /* Fredoka's heaviest loaded weight — Bootstrap's own heading default (500) read
+     noticeably thinner than the reference mockups. */
+  font-weight: 700;
+  line-height: 0.95;
+  text-shadow: 0 4px 0 rgba(73, 18, 50, 0.2);
+}
+
+.ww-hero-title-accent {
+  color: var(--color-accent-brand-glow);
+}
+
+/* Sits directly on the open gradient, so it gets the same thin --color-chrome-tint pill
+   every other bare-on-gradient text bit does (.ww-join-divider, the footer).
+   inline-block so the pill hugs the (possibly two-line) text. No border — unlike
+   chrome-tint elements already sitting on their own surface (.navbar, .ww-hero-badge),
+   this pill is the only thing under its own text, so a border would be a stray outline. */
+.ww-hero-subtitle {
+  display: inline-block;
+  max-width: 32rem;
+  margin-top: 0.375rem;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: var(--color-chrome-tint);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.1rem;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* Merged input + GO button capsule (reference mockups) — the outer element carries the
+   border/3D-pop shadow, the input inside is borderless/transparent so the whole capsule
+   reads as one control. Full-width up to a generous max so Create reads as the page's
+   primary action; .ww-pill-group-sm below overrides this to compact for Join. */
+.ww-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 32rem;
+  margin: 0 auto;
+  border-radius: var(--radius-pill);
+  padding: 0.4rem;
+}
+
+.ww-pill-group-yellow {
+  background-color: var(--color-accent-yellow-fill);
+  /* Static resting border — not in site.js's glowTargets, so this never blends past its
+     resting color (shared proximity-glow block further down). */
+  border: 3px solid var(--glow-border-color);
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+}
+
+.ww-pill-group-blue {
+  background-color: var(--color-accent-blue-fill);
+  /* Static resting border, same reasoning as .ww-pill-group-yellow above. */
+  border: 3px solid var(--glow-border-color);
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+}
+
+.ww-pill-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none !important;
+  color: var(--color-text-strong);
+  /* Cursor matches the text color instead of the browser default. */
+  caret-color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 800;
+  text-align: left;
+  padding: 0.75rem 1.25rem;
+}
+
+.ww-pill-input::placeholder {
+  color: var(--color-text-strong);
+  opacity: 0.6;
+}
+
+/* Bootstrap's .form-control:focus would otherwise repaint background/border and add its
+   own ring — suppressed here since the outer .ww-pill-group already carries this
+   control's visible border/shadow. */
+.ww-pill-input:focus {
+  color: var(--color-text-strong) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* No :focus-visible outline on the input itself — the visible focus indicator
+   (WCAG 2.4.7) is the outer .ww-pill-group's own bounce + bigger shadow below, which
+   fires on any focus (mouse or keyboard). Deliberately not scoped to :focus-visible like
+   .go-button/.navbar-toggler: a lift-and-shadow reaction reads as pleasant feedback on a
+   mouse click, unlike a stark outline. */
+
+/* "or join with a code" — plain inline text + a short line, beside the Join capsule
+   rather than stacked below with its own heading. Sits directly on the gradient, so it
+   gets a thin --color-chrome-tint pill like .ww-hero-subtitle. The <h2> for this section
+   is kept as .visually-hidden (screen-reader heading navigation), not removed. */
+.ww-join-divider {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background-color: var(--color-chrome-tint);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.85rem;
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.ww-join-divider-line {
+  width: 1.5rem;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Compact modifier for the Join capsule — shrinks to fit its content with less padding
+   than Create so it reads as clearly shorter/secondary, not just narrower. */
+.ww-pill-group.ww-pill-group-sm {
+  display: inline-flex;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0.2rem;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+}
+
+/* Bounce on hover, same lift-plus-taller-shadow language every other control uses.
+   Placed after .ww-pill-group-sm so it wins the specificity tie for box-shadow. */
+.ww-pill-group:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover), var(--glow-tint-shadow);
+}
+
+/* Focus (typing in the input inside) bounces the whole capsule higher, with the tallest
+   shadow token — see --shadow-hard-focus's own comment in :root. :focus-within (not
+   :focus, which only the input inside could match) lets the child's focus drive this
+   outer pill's style. Declared after :hover so a focused-and-hovered pill lands on this
+   taller state. */
+.ww-pill-group:focus-within {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus), var(--glow-tint-shadow);
+}
+
+/* Sizing only — font styling matches the base .ww-pill-input so the two pills read as
+   one consistent control pair. */
+.ww-pill-input.ww-pill-input-code {
+  flex: 0 0 auto;
+  width: 7.5rem;
+  padding: 0.35rem 0.5rem;
+}
+
+/* Icon-only variant of .go-button for the compact Join capsule. Requires an aria-label
+   on the button in markup since it carries no visible text. */
+.go-button.go-button-icon {
+  padding: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 0.85rem;
+}
+
+/* Section band behind the "why WhenWorks" row — same --color-chrome-tint glass as the
+   navbar and hero badge. Breaks out of the surrounding .container to span the full
+   viewport width (the classic full-bleed margin:calc(-50vw + 50%) technique) since a
+   band constrained to the container width read as visibly cut off. .ww-feature-band-inner
+   re-applies a normal content width so the card row itself doesn't stretch edge to edge.
+   Horizontal padding on the band must stay at least as wide as the row's own negative
+   gutter margins, or the row bleeds past the band's edge.
+
+   Only a top border, no bottom: the band sits flush against the footer with no gap
+   (see <main> in _Layout.cshtml, which carries no trailing padding), so the footer's own
+   top border already supplies the single dividing line at that seam. */
+.ww-feature-band {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  border-top: 3px solid rgba(255, 255, 255, 0.75);
+  /* Flat tint, no backdrop blur — see .navbar's own comment above for why. */
+  background-color: var(--color-chrome-tint);
+  padding: 3rem 1.5rem;
+}
+
+.ww-feature-band-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+/* Feature cards — soft white glass, icon-above-text, everything centered. Dark text
+   throughout since the card itself is light — no special contrast reasoning needed. */
+.ww-feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.55);
+  /* No backdrop-filter — see .navbar's own comment above for why. */
+  /* Border color from the shared proximity-glow block further down. */
+  border: 3px solid var(--glow-border-color);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-hard);
+}
+
+.ww-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background-color: var(--color-accent-yellow-fill);
+  color: var(--color-text-strong);
+  font-size: 1.15rem;
+}
+
+.ww-feature-title {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.3rem;
+}
+
+.ww-feature-text {
+  color: var(--color-text-strong);
+  opacity: 0.82;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* Subtle entrance animation, opt-out under prefers-reduced-motion — purely additive,
+   never required to use the page.
+
+   Targets .ww-feature-card-slot, NOT .ww-feature-card itself: `animation` is a single
+   shorthand property, and .ww-feature-card also gets a second, hover-triggered
+   `animation` (ww-feature-card-bounce, further down) via a :hover rule on its own slot
+   wrapper. If this entrance animation lived on .ww-feature-card too, hovering would
+   overwrite `animation` from ww-fade-up to the bounce, and leaving hover would hand it
+   back — which restarts the animation from scratch, replaying the fade-in on every
+   mouseleave (the reported hover "flash"/"jolt"). Animating the wrapper's own
+   opacity/transform gives the same visual reveal while keeping the two animations on
+   separate elements. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-hero,
+  .ww-feature-card-slot,
+  .ww-account-card {
+    animation: ww-fade-up 0.5s ease-out both;
+  }
+}
+
+@keyframes ww-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ==========================================================================
-   Event Sign-In page. Reuses the .input-pill/.input-pill-blue tokens from
-   the Home page pass above; the two additions below are specific to this
-   page's controls (a pill-shaped <select> with an inset arrow well, a
-   circular color swatch, and a large "Enter!" call-to-action pill).
+   Event Sign-In page. Two-column layout (hero intro + a card holding the
+   form) matching a reference mockup for this page specifically. Reuses the
+   .input-pill/.input-pill-yellow/.input-pill-blue tokens and the Home page's
+   .ww-hero-badge/.ww-hero-title/.ww-hero-subtitle hero classes; the rules
+   below are the additions specific to this page's layout and controls (the
+   intro column's left alignment, the card itself, a pill-shaped <select>
+   with an inset arrow well, a circular color swatch, and a large "Enter!"
+   call-to-action pill), brought up to the same animation/interaction-state
+   language as the shared layout and Home.
    ========================================================================== */
 
-/* Layered on top of .input-pill.input-pill-blue on the existing-participant
-   <select> — that pair still supplies the fill/border/font/focus styling
-   identical to a text input; this class only replaces the browser's native
-   dropdown affordance with a darker inset "well" and a white arrow glyph,
-   matching the reference mockup. Two background layers: the arrow icon,
-   then a hard-stop linear-gradient standing in for a solid box (a real box
-   would need an extra wrapper element, since a <select> can't host a
-   pseudo-element) — clipped to the pill's own border-radius automatically
-   since background-clip defaults to border-box. */
+/* Left column: same hero classes as Home (.ww-hero-badge/.ww-hero-title/
+   .ww-hero-subtitle), but left-aligned here instead of centered — those
+   classes are otherwise shared as-is. .ww-hero-subtitle carries its own
+   margin-left/right: auto for Home's centered layout, which would still
+   visually center it here despite the container's own text-align; overridden
+   below since this column is a left-aligned intro, not a centered hero.
+   .ww-hero-badge itself needs no changes — it already gets the glow/shimmer
+   effects from reusing that class as-is. */
+.ww-signin-intro .ww-hero-subtitle {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Same entrance fade-up as Home's .ww-hero / .ww-feature-card-slot, applied to
+   this page's own intro column and card. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-signin-intro,
+  .ww-signin-card {
+    animation: ww-fade-up 0.5s ease-out both;
+  }
+
+  /* The card loads a beat after the intro text beside it, rather than both
+     popping in at once. */
+  .ww-signin-card {
+    animation-delay: 0.1s;
+  }
+}
+
+/* Right column: the card holding the sign-in form. Same rounded/bordered "card"
+   language as .ww-myevent-card (radius, border) but with its own soft cream fill (the
+   mockup's card isn't pure white) and the site's one hard-shadow pop.
+
+   Shares the "PROXIMITY BORDER" block's variables so its border-color expression stays
+   valid, but isn't in site.js's glowTargets — no confetti on this card (a large static
+   form the visitor is typing into, not a small hoverable tile), so per that block's own
+   rule its border stays a plain static yellow (same accent as .ww-pill-group-yellow)
+   rather than live-blending as the cursor nears. No hover-bounce either, same
+   reasoning. */
+.ww-signin-card {
+  max-width: 30rem;
+  border: 3px solid var(--glow-border-color);
+  border-radius: 1.75rem;
+  background-color: #fffaf1;
+  padding: 2rem;
+  text-align: left;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+}
+
+/* Left-align the pill controls inside the card — .input-pill's own base rule
+   centers its text, which suits Home's centered layout but not this card's
+   left-aligned one. Also gives these standalone fields the same hard-shadow
+   pop/hover-lift/focus states every pill uses, since — unlike Home's
+   Create/Join inputs — neither sits inside a .ww-pill-group to inherit it
+   from. No glow ring though: nested controls don't get one (see "PROXIMITY
+   BORDER" below). */
+.ww-signin-card .input-pill {
+  width: 100%;
+  text-align: left;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.ww-signin-card .input-pill::placeholder {
+  text-align: left;
+}
+
+.ww-signin-card .input-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-signin-card .input-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Taller than :hover, like .ww-pill-group:focus-within on Home. !important
+   needed to beat the sitewide `.input-pill:focus { box-shadow: none !important; }`
+   rule. */
+.ww-signin-card .input-pill:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+/* Suppresses the sitewide outline ring — text inputs/selects match
+   :focus-visible even on a mouse click (unlike buttons/links), and the lift
+   + taller shadow above is already a sufficient focus indicator. */
+.ww-signin-card .input-pill:focus-visible {
+  outline: none;
+}
+
+/* The event name — this card's equivalent of the mockup's placeholder "Hi"
+   heading. Dark text since the card is an opaque light surface (see
+   STYLE_GUIDE.md's white-glass/dark-text convention). */
+.ww-signin-heading {
+  color: var(--color-text-strong);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+/* Small uppercase field labels ("NICKNAME", "YOUR COLOR") above each control
+   — the card's equivalent of Home's visually-hidden <h2>s, but visible here
+   since the mockup treats them as part of the card's own content. */
+.ww-signin-field-label {
+  display: block;
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+/* "Already joined?" note above the existing-participant dropdown — muted
+   relative to the field labels above so it reads as a secondary hint, not
+   another field label. */
+.ww-signin-note {
+  color: var(--color-text-strong);
+  opacity: 0.75;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+/* Shorter and smaller-text than the other pills in this card — width is
+   untouched (still 100%, from .ww-signin-card .input-pill above) since this
+   dropdown is a secondary/deemphasized control, not the primary Nickname
+   field. */
+.ww-signin-select-compact {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+
+/* "Your Color" label + swatch — centered, unlike the left-aligned Nickname/
+   existing-participant fields above. */
+.ww-signin-color-block {
+  text-align: center;
+}
+
+/* Layered on top of .input-pill.input-pill-blue on the existing-participant <select> —
+   that pair still supplies fill/border/font/focus styling; this class only replaces the
+   browser's native dropdown affordance with a darker inset "well" and a white arrow
+   glyph. Two background layers (the arrow icon, then a hard-stop linear-gradient
+   standing in for a solid box, since a <select> can't host a pseudo-element) — clipped
+   to the pill's own border-radius automatically via the default border-box clip. */
 .select-arrow-inset {
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -564,13 +1450,10 @@ body {
     linear-gradient(to left, var(--color-accent-blue-border) 2.5rem, transparent 2.5rem);
 }
 
-/* Bootstrap's own ".form-select:disabled" rule (used by the delete modal's
-   participant picker before "Delete participant" is chosen) repaints the
-   background to a flat gray and drops the background-image entirely —
-   both at higher specificity than the two single-class selectors above, so
-   the pill/arrow-well look has to be explicitly restated here rather than
-   just re-enabling color. Dimmed via opacity instead of a separate color
-   set, so it still reads as "this same blue pill, temporarily inactive". */
+/* Bootstrap's ".form-select:disabled" rule (used by the delete modal's participant
+   picker) repaints the background flat gray and drops the background-image, at higher
+   specificity than the two rules above — restated here to keep the pill look. Dimmed via
+   opacity so it still reads as "this same blue pill, temporarily inactive". */
 .select-arrow-inset.input-pill-blue:disabled {
   background-image:
     url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
@@ -580,37 +1463,64 @@ body {
   opacity: 0.6;
 }
 
-/* The open options list is rendered by the browser/OS, not by this stylesheet, so it
-   can't pick up the pill shape or gradient — only a resting row's color/background can
-   be influenced here, which Chrome/Edge honor and Firefox partially honors. This swaps
-   the browser's stark white default list for the same blue/white pairing as the
-   closed pill, so it at least reads as part of the same control instead of a jarring
-   default-styled popup.
-
-   The hovered/selected row is intentionally NOT styled here: Chromium-based browsers
-   (confirmed on both Edge and Brave) paint that row with the OS's own system
-   "Highlight" color and there is no CSS override for it — not even the background
-   shorthand + flat-gradient trick sometimes cited for older WebKit. Fully custom
-   hover styling would require replacing the native <select> with a custom-built
-   listbox; not attempted here, see conversation with the developer. */
+/* The open options list is rendered by the browser/OS, not this stylesheet — only a
+   resting row's color/background can be styled here (Chrome/Edge honor it, Firefox
+   partially). Swaps the browser's stark white default for the closed pill's blue/white
+   pairing so it at least reads as the same control. The hovered/selected row is not
+   styled: Chromium paints it with the OS "Highlight" color with no CSS override
+   available short of replacing the native <select> with a custom listbox. */
 .select-arrow-inset.input-pill-blue option {
   background-color: var(--color-accent-blue-fill);
   color: var(--color-text-on-gradient);
 }
 
-/* Native color input, restyled as a circular swatch (input[type=color] has
-   no cross-browser way to become a circle via a wrapper, so its own
-   ::-webkit-color-swatch-* / ::-moz-color-swatch pseudo-elements are
-   targeted directly). White ring matches the mockup regardless of which
-   accent color is currently picked. */
+/* Red variant of the three rules above — same shapes/mechanics, just the red accent
+   pair instead of blue. Used by the delete modal's participant picker (destructive
+   context, so it takes the site's red accent rather than blue). */
+.select-arrow-inset.input-pill-red {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, var(--color-accent-red-border) 2.5rem, transparent 2.5rem);
+}
+
+/* Disabled state's arrow band is gray, not red — .input-pill:disabled (sitewide) already
+   repaints the pill body/border gray via !important, so a still-red band here read as a
+   mismatched leftover accent on an otherwise-neutral "inactive" pill. #495057 matches that
+   rule's own disabled border color. */
+.select-arrow-inset.input-pill-red:disabled {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, #495057 2.5rem, transparent 2.5rem);
+  background-color: #6c757d;
+  color: var(--color-text-on-gradient);
+  opacity: 0.6;
+}
+
+/* Deliberately no .select-arrow-inset.input-pill-red option rule (unlike the blue
+   variant above) — a red options-list background read poorly here, so the open list
+   is left at the browser/OS default instead; the closed pill (and its :disabled state
+   above) still carry the full red treatment. */
+
+/* Native color input, restyled as a circular swatch via its own
+   ::-webkit-color-swatch-* / ::-moz-color-swatch pseudo-elements (no cross-browser way
+   to circle it via a wrapper). White ring matches the mockup regardless of accent — the
+   input's own padding (not just its border) is what creates that ring's width, since the
+   swatch fill sits inside the input's content box on both engines. */
 .color-swatch-picker {
   width: 3.5rem;
   height: 3.5rem;
-  padding: 0;
+  /* Matches the border's own 3px so the ring and the outline read as the same
+     thickness — px, not rem, for the same reason the border is: it should stay a
+     literal 3px regardless of html's scaled root font-size. */
+  padding: 3px;
   border: 3px solid var(--color-text-on-gradient);
   border-radius: 50%;
   cursor: pointer;
   background: none;
+  /* Same hard-shadow pop as .go-button/.enter-button, just circular (STYLE_GUIDE.md
+     flagged this as deferred). site.js separately tints border-color to match. */
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .color-swatch-picker::-webkit-color-swatch-wrapper {
@@ -629,14 +1539,86 @@ body {
   border-radius: 50%;
 }
 
-.color-swatch-picker:focus {
-  box-shadow: none;
+.color-swatch-picker:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
 }
 
-/* Primary call-to-action for this page — same green accent/hover behavior
-   as .go-button (STYLE_GUIDE.md's "GO!" pattern), but a large labeled pill
-   rather than a small circle, since this page has one page-level action
-   instead of one per input. */
+.color-swatch-picker:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Stays lifted while focused (e.g. dialog open), like .input-pill:focus —
+   not just a momentary hover bounce. */
+.color-swatch-picker:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus);
+}
+
+/* Visible keyboard-focus indicator, same pattern as .go-button:focus-visible. */
+.color-swatch-picker:focus-visible {
+  box-shadow: var(--shadow-hard-focus), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Positioning context for the eyedropper overlay below — every .color-swatch-picker
+   site-wide (Event Sign-In, Register, Manage/Index) wraps its input in one of these. The
+   lift/press transform moves here instead of on the swatch (via :has() below), so the
+   overlaid icon travels with it as one unit — the swatch's own transform is
+   cancelled to avoid doubling the distance. */
+.ww-color-picker-wrap {
+  position: relative;
+  display: inline-block;
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1);
+}
+
+.ww-color-picker-wrap .color-swatch-picker:hover,
+.ww-color-picker-wrap .color-swatch-picker:active,
+.ww-color-picker-wrap .color-swatch-picker:focus {
+  transform: none;
+}
+
+.ww-color-picker-wrap:has(.color-swatch-picker:hover) {
+  transform: translateY(-2px);
+}
+
+.ww-color-picker-wrap:has(.color-swatch-picker:active) {
+  transform: translateY(2px);
+}
+
+/* Declared last so it wins over :hover when both match, same as
+   .ww-pill-group:focus-within. */
+.ww-color-picker-wrap:has(.color-swatch-picker:focus) {
+  transform: translateY(-3px);
+}
+
+/* Eyedropper glyph shown on hover/focus as a "click to edit" cue. pointer-
+   events: none so clicks pass through to the input underneath. White +
+   drop-shadow instead of a computed contrast color, so it stays legible over
+   any picked fill without server-side logic. */
+.ww-color-picker-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.15rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.ww-color-picker-wrap:hover .ww-color-picker-icon,
+.ww-color-picker-wrap:focus-within .ww-color-picker-icon {
+  opacity: 1;
+}
+
+/* Primary CTA for this page — same green accent/hard-shadow-pop behavior as .go-button
+   (STYLE_GUIDE.md's "GO!" pattern), a large labeled pill since this page has one
+   page-level action instead of one per input. (STYLE_GUIDE.md flagged the old
+   box-shadow: none pattern here as deferred work.) */
 .enter-button {
   display: inline-flex;
   align-items: center;
@@ -645,191 +1627,493 @@ body {
   border: 2px solid var(--color-accent-green-border);
   border-radius: var(--radius-pill);
   background-color: var(--color-accent-green);
-  color: var(--color-text-on-gradient);
+  /* --color-text-strong, not white — same reasoning as .go-button (white-on-green
+     fails WCAG contrast). Kept dark in every state below too. */
+  color: var(--color-text-strong);
   font-family: var(--font-display);
   font-size: 1.35rem;
-  /* Safety net for longer labels (e.g. "CHANGE EMAIL") in narrower
-     containers — without this, the button's own shrink-to-fit sizing can
-     still render wider than its column and overflow into whatever sits
-     next to it, even though the text itself wraps fine. */
+  /* Safety net for longer labels (e.g. "CHANGE EMAIL") in narrower containers. */
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease;
 }
 
-/* Same hover/active/focus treatment as .go-button — see its comments above
-   for why !important is required here too. */
-.enter-button:hover,
+.enter-button:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* Same fill as :hover, only the bounce direction differs (down vs. up) — see
+   .go-button:active's own comment for why every property here needs !important
+   (Bootstrap's ":not(.btn-check)+.btn:active" rule outranks a plain
+   ".enter-button:active" since this button also carries .btn). */
 .enter-button:active {
   background-color: var(--color-accent-green-border) !important;
   border-color: var(--color-accent-green-border) !important;
-  color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  color: var(--color-text-strong) !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .enter-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
+}
+
+/* Visible keyboard-focus indicator, same pattern as .go-button:focus-visible. */
+.enter-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Login's "LOG IN" label is short enough to always fit on one line, unlike this
+   button's other reuses (e.g. "CHANGE EMAIL") which need to wrap on narrow screens —
+   see .enter-button's own max-width: 100% safety-net comment above. So only this one
+   instance gets nowrap + flex-shrink: 0 (same pattern as .go-button), with the media
+   query below shrinking padding/font instead to keep it fitting on narrow phones. */
+#login-submit {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 420px) {
+  #login-submit {
+    padding: 0.55rem 1.75rem;
+    font-size: 1.05rem;
+  }
 }
 
 /* ==========================================================================
-   My Events page. The joined-events list reuses the yellow/orange accent
-   pair as opaque row fills (not the usual pill-input treatment) inside a
-   rounded, coral-bordered card, plus the same green circular "GO!" pattern
-   as .go-button, scaled up for a page-level action.
+   My Events page. A responsive grid of cards (one per joined/created event),
+   each an opaque cream "3D pop" card in the same family as .ww-signin-card/
+   .ww-account-card — with its own copiable event code, organizer avatar
+   stack, and direct Enter/delete actions, plus page-number navigation below
+   the grid for lists longer than one page.
    ========================================================================== */
-.my-events-card {
-  border: 3px solid var(--color-accent-yellow-border);
-  border-radius: 1.75rem;
-  background-color: #fff;
-  overflow: hidden;
+
+/* Same entrance fade-up as Home/Sign-In's own header + card reveals. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-myevents-header {
+    animation: ww-fade-up 0.5s ease-out both;
+  }
 }
 
-/* Rows are opaque color blocks, not pills — the card's own border-radius +
-   overflow:hidden above clips the first row's top corners, so no per-row
-   radius is needed. The scrollable container's own background stays white
-   so any leftover height below a short list (e.g. only a few joined events)
-   reads as blank card space rather than an empty color block. */
-.my-events-list {
-  background-color: #fff;
+/* "+ New event" reuses .go-button as-is (icon + label wrapped in .ww-shiny-text like
+   every other go-button instance) — no overrides needed beyond fitting the header row. */
+.ww-myevents-new-button {
+  flex-shrink: 0;
 }
 
-/* Scrollbar styling for the fixed-height list — Firefox via scrollbar-color,
-   Chromium/Safari via the ::-webkit-scrollbar pseudo-elements (there's no
-   single standard property that covers both). Thumb reuses the same border
-   tone as the card's own outline so the scrollbar reads as part of the same
-   palette instead of the browser's flat gray default. */
-.my-events-list {
-  scrollbar-color: var(--color-accent-yellow-border) #fff;
-  scrollbar-width: thin;
+/* This button's icon leads the label ("+ New Event"), unlike every other .go-button
+   instance (icon trails) that .go-button .ww-shiny-text i's own margin-left is written
+   for — reapplying that margin here would push the icon further right instead of
+   spacing it from the label, throwing the whole glyph+text group off-center within the
+   pill. Zero that out and space the icon from its own right side instead. */
+.ww-myevents-new-button .ww-shiny-text i {
+  margin-left: 0;
+  margin-right: 0.4rem;
 }
 
-.my-events-list::-webkit-scrollbar {
-  width: 0.6rem;
+/* Card slot: the Bootstrap grid column wrapping each card. Entrance animation lives here
+   (not on .ww-myevent-card itself) for the same reason as .ww-feature-card-slot — the
+   card also gets a separate hover-triggered transform, and animating the wrapper avoids
+   the two fighting over the `transform`/`animation` properties. Staggered per card via
+   --ww-card-index (set inline in markup) so the grid reveals in a light cascade rather
+   than all six cards popping in at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-myevent-card-slot {
+    animation: ww-fade-up 0.5s ease-out both;
+    animation-delay: calc(var(--ww-card-index, 0) * 0.06s);
+  }
 }
 
-.my-events-list::-webkit-scrollbar-track {
-  background-color: #fff;
+/* The card itself — cream "3D pop" fill matching .ww-signin-card/.ww-account-card, blue
+   accent border (this page's own accent, distinct from the yellow/green Home already
+   uses for Create/GO). Static resting border via the shared "PROXIMITY BORDER" block
+   further down (not in site.js's glowTargets, so no live blend/confetti — see that
+   block's own rule) plus a genuine hover-triggered bounce below, the same two-part
+   treatment as .ww-feature-card. */
+.ww-myevent-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 3px solid var(--glow-border-color);
+  border-radius: 1.5rem;
+  background-color: #fffaf1;
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.3s ease;
 }
 
-.my-events-list::-webkit-scrollbar-thumb {
-  background-color: var(--color-accent-yellow-border);
-  border-radius: var(--radius-pill);
+/* Bounce on hover — triggered off the slot wrapper, not the card itself, for the same
+   anti-jitter reason documented on .ww-feature-card-slot:hover .ww-feature-card. */
+.ww-myevent-card-slot:hover .ww-myevent-card {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-hard-focus), var(--glow-tint-shadow);
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.4s cubic-bezier(.28, 1.55, .4, 1);
 }
 
-.my-event-item {
-  background-color: var(--color-accent-yellow-fill);
-  border: none;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
-  color: var(--color-text-on-gradient);
-  font-family: var(--font-body);
-  padding: 0.85rem 1.25rem;
+.ww-myevent-code-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
-.my-events-list .list-group-item:last-child .my-event-item,
-.my-event-item:last-child {
-  border-bottom: none;
+.ww-myevent-code {
+  color: var(--color-text-strong);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
 }
 
-/* Bootstrap's .list-group-item-action default hover/focus background
-   (a translucent dark overlay meant for plain white list groups) is
-   replaced with the orange accent fill instead. */
-.my-event-item.list-group-item-action:hover,
-.my-event-item.list-group-item-action:focus {
-  background-color: var(--color-accent-orange-fill);
-  color: var(--color-text-on-gradient);
-}
-
-/* Selected state gets its own distinct color rather than reusing the hover
-   fill — otherwise hovering and selecting would read as the same state.
-   The two ".selected" combos below are needed to still win over the hover
-   rule above (equal specificity, but this comes later in source order) when
-   the selected row is also the one being hovered. */
-.my-event-item.selected,
-.my-event-item.selected.list-group-item-action:hover,
-.my-event-item.selected.list-group-item-action:focus {
-  background-color: var(--color-accent-selected-fill);
-  color: var(--color-text-on-gradient);
-}
-
-/* Deliberately no separate :hover/:active rule — the icon should look
-   identical no matter the row's hover/selected state, not dim or shift. */
-.my-event-item .my-event-delete-button,
-.my-event-item .my-event-delete-button:hover,
-.my-event-item .my-event-delete-button:active {
-  color: var(--color-text-on-gradient);
-  opacity: 1;
-}
-
-/* Large circular "GO!" action below the card — same green fill/border and
-   hover/active treatment as .go-button, sized up since this page has one
-   page-level action rather than one per input. */
-.my-events-go-button {
+/* Copy-to-clipboard trigger next to the event code. Two stacked glyphs (clipboard +
+   checkmark) crossfade via opacity rather than swapping textContent, so the click
+   feedback below animates instead of snapping. */
+.ww-myevent-copy-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 5rem;
-  height: 5rem;
+  width: 1.3rem;
+  height: 1.3rem;
   padding: 0;
-  border: 3px solid var(--color-accent-green-border);
+  border: none;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(.2, 1.4, .4, 1), color 0.15s ease;
+}
+
+.ww-myevent-copy-button i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.ww-myevent-copy-button .bi-check-lg {
+  opacity: 0;
+  color: var(--color-accent-green-border);
+  transform: scale(0.5);
+}
+
+.ww-myevent-copy-button:hover,
+.ww-myevent-copy-button:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ww-myevent-copy-button:active {
+  transform: translateY(1px) scale(0.92);
+}
+
+.ww-myevent-copy-button:focus-visible {
+  outline: 2px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Momentary "copied" confirmation state, toggled by site JS after a successful clipboard
+   write and removed again after ~1.5s. */
+.ww-myevent-copy-button.copied {
+  opacity: 1;
+}
+
+.ww-myevent-copy-button.copied .bi-clipboard {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.ww-myevent-copy-button.copied .bi-check-lg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ww-myevent-people {
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Event emoji, replacing the old sparkle-icon badge — a small circular chip in the
+   corner opposite the code, same treatment as .ww-feature-icon but sized for a glyph
+   instead of a Bootstrap icon font. */
+.ww-myevent-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
   border-radius: 50%;
-  background-color: var(--color-accent-green);
-  color: var(--color-text-on-gradient);
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-}
-
-.my-events-go-button:hover,
-.my-events-go-button:active {
-  background-color: var(--color-accent-green-border) !important;
-  border-color: var(--color-accent-green-border) !important;
-  color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
-}
-
-.my-events-go-button:focus {
-  box-shadow: none;
-}
-
-/* Delete confirmation modal — same rounded, yellow-accented "card" language
-   as .my-events-card, since it's opened directly from that list. Whole
-   dialog is one yellow-filled surface (matching the existing precedent of
-   white text on --color-accent-yellow-fill from the Home page's Event Name
-   input and the My Events rows) rather than a plain white Bootstrap modal. */
-.modal-content.delete-modal-content {
+  border: 2px solid var(--color-accent-yellow-border);
   background-color: var(--color-accent-yellow-fill);
-  border: 3px solid var(--color-accent-yellow-border);
+  font-size: 1rem;
+}
+
+.ww-myevent-title {
+  color: var(--color-text-strong);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Event description — falls back to a default placeholder server-side when the
+   organizer hasn't set one (see MyEventsController). Clamped to two lines so a long
+   description can't stretch one card taller than its row siblings. */
+.ww-myevent-description {
+  color: var(--color-text-strong);
+  opacity: 0.8;
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* A long unbroken word (no natural break point) would otherwise overflow the card's
+     edge instead of wrapping onto the clamped lines above — this forces a break inside
+     the word itself once it's the only way to keep it inside the card's width. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ww-myevent-divider {
+  height: 2px;
+  margin: 0 0 0.9rem;
+  background-color: var(--color-text-strong);
+  opacity: 0.15;
+  border-radius: var(--radius-pill);
+}
+
+.ww-myevent-footer {
+  margin-top: auto;
+}
+
+/* Organizer avatar stack — one circle per current-user participant record on this
+   event, initial + that participant's own color. Wraps onto a new line rather than
+   overlapping once there isn't room for more on one row. */
+.ww-myevent-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 7rem;
+}
+
+.ww-myevent-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background-color: var(--avatar-color, var(--color-accent-pink-fill));
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.65rem;
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Trash icon — a plain icon button (no pill chrome of its own) that opens the delete
+   modal for this specific card. Tints red and lifts slightly on hover/press so it reads
+   as a destructive action without needing full button chrome next to Enter. */
+.ww-myevent-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.55;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.15s cubic-bezier(.2, 1.4, .4, 1);
+}
+
+.ww-myevent-delete-button:hover,
+.ww-myevent-delete-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
+  background-color: rgba(239, 93, 93, 0.12);
+  transform: translateY(-2px);
+}
+
+.ww-myevent-delete-button:active {
+  transform: translateY(1px) scale(0.94);
+}
+
+.ww-myevent-delete-button:focus-visible {
+  outline: 2px solid var(--color-accent-red-border);
+  outline-offset: 2px;
+}
+
+/* Per-card "Enter" action — .go-button as-is, just scaled down to fit beside the trash
+   icon at the bottom of a compact card instead of standing alone as a page-level CTA. */
+.ww-myevent-enter-button {
+  padding: 0.45rem 1.1rem;
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   My Events pagination — previous/next, a window of nearby page numbers,
+   ellipses when the window doesn't reach page 1 or the last page, and a
+   jump-to-page box. Small circular/pill "page chip" buttons in the same
+   accent-fill/hard-shadow language as every other control on the page.
+   ========================================================================== */
+.ww-myevents-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.ww-page-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 2px solid var(--color-accent-blue-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.ww-page-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-page-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-page-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* The current page reads as a filled, non-interactive chip rather than another link. */
+.ww-page-button.active {
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-on-gradient);
+  pointer-events: none;
+}
+
+/* Prev/Next arrows and the disabled state at either end of the range — visually present
+   (so the row's width doesn't jump as the current page moves) but inert. */
+.ww-page-nav-button.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-page-ellipsis {
+  color: var(--color-text-on-gradient);
+  font-weight: 700;
+  padding: 0 0.15rem;
+}
+
+
+.ww-page-jump-form {
+  display: inline-flex;
+  margin-left: 0.4rem;
+}
+
+.ww-page-jump-input {
+  width: 4.2rem;
+  height: 2.2rem;
+  padding: 0 0.5rem;
+  border: 2px solid var(--color-accent-blue-border);
+  background-color: var(--color-accent-blue-fill);
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-hard);
+}
+
+.ww-page-jump-input:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-page-jump-input:focus {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover) !important;
+}
+
+/* Suppresses the sitewide .input-pill:focus-visible outline (text inputs match
+   :focus-visible even on a plain mouse click, unlike buttons/links) — the lift + taller
+   shadow above is already a sufficient focus indicator, same reasoning as
+   .ww-signin-card .input-pill:focus-visible. */
+.ww-page-jump-input:focus-visible {
+  outline: none;
+}
+
+/* Delete confirmation modal — the same opaque cream "3D pop" card language as
+   .ww-myevent-card/.ww-signin-card/.ww-account-card, rather than the old solid-yellow
+   block treatment, so it reads as one consistent surface family with the rest of the
+   page. Red accent border, matching the modal's own destructive intent (the Delete
+   button/checked radio state already use this same red). */
+.modal-content.delete-modal-content {
+  background-color: #fffaf1;
+  border: 3px solid var(--color-accent-red-border);
   border-radius: 1.75rem;
   overflow: hidden;
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
 }
 
 .delete-modal-content .modal-header {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(81, 76, 84, 0.15);
 }
 
 .delete-modal-content .modal-title {
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
   font-weight: 700;
 }
 
 .delete-modal-content .modal-footer {
-  border-top: 2px solid rgba(255, 255, 255, 0.6);
+  border-top: 2px solid rgba(81, 76, 84, 0.15);
 }
 
 .delete-modal-content .form-check-label {
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
 }
 
-/* Native radio inputs are Bootstrap's own SVG-background controls, not
-   plain browser widgets, so recoloring them means overriding those layers
-   directly rather than using accent-color. Unchecked stays an outlined
-   white ring against the yellow fill; checked switches to the same red
-   accent as the Delete button, since these radios are picking a mode of
-   this destructive action rather than an affirmative "GO!" choice. */
+/* Native radio inputs are Bootstrap's own SVG-background controls, so recoloring means
+   overriding those layers directly rather than accent-color. Checked switches to the red
+   accent since these radios pick a mode of a destructive action, not an affirmative
+   "GO!" choice. */
 .delete-modal-content .form-check-input {
-  background-color: rgba(255, 255, 255, 0.15);
-  border-color: var(--color-text-on-gradient);
+  background-color: rgba(81, 76, 84, 0.08);
+  border-color: var(--color-text-strong);
 }
 
 .delete-modal-content .form-check-input:checked {
@@ -839,15 +2123,57 @@ body {
 
 .delete-modal-content .form-check-input:focus {
   box-shadow: none;
-  border-color: var(--color-text-on-gradient);
+  border-color: var(--color-text-strong);
 }
 
-.delete-modal-content .text-danger {
-  color: #6b1414 !important;
+/* The participant picker's own hard-shadow pop + hover-lift/press/focus states — same
+   treatment as .ww-signin-card .input-pill/.ww-account-card .input-pill, which this
+   modal's select was previously missing (it only had the resting select-arrow-inset
+   fill, no interaction states of its own, hence reading as "static"). */
+.delete-modal-content .input-pill {
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-/* Cancel — a transparent pill outlined in white, echoing the navbar's own
-   pill-link treatment, rather than Bootstrap's flat gray secondary button. */
+.delete-modal-content .input-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.delete-modal-content .input-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.delete-modal-content .input-pill:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+/* Suppresses the sitewide outline ring — selects match :focus-visible even on a mouse
+   click (unlike buttons/links), and the lift + taller shadow above is already a
+   sufficient focus indicator. Same reasoning as .ww-signin-card .input-pill:focus-visible. */
+.delete-modal-content .input-pill:focus-visible {
+  outline: none;
+}
+
+/* Bootstrap's own ".form-select:disabled" rule flattens background/box-shadow at higher
+   specificity than the interaction states above — this modal's select is disabled
+   whenever the current user has no participant on the event being deleted, and it
+   should read as visibly inert rather than still lifting on hover. */
+.delete-modal-content .input-pill:disabled {
+  transform: none;
+  box-shadow: var(--shadow-hard) !important;
+}
+
+/* Cancel — a transparent pill outlined in white, echoing the navbar's own pill-link
+   treatment, rather than Bootstrap's flat gray secondary button. Meant for sitting
+   directly on the open gradient; .ww-account-card and .delete-modal-content (below) each
+   override this to a filled/dark-outline variant instead, since white-on-white doesn't
+   read once this button sits on their own opaque card fills. Brought up to the same
+   shadow-hard-family hover/press language as .enter-button/.go-button per
+   STYLE_GUIDE.md's Deliberately Deferred note (this page was flagged to get that
+   treatment "the next time it's touched"). */
 .modal-cancel-button {
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-text-on-gradient);
@@ -856,23 +2182,38 @@ body {
   font-family: var(--font-body);
   font-weight: 600;
   padding: 0.5rem 1.5rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.modal-cancel-button:hover,
+.modal-cancel-button:hover {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-on-gradient) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover) !important;
+}
+
 .modal-cancel-button:active {
   background-color: rgba(255, 255, 255, 0.3) !important;
   border-color: var(--color-text-on-gradient) !important;
   color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .modal-cancel-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
 }
 
-/* Delete — the destructive counterpart to .go-button/.enter-button, same
-   pill/hover pattern but in the site's red accent instead of green since
-   this action isn't the affirmative "GO!" case. */
+.modal-cancel-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-on-gradient);
+}
+
+/* Delete — the destructive counterpart to .go-button/.enter-button, same pill/hover
+   pattern but in the site's red accent since this isn't the affirmative "GO!" case. Same
+   shadow-hard-family treatment as .modal-cancel-button above, per the same deferred
+   note. */
 .modal-delete-button {
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-accent-red-border);
@@ -881,23 +2222,36 @@ body {
   font-family: var(--font-body);
   font-weight: 700;
   padding: 0.5rem 1.5rem;
-  /* Same overflow safety net as .enter-button — long labels (e.g. "DELETE
-     DATA AND CLOSE MY ACCOUNT") can still render wider than a narrow
+  /* Same overflow safety net as .enter-button — long labels can still overflow a narrow
      container even though the text wraps. */
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.modal-delete-button:hover,
+.modal-delete-button:hover {
+  background-color: var(--color-accent-red-border) !important;
+  border-color: var(--color-accent-red-border) !important;
+  color: var(--color-text-on-gradient) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover) !important;
+}
+
 .modal-delete-button:active {
   background-color: var(--color-accent-red-border) !important;
   border-color: var(--color-accent-red-border) !important;
   color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .modal-delete-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
+}
+
+.modal-delete-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-on-gradient);
 }
 
 .modal-delete-button:disabled {
@@ -906,29 +2260,50 @@ body {
   opacity: 0.5;
 }
 
+/* .modal-cancel-button is normally a transparent, white-outlined pill meant for the open
+   gradient (see its own rule above) — unreadable against this modal's cream card fill
+   (see .modal-content.delete-modal-content above), so here it switches to a filled gray
+   pill instead — same neutral gray as the disabled pills elsewhere on this modal
+   (.input-pill:disabled), since Cancel is a neutral "back out" action, not an accent
+   color with a meaning of its own. */
+.delete-modal-content .modal-cancel-button {
+  background-color: #6c757d;
+  border-color: #495057;
+  color: var(--color-text-on-gradient);
+}
+
+.delete-modal-content .modal-cancel-button:hover,
+.delete-modal-content .modal-cancel-button:active {
+  background-color: #495057 !important;
+  border-color: #495057 !important;
+  color: var(--color-text-on-gradient) !important;
+}
+
+.delete-modal-content .modal-cancel-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
 /* ==========================================================================
    Identity account pages (Areas/Identity/Pages/Account/Login.cshtml,
-   Register.cshtml — both share this two-column "local form" / "external
-   providers" layout). Reuses the .input-pill/.input-pill-yellow/
+   Register.cshtml, ForgotPassword.cshtml, ResetPassword.cshtml,
+   ResendEmailConfirmation.cshtml, the two confirmation pages, and the Manage
+   account section). Reuses the .input-pill/.input-pill-yellow/
    .input-pill-blue, .enter-button, and .color-swatch-picker tokens from the
-   Home/Sign-In pages; the three classes below are specific to this shared
-   layout (a divider under each column heading, height-matching for those
-   headings, and a secondary outline pill for external providers).
+   Home/Sign-In pages, plus .ww-account-card below — brought up to the same
+   card/glow/animation language as Event Sign-In's .ww-signin-card. The
+   classes below are specific to this section: a divider under each column
+   heading, height-matching for those headings, the opaque form card itself,
+   and a secondary outline pill for external providers / cancel actions.
    ========================================================================== */
 
-/* Same rounded-capsule divider technique as .navbar-divider, scoped to this
-   layout instead of reusing that class directly — kept separate since each
-   page section in this file defines its own small set of page-specific
-   classes rather than sharing one generically-named divider across pages.
+/* Same rounded-capsule divider technique as elsewhere, scoped to this layout instead of
+   a shared class.
 
-   Markup note: on both Login and Register, this divider (and the heading
-   above it) must sit as a sibling *before* the form that follows, not
-   nested inside it — the form uses Bootstrap's flex "gap-2" utility to
-   space its own children, and if the heading/divider were nested inside
-   that form, the gap would add extra space after the divider on that
-   column only, throwing off the height-matching below despite both
-   headings measuring equal. Lost an hour to exactly this once already;
-   don't reintroduce it on a future account page. */
+   Markup note: this divider (and the heading above it) must sit as a sibling *before*
+   the form that follows, not nested inside it — the form's own flex "gap-2" utility
+   would add extra space after the divider on that column only, throwing off the
+   height-matching below even though both headings measure equal. Cost an hour to
+   diagnose once; don't reintroduce it on a future account page. */
 .account-divider {
   height: 2px;
   margin: 0 0 0.5rem;
@@ -938,24 +2313,14 @@ body {
   opacity: 1;
 }
 
-/* The two column headings (e.g. "Use a Local Account" / "Use Another
-   Service") wrap to a different number of lines at some widths, which would
-   otherwise leave their .account-divider lines at different heights when
-   the columns sit side by side. Bottom-align both headings within a shared
-   min-height so the dividers underneath always land at the same y position.
+/* The two column headings wrap to a different number of lines at some widths, which
+   would leave their .account-divider lines at different heights side by side.
+   Bottom-align both within a shared min-height so the dividers always land level.
 
-   min-height is in em, not rem: it has to reserve exactly two lines of the
-   heading's *own* font-size (Bootstrap's heading reset already sets
-   line-height: 1.2, restated here so the 2.4em math is self-contained
-   rather than relying on that staying unchanged elsewhere), not two lines
-   of the root font-size — the two don't match here since html's root
-   font-size is itself scaled up at this same md breakpoint (see the root
-   `html { font-size }` rules near the top of this file), so a rem value
-   sized for one would be wrong relative to the heading's actual text size.
-
-   Scoped to the md breakpoint and up, matching where the columns actually
-   go side-by-side (col-md-5) — below that they're stacked single-column
-   and don't need alignment. */
+   min-height is in em (not rem) to reserve two lines of the heading's *own* font-size —
+   html's root font-size is itself scaled up at this same md breakpoint, so a rem value
+   would be wrong relative to the heading's actual text size. Scoped to md+, matching
+   where the columns go side-by-side (col-md-5). */
 @media (min-width: 768px) {
   .account-column-heading {
     display: flex;
@@ -966,9 +2331,111 @@ body {
   }
 }
 
-/* Secondary action pill for "log in with an external provider" buttons —
-   same transparent, white-outlined treatment as .modal-cancel-button, since
-   this is a secondary path alongside the page's primary local-account form. */
+/* Opaque form card, same "3D pop" language as Event Sign-In's .ww-signin-card
+   (cream fill, hard-shadow, proximity-glow border) — every Identity page's form
+   (and the Manage section's whole content panel, wrapped once in
+   Areas/Identity/Pages/Account/Manage/_Layout.cshtml) sits inside one of these
+   instead of directly on the open gradient. Text inside stays dark
+   (.text-on-gradient already resolves to --color-text-strong, not white — see
+   that utility's own comment — so no color swap was needed when this card was
+   introduced). Centered rather than left-aligned like .ww-signin-card, since
+   these forms were already centered on the open gradient and stay that way.
+   No hover-bounce/sparkles, same reasoning as .ww-signin-card: this is a large
+   form the visitor is actively typing into, not a small hoverable tile — and per the
+   "PROXIMITY BORDER" block's own rule, no confetti means no live glow either: this card
+   isn't in site.js's glowTargets, so its border stays a plain static accent color
+   instead of blending as the cursor nears. */
+.ww-account-card {
+  max-width: 32rem;
+  margin: 0 auto;
+  border: 3px solid var(--glow-border-color);
+  border-radius: 1.75rem;
+  background-color: #fffaf1;
+  padding: 2rem;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+}
+
+/* Loads a beat after the page's own heading, matching .ww-signin-card's stagger against
+   its intro column. Applied to the second card in a two-card layout (Login/Register's
+   external-providers column) so the two don't pop in at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-account-card-delayed {
+    animation-delay: 0.1s;
+  }
+}
+
+/* Accent variants (.ww-account-card-yellow/-blue) reuse the same rgb pairing as
+   .ww-pill-group-yellow/-blue — their actual --glow-rest-border/--card-glow-rgb values
+   are set alongside .ww-signin-card's own further down (same file position as the
+   shared "PROXIMITY BORDER" block those variables belong to; a class this specific
+   declared any earlier would lose the cascade to that shared block's own defaults,
+   same specificity but later source order — see .navbar .nav-link.nav-link-* above for
+   the general version of this gotcha). .manage-nav-link's accent is set there too. */
+
+/* Dark, thin divider for inside a card — the bold white .account-divider line used
+   directly on the gradient would nearly disappear against this card's pale cream fill. */
+.ww-account-card .account-divider {
+  background-color: var(--color-text-strong);
+  opacity: 0.2;
+}
+
+/* Same left-align-free treatment as .ww-signin-card .input-pill (hard-shadow pop +
+   hover-lift/press/focus states) for the standalone fields in these cards — unlike
+   Home's Create/Join inputs, none of these sit inside a .ww-pill-group to inherit it. No
+   glow ring on the input itself though: nested controls don't get one (see "PROXIMITY
+   BORDER" below), only the card around them does. */
+.ww-account-card .input-pill {
+  width: 100%;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.ww-account-card .input-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-account-card .input-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-account-card .input-pill:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+.ww-account-card .input-pill:focus-visible {
+  outline: none;
+}
+
+/* .external-login-button/.modal-cancel-button are normally a transparent, white-outlined
+   pill meant for the open gradient (see their own rules below) — unreadable against this
+   card's pale cream fill, so inside a card they switch to a dark outline instead. */
+.ww-account-card .external-login-button,
+.ww-account-card .modal-cancel-button {
+  border-color: var(--color-text-strong);
+  color: var(--color-text-strong);
+}
+
+.ww-account-card .external-login-button:hover,
+.ww-account-card .external-login-button:active,
+.ww-account-card .modal-cancel-button:hover,
+.ww-account-card .modal-cancel-button:active {
+  background-color: rgba(81, 76, 84, 0.12) !important;
+  border-color: var(--color-text-strong) !important;
+  color: var(--color-text-strong) !important;
+}
+
+.ww-account-card .external-login-button:focus-visible,
+.ww-account-card .modal-cancel-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Secondary action pill for "log in with an external provider" buttons — same
+   transparent, white-outlined treatment as .modal-cancel-button, since this is a
+   secondary path alongside the page's primary local-account form. Same
+   shadow-hard-family hover/press language as .modal-cancel-button/.enter-button. */
 .external-login-button {
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-text-on-gradient);
@@ -977,18 +2444,32 @@ body {
   font-family: var(--font-body);
   font-weight: 600;
   padding: 0.5rem 1.5rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.external-login-button:hover,
+.external-login-button:hover {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-text-on-gradient) !important;
+  color: var(--color-text-on-gradient) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover) !important;
+}
+
 .external-login-button:active {
   background-color: rgba(255, 255, 255, 0.3) !important;
   border-color: var(--color-text-on-gradient) !important;
   color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 .external-login-button:focus {
-  box-shadow: none;
+  box-shadow: var(--shadow-hard);
+}
+
+.external-login-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-on-gradient);
 }
 
 /* ==========================================================================
@@ -1000,19 +2481,21 @@ body {
    Username/current-email fields).
    ========================================================================== */
 
-/* Read-only pills (Username on Profile, current email on the Email page)
-   render disabled — Bootstrap's own ".form-control:disabled" rule already
-   flattens the background to a pale, low-contrast grey but leaves the
-   yellow/blue/red border from whichever .input-pill-* variant is applied,
-   so without this the pill ends up a mismatched pale-grey-with-accent-
-   border combo. Restated here as a flat dark grey, overriding whichever
-   color variant is applied, since "disabled" should always read the same
-   regardless of which pill color a field would otherwise use. */
+/* Read-only pills (Username, current email) render disabled — Bootstrap's own
+   ".form-control:disabled" rule flattens the background but leaves the accent border
+   from whichever .input-pill-* variant is applied, so without this a disabled pill
+   ends up a mismatched pale-grey-with-accent-border combo. Restated as flat dark grey
+   so "disabled" reads the same regardless of the field's color variant. */
 .input-pill:disabled {
   background-color: #6c757d !important;
   border-color: #495057 !important;
   color: var(--color-text-on-gradient) !important;
   opacity: 1;
+  /* Read-only pills (Username, current email) aren't interactable — suppresses the
+     hover/press bounce that .ww-account-card .input-pill/.delete-modal-content
+     .input-pill still apply by default, since :disabled doesn't block :hover on its
+     own. */
+  pointer-events: none;
 }
 
 .input-pill:disabled::placeholder {
@@ -1020,30 +2503,569 @@ body {
   opacity: 0.85;
 }
 
-/* Sidebar nav link for the Manage pages. Same transparent white-outlined
-   pill as .external-login-button/.modal-cancel-button at rest; the active
-   page fills solid white instead, reusing neither the yellow/blue accent
-   pair (reserved for the Create/Join semantic pair per STYLE_GUIDE.md) nor
-   the My Events "selected row" pink (scoped to that list) — a plain white
-   fill reads as "current tab" without borrowing either token's meaning. */
+/* The <label for="..."> immediately above a disabled pill (Username, current email)
+   natively forwards :hover to its associated control — a browser behavior that bypasses
+   the input's own pointer-events:none above, since it isn't driven by hit-testing the
+   input itself. Moving the cursor down toward the field crosses this label first, so
+   without this the pill still visibly bounces right before the cursor reaches it. Scoped
+   to the immediately-preceding label via :has() rather than pointer-events:none on every
+   label, since interactive fields' labels should keep forwarding hover as normal. */
+label:has(+ .input-pill:disabled) {
+  pointer-events: none;
+}
+
+/* Sidebar nav link for the Manage pages. Same transparent white-outlined pill as
+   .external-login-button/.modal-cancel-button at rest; the active page fills solid
+   white instead, reading as "current tab" without borrowing the yellow/blue/pink
+   tokens' own meanings. Sits directly on the open gradient (outside the content
+   .ww-account-card), so it keeps the white-outline treatment rather than the
+   dark-outline override those two buttons get inside a card. Also a shiny-text host,
+   same as the navbar's own nav links (see the shiny-text block further down) — but not
+   a proximity-glow target, same as those nav links: no confetti here, so its border
+   stays a plain static resting color instead of live-blending (see the "PROXIMITY
+   BORDER" block's own rule and site.js's glowTargets). */
 .manage-nav-link {
   display: block;
   border-radius: var(--radius-pill);
-  border: 2px solid var(--color-text-on-gradient);
-  background-color: transparent;
-  color: var(--color-text-on-gradient);
+  /* border-color, not a literal — reads the same custom property the navbar's own nav
+     links do, permanently resolved to its static resting color per this class not being
+     in site.js's glowTargets (see the "PROXIMITY BORDER" block further down). */
+  border: 2px solid var(--glow-border-color);
+  /* Filled blue pill at rest (matching --glow-rest-border's blue-border further down),
+     same fill/border pairing as .navbar .nav-link.nav-link-myevents/-login — flips to
+     green on the active page below instead of white, so "current tab" doesn't borrow
+     the yellow/pink tokens' own meanings. */
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
   font-weight: 600;
   text-align: center;
   text-decoration: none;
   padding: 0.5rem 1.5rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.18s ease;
 }
 
 .manage-nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: var(--color-accent-blue-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.manage-nav-link:active {
+  background-color: var(--color-accent-blue-border);
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.manage-nav-link:focus-visible {
+  outline: 3px solid var(--color-text-on-gradient);
+  outline-offset: 2px;
 }
 
 .manage-nav-link.active {
-  background-color: var(--color-text-on-gradient);
-  color: var(--color-accent-blue-border);
+  background-color: var(--color-accent-green);
+  border-color: var(--color-accent-green-border);
+  color: var(--color-text-strong);
+}
+
+.manage-nav-link.active:hover,
+.manage-nav-link.active:active {
+  background-color: var(--color-accent-green-border);
+}
+
+/* ==========================================================================
+   Home page card glow + ambient spotlight. Concept borrowed from the
+   reactbits.dev "Magic Bento" component (a cursor-following spotlight, plus
+   per-card border-glow + sparkle particles on hover) — that component ships
+   as React driven by GSAP, which this project has no runtime for, so this is
+   a from-scratch port using this site's own accent colors, CSS custom
+   properties, and a vanilla JS IIFE (site.js for the page-wide spotlight and
+   the per-card glow/sparkle). No new package/framework added for it.
+   ========================================================================== */
+
+/* Positioning context for this card's sparkle layer and its glow bloom. Deliberately no
+   overflow: hidden here — that would also clip this card's own outer glow (cast from
+   the border box by the shared proximity-glow block further down). Clipping happens on
+   a separate .ww-feature-card-sparkles layer instead (see below), so particles stay
+   contained without clipping the glow along with them. */
+.ww-feature-card {
+  position: relative;
+}
+
+/* Clipping layer for the sparkle particles (site.js creates one per card and appends
+   particles into it) — see .ww-feature-card above for why this is a separate element
+   rather than overflow on the card. Covers the card's padding box and inherits its
+   rounded corners. */
+.ww-feature-card-sparkles {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Per-card accent — the same yellow/blue/green tokens used elsewhere on this page, one
+   per card so the row reads as a little more bento-like. Card order matches the markup. */
+.ww-feature-card--yellow { --card-glow-rgb: 232, 147, 90; }
+.ww-feature-card--blue { --card-glow-rgb: 79, 184, 196; }
+.ww-feature-card--green { --card-glow-rgb: 142, 202, 81; }
+
+/* Border-color blend comes from the shared proximity-glow block further down, same as
+   every other pill container. What's left here is lift: a small continuous one tied to
+   --glow-intensity while merely nearby, and a bigger, more emphatic bounce on genuine
+   :hover below (the proximity lift alone tops out around -3px, not "bouncy" enough on
+   its own). :hover wins over this base rule despite matching later in the cascade
+   because it's the more specific selector. */
+.ww-feature-card {
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.3s ease;
+  transform: translateY(calc(var(--glow-intensity) * -3px));
+}
+
+/* Genuine spring overshoot on real hover, via a bezier curve with a y1 control point past
+   1 — the same shape .go-button:hover uses, tuned for a bigger, heavier card (longer
+   duration, taller travel).
+
+   Triggered off :hover on .ww-feature-card-slot (the Bootstrap grid column wrapping the
+   card), NOT off :hover on .ww-feature-card itself. Hovering the card directly caused a
+   feedback loop: the card's own hit box moves as a consequence of matching :hover, so a
+   cursor resting near its bottom edge got un-hovered the instant the lift carried that
+   edge past it, then re-hovered once it dropped back — repeating for as long as the
+   cursor stayed put (the reported "flash"/"jolt"). The grid column's box is unaffected by
+   its child's transform, so binding the listener/hover there can't suffer that loop. See
+   the matching fix in site.js's confetti hover listeners. */
+.ww-feature-card-slot:hover .ww-feature-card {
+  transform: translateY(-14px);
+  box-shadow: var(--shadow-hard-focus);
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.4s cubic-bezier(.28, 1.55, .4, 1);
+}
+
+/* Confetti particles spawned by site.js while a card is hovered — plain divs positioned
+   at a random point inside the card, animated below, then removed once the animation
+   ends. --sparkle-dx/-dy/-rot/-end-scale are set per-particle by the script (burst
+   direction/distance, total spin, and a final size that shrinks with distance
+   traveled). Flat-colored rectangles (a solid slice of the card's own accent color),
+   not glowing dots, so they read as confetti flakes rather than sparks. */
+.ww-sparkle {
+  position: absolute;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  --sparkle-dx: 0px;
+  --sparkle-dy: 0px;
+  --sparkle-end-scale: 0.4;
+  --sparkle-rot: 0deg;
+  animation: ww-sparkle-float 1.9s ease-out forwards;
+}
+
+/* Fast initial burst (0%→20% covers over half the total travel) that then decelerates
+   and drifts down under a light gravity bias (the "+ Npx" on the y-translate) — reads as
+   a flake shot from the cursor and tumbling to a stop rather than a linear drift.
+   rotate() rides the same easing so the tumble slows with everything else. */
+@keyframes ww-sparkle-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(0.15);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--sparkle-dx) * 0.55), calc(var(--sparkle-dy) * 0.55)) rotate(calc(var(--sparkle-rot) * 0.4)) scale(1.3);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translate(calc(var(--sparkle-dx) * 0.85), calc(var(--sparkle-dy) * 0.85 + 6px)) rotate(calc(var(--sparkle-rot) * 0.8)) scale(calc(var(--sparkle-end-scale) * 1.4));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sparkle-dx), calc(var(--sparkle-dy) + 10px)) rotate(var(--sparkle-rot)) scale(var(--sparkle-end-scale));
+  }
+}
+
+/* Individually registered so each RGB channel can be smoothly interpolated by the
+   transition on #ww-spotlight — a plain (untyped) custom property can only ever snap
+   between values regardless of any transition declared on a rule that uses it; typing
+   it via @property as a <number> makes it animatable. Browsers without @property
+   support just fall back to the same snapping behavior (still correct, not smooth). */
+@property --spotlight-r {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 255;
+}
+
+@property --spotlight-g {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 158;
+}
+
+@property --spotlight-b {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 155;
+}
+
+/* Ambient page-wide spotlight (created/positioned by site.js) — a soft radial glow that
+   follows the cursor across the whole shared layout, not just inside the feature cards.
+   Positioned via margin + a JS-driven transform (see site.js) rather than left/top so
+   moving it only ever triggers compositing, never layout.
+
+   Deliberately no z-index here. site.js inserts this element right after
+   #ww-gradient-canvas and before #ww-page-content, so it paints above the canvas but
+   underneath all real page content (same DOM-order mechanism as the canvas — see its own
+   comment above). Because it sits below page content, this site's translucent "glass"
+   surfaces (feature cards, pill containers, nav pills) automatically determine how much
+   of the glow shows through: opaque elements block it completely, translucent ones let
+   it bleed through, with no per-element opt-out needed. The feature cards read as "where
+   it's specified" for the same reason — they carry their own --card-glow-rgb (below),
+   so this same spotlight shows a different, more saturated color there.
+
+   Color is driven by --spotlight-r/-g/-b, which site.js updates live to whichever
+   element is under the cursor: it reads that element's own --card-glow-rgb (boosting its
+   saturation via site.js's boostSaturation, so the glow reads as more vivid than the
+   often fairly pastel accent it's sampling) if it has one. Elsewhere — over the raw page
+   background — it falls back to peach (#ff9e9b, --gradient-color-2, the gradient's
+   actual midtone stop): brand pink read as an unwanted blue-white cast under additive
+   blending (its comparatively high blue channel had more headroom to climb than its
+   already-saturated red), and background-matching yellow brightened the gradient
+   directly behind the white hero text sitting on it with no backdrop. Peach avoids both.
+   The initial-value on each @property above supplies this same default before site.js
+   has set anything.
+
+   mix-blend-mode: plus-lighter (true additive, clamped at 255 per channel) is used
+   instead of screen — screen's multiplicative lightening saturates to almost nothing
+   against this page's already-bright pastel background. Falls back to screen (fainter,
+   but real) on browsers without plus-lighter support. */
+#ww-spotlight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 460px;
+  height: 460px;
+  margin: -230px 0 0 -230px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle,
+    rgba(var(--spotlight-r), var(--spotlight-g), var(--spotlight-b), 0.28) 0%,
+    rgba(var(--spotlight-r), var(--spotlight-g), var(--spotlight-b), 0.14) 30%,
+    rgba(var(--spotlight-r), var(--spotlight-g), var(--spotlight-b), 0.05) 50%,
+    transparent 68%);
+  /* Opacity (the on/off fade) gets a slower, gentler duration than the color crossfade —
+     a fast opacity transition read as an abrupt cutoff rather than a fade, especially
+     when the idle timeout in site.js dismisses it. */
+  transition: opacity 0.6s ease, --spotlight-r 0.4s ease, --spotlight-g 0.4s ease, --spotlight-b 0.4s ease;
+  will-change: transform, opacity;
+}
+
+@supports (mix-blend-mode: plus-lighter) {
+  #ww-spotlight {
+    mix-blend-mode: plus-lighter;
+  }
+}
+
+/* ==========================================================================
+   THE PROXIMITY BORDER — one shared treatment for every "pill container" in
+   the shared layout and on Home: the element's own border-color blends from
+   its resting color toward its accent (--card-glow-rgb) as the cursor nears
+   it, driven by --glow-intensity (0-1). Because this animates the real
+   border rather than painting something next to it, it's seamless by
+   construction.
+
+   LIVE (cursor-reactive) ONLY ON ELEMENTS THAT ALSO GET CONFETTI, plus one
+   deliberate exception: .ww-feature-card (Home's sparkle-on-hover cards) and
+   .ww-brand-badge (the navbar's sparkle-icon wordmark badge — no confetti of
+   its own, but kept as a matching flourish since it's already the "sparkle"
+   icon). Only these two are in site.js's glowTargets, which is what actually
+   writes --glow-intensity above 0 as the cursor nears one.
+
+   Every other element below (nav links/toggle, the hero badge, the
+   Create/Join capsules, the account dropdown panel, the Event Sign-In card,
+   the Identity account cards, and the Manage sidebar's nav links) still
+   shares this block purely so --glow-tint-shadow below stays a valid
+   box-shadow value (undefined custom properties would invalidate the whole
+   shadow) — but since site.js never touches their --glow-intensity, it stays
+   at this block's own default of 0 forever, which makes --glow-border-color
+   permanently resolve to plain --glow-rest-border (0% accent mixed in) and
+   --glow-tint-shadow permanently transparent (0 alpha). In other words:
+   these read as an always-static resting border with no live blend, without
+   needing a different border-color expression of their own. Never add a
+   nested control (no .ww-pill-input or .go-button inside a capsule, no
+   .dropdown-item rows inside the account panel, no
+   .input-pill/.enter-button/.color-swatch-picker inside the Sign-In or
+   account cards) to either this block or glowTargets — buttons in particular
+   get no proximity border at all, only the shiny-text sweep. */
+.navbar .nav-link,
+.navbar-toggler,
+.ww-hero-badge,
+.ww-brand-badge,
+.ww-pill-group,
+.account-dropdown-menu,
+.ww-feature-card,
+.ww-signin-card,
+.ww-account-card,
+.ww-myevent-card,
+.manage-nav-link {
+  --glow-intensity: 0;
+  /* Resting border color, i.e. what --glow-border-color falls back to at intensity 0 —
+     which, for every element above except .ww-feature-card/.ww-brand-badge, is *always*,
+     since nothing ever moves their --glow-intensity off this default (see the block
+     comment above). Overridden per element further down wherever that isn't white. */
+  --glow-rest-border: rgba(255, 255, 255, 0.75);
+  /* Each target sets `border-color: var(--glow-border-color)` in its own base rule, so
+     the blend happens on the real border. */
+  --glow-border-color: color-mix(in srgb,
+    rgba(var(--card-glow-rgb, 255, 255, 255), 1) calc(var(--glow-intensity) * 100%),
+    var(--glow-rest-border));
+  /* Interior tint for the page-wide cursor spotlight as it passes under one of these
+     pills. The spotlight paints below all real content and relies on each surface's own
+     translucency to bleed through — but every pill here is a pale/pastel fill to begin
+     with, so a bright glow diluted through it read as washed-out white instead of a
+     color. This inset shadow paints an explicit, guaranteed-colored layer inside the
+     pill itself instead, using the same accent the border blends toward, falling back to
+     --gradient-color-2 for pills with no accent of their own. Capped at 0.3 alpha even at
+     full intensity so it doesn't fight the pill's own fill or drop-shadow. Kept as a
+     separate variable (not baked into --shadow-hard) since controls nested inside these
+     pills (e.g. .go-button inside .ww-pill-group) inherit --glow-intensity from their
+     container but are deliberately excluded from the ring above — baking the tint into
+     the shared token would leak it onto them too. Always 0 alpha (transparent) on every
+     element besides .ww-feature-card/.ww-brand-badge, same reasoning as
+     --glow-border-color above. */
+  --glow-tint-shadow: inset 0 0 20px 2px rgba(var(--card-glow-rgb, 255, 176, 173), calc(var(--glow-intensity) * 0.3));
+  /* Last `transition` declaration any of these targets sees (same specificity as their
+     own base rules, later in the file, so it replaces theirs wholesale) — has to carry
+     the pills' hover-lift/fill-change properties too, or hovering snaps instead of
+     easing. .ww-feature-card's own (slower) lift is restated right below for the same
+     reason. */
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+/* Restated here since .ww-feature-card's own rule further up loses its `transition` to
+   the block above (equal specificity, later in the file) — its proximity lift is
+   deliberately slower/longer-travelled than the nav pills' 0.15s hover pop. */
+.ww-feature-card {
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.3s ease;
+}
+
+/* Resting border colors for targets whose border isn't the default white — set as a
+   variable (not border-color directly) since --glow-border-color above blends from it.
+
+   The nav pills are written as ".navbar .nav-link.nav-link-*", not the bare class: the
+   block above sets the white default via ".navbar .nav-link" itself, and a single-class
+   override here would lose that specificity fight (0,1,0 vs 0,2,0) regardless of source
+   order. Everything else on this list matches the block above at the same specificity,
+   so plain source order is enough. */
+.navbar .nav-link.nav-link-myevents,
+.navbar .nav-link.nav-link-login,
+.navbar-toggler {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
+.navbar .nav-link.nav-link-register,
+.navbar .nav-link.nav-link-newevent {
+  --glow-rest-border: var(--color-accent-green-border);
+}
+
+.navbar .nav-link.nav-link-account-toggle,
+.account-dropdown-menu {
+  --glow-rest-border: var(--color-accent-yellow-border);
+}
+
+.ww-hero-badge,
+.ww-brand-badge {
+  --glow-rest-border: rgba(255, 255, 255, 0.85);
+}
+
+.ww-pill-group-yellow {
+  --glow-rest-border: var(--color-accent-yellow-border);
+}
+
+.ww-pill-group-blue {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
+.ww-signin-card {
+  --glow-rest-border: var(--color-accent-yellow-border);
+}
+
+.ww-account-card-yellow {
+  --glow-rest-border: var(--color-accent-yellow-border);
+}
+
+.ww-account-card-blue {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
+.ww-myevent-card {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
+/* Manage sidebar links use the same blue as the navbar's My Events/Login links —
+   they're a secondary/navigational pill, not a primary action. */
+.manage-nav-link {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
+/* Accent per pill, reusing each one's own fill/border color rather than a single shared
+   tone. Anything not listed here (the hero badge, the Admin-only "Manage Users" link)
+   falls back to the shared glow block's own plain-white default, since an element with
+   no real accent of its own reads better as a neutral highlight than an arbitrary color
+   that isn't actually its own. */
+.nav-link-account-toggle,
+.account-dropdown-menu {
+  --card-glow-rgb: 232, 147, 90;
+}
+
+.nav-link-myevents,
+.nav-link-login,
+.navbar-toggler {
+  --card-glow-rgb: 79, 184, 196;
+}
+
+.nav-link-register,
+.nav-link-newevent {
+  --card-glow-rgb: 142, 202, 81;
+}
+
+/* Same rgb as --color-brand-badge-fill (#ef49a9). */
+.ww-brand-badge {
+  --card-glow-rgb: 239, 73, 169;
+}
+
+.ww-pill-group-yellow {
+  --card-glow-rgb: 232, 147, 90;
+}
+
+.ww-pill-group-blue {
+  --card-glow-rgb: 79, 184, 196;
+}
+
+.ww-signin-card {
+  --card-glow-rgb: 232, 147, 90;
+}
+
+.ww-account-card-yellow {
+  --card-glow-rgb: 232, 147, 90;
+}
+
+.ww-account-card-blue,
+.manage-nav-link,
+.ww-myevent-card {
+  --card-glow-rgb: 79, 184, 196;
+}
+
+/* .go-button gets no ring of its own (buttons are excluded from the shared pill ring
+   above), but --card-glow-rgb still does something: site.js's global spotlight reads
+   this property off whatever element the cursor is directly over (custom properties
+   inherit down the DOM), so hovering a button still tints the page-wide spotlight to
+   match it. Same green as .nav-link-register — this page's other "GO!"-family action. */
+.go-button {
+  --card-glow-rgb: 142, 202, 81;
+}
+
+/* "Shiny text" — a CSS-native gradient-clipped text shimmer, applied to every element the
+   proximity border above targets. It's the "glassy" cue those elements lost when their
+   always-on border went away. currentColor anchors the gradient's base tone to whatever
+   `color` the element already resolves to, so one rule works unmodified on dark pill
+   text, white hero text, etc.
+
+   Deliberately NOT applied directly to any element that also owns its own
+   background-color (nav links, the hero badge, go-button, feature icons):
+   background-clip: text clips the whole background, so the pill's own fill would vanish
+   everywhere except directly behind the letters. Those elements instead wrap just their
+   visible text/icon in an inner .ww-shiny-text span so only the glyph fill is affected.
+   .ww-feature-title has no background of its own, so it wears this class directly.
+   .ww-feature-text (the longer body sentence) is deliberately left plain — a
+   continuously animated gradient across a full sentence reads as harder to read, not
+   glassier. .ww-hero-title/.ww-hero-title-accent also don't join this list: the
+   heading's own text-shadow draws a solid glyph-shaped shadow regardless of fill color,
+   so pairing it with this rule's transparent fill read as a misaligned shadow behind
+   semi-transparent text; and switching a block-level <h1> to this rule's
+   display: inline-block changed how it sizes/centers relative to the badge/subtitle
+   around it. */
+.ww-shiny-text,
+.ww-feature-title {
+  display: inline-block;
+  /* The shine stop is blended with currentColor via color-mix, not the raw shine color
+     at full strength, and eases over a wide 38%-62% band (of the 200%-sized image) — a
+     narrower/full-strength version read as a bright flash rather than a subtle sheen. */
+  background-image: linear-gradient(120deg,
+    currentColor 0%,
+    currentColor 38%,
+    color-mix(in srgb, currentColor 55%, var(--shine-text-color, #fff) 45%) 50%,
+    currentColor 62%,
+    currentColor 100%);
+  background-size: 200% auto;
+  background-position: 150% center;
+  /* repeat-x, not no-repeat: the image is 200% wide, so at the animation's own start/end
+     positions only part of that one tile overlaps the element's box. With no-repeat,
+     everywhere outside that tile has no background at all, and since the text's fill is
+     fully transparent (see -webkit-text-fill-color below), that rendered as literally
+     invisible text until the sweep carried the tile back into place. Repeating the same
+     gradient tiles seamlessly instead — its 0%/100% stops are both plain currentColor so
+     adjacent tiles meet with no visible seam. */
+  background-repeat: repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  will-change: background-position;
+  transform: translateZ(0);
+  animation: ww-shiny-text-sweep 3.2s linear infinite;
+}
+
+/* The hero badge's own text color is already white, so its shine band needs a color
+   distinct from the default white above — the brand's yellow-green accent reads as a
+   glint rather than a plain color swap. */
+.ww-hero-badge .ww-shiny-text {
+  --shine-text-color: var(--color-accent-brand-glow);
+}
+
+/* Explicit from/to (rather than inferring "from" from the base rule) so the loop point
+   from -50% back to 150% never has a frame to glitch on. */
+@keyframes ww-shiny-text-sweep {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+
+/* Both effects above are purely decorative — opted out entirely under
+   prefers-reduced-motion. The scripts driving these skip creating/animating anything in
+   that case; the rules below are the CSS-side backstop. */
+@media (prefers-reduced-motion: reduce) {
+  #ww-spotlight {
+    display: none;
+  }
+
+  .navbar .nav-link,
+  .navbar-toggler,
+  .ww-hero-badge,
+  .ww-brand-badge,
+  .ww-pill-group,
+  .account-dropdown-menu,
+  .ww-feature-card,
+  .ww-signin-card,
+  .ww-account-card,
+  .ww-myevent-card,
+  .manage-nav-link {
+    --glow-intensity: 0 !important;
+  }
+
+  /* .ww-feature-card's own hover lift is NOT disabled here — it's a plain one-shot
+     hover transition like every other pill on the page, not a continuous/looping
+     animation. */
+
+  /* .ww-shiny-text can't just be display:none'd — that would take the text/icon content
+     with it. Freezing the gradient in place would still leave a faint permanent shine
+     band, so the base color/fill are reset too, landing on the same plain solid-color
+     text every element renders before this class applies. */
+  .ww-shiny-text,
+  .ww-feature-title {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
 }

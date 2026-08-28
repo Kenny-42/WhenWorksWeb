@@ -1,4 +1,4 @@
-﻿@model WhenWorksWeb.Models.IndexViewModel
+@model WhenWorksWeb.Models.IndexViewModel
 
 @{
     ViewData["Title"] = "Home Page";
@@ -7,23 +7,42 @@
 <!-- Page container for the home screen content -->
 <div class="text-center">
 
-    <!-- Create Event section -->
-    <div class="d-flex flex-column align-items-center gap-2">
-        <h1 class="display-4 font-display text-on-gradient">CREATE A NEW EVENT</h1>
+    <!-- Hero intro. The page's one <h1> lives here; Create/Join headings below are
+         demoted to <h2> for a single correct heading hierarchy. Sits directly on the
+         open gradient (no backdrop card), matching the reference mockups. -->
+    <section class="ww-hero">
+        <span class="ww-hero-badge mb-3">
+            <span class="ww-hero-badge-dot" aria-hidden="true"></span>
+            <span class="ww-shiny-text">MAKE IT HAPPEN</span>
+        </span>
+        <h1 class="ww-hero-title font-display mb-3">
+            WhenWorks<br>
+            <span class="ww-hero-title-accent">for everyone?</span>
+        </h1>
+        <p class="ww-hero-subtitle mb-0">
+            Planning a day shouldn’t take all day. Somewhere in the calendar chaos,
+            there’s a time that works.
+        </p>
+    </section>
+
+    <!-- Create Event section. Input and submit button merge into one wide
+         bordered/shadowed capsule (.ww-pill-group) rather than two separate shapes.
+         No visible heading (reads as the hero's own CTA) but the <h2> stays for
+         screen-reader heading navigation. -->
+    <div class="d-flex flex-column align-items-center gap-3">
+        <h2 class="visually-hidden">Create a new event</h2>
 
         <!-- Form posts the new event data to the Create action -->
         <form asp-action="Create"
               asp-controller="Events"
               method="post"
-              class="d-flex flex-column align-items-center gap-2">
+              class="d-flex flex-column align-items-center gap-2 w-100">
 
-            <!-- Event name input and submit button are aligned horizontally for a compact layout -->
-            <div class="d-flex align-items-start gap-2">
+            <div class="ww-pill-group ww-pill-group-yellow">
                 <input asp-for="CreateEventName"
-                       class="form-control form-control-sm text-center input-pill input-pill-yellow"
-                       style="width: 14rem;"
-                       placeholder="Event Name">
-                <button type="submit" class="btn go-button">GO!</button>
+                       class="form-control ww-pill-input"
+                       placeholder="Name your event...">
+                <button type="submit" class="btn go-button"><span class="ww-shiny-text">Create event <i class="bi bi-arrow-right" aria-hidden="true"></i></span></button>
             </div>
 
             <!-- Field-specific validation messages appear below the controls -->
@@ -34,9 +53,14 @@
         </form>
     </div>
 
-    <!-- Join Event section -->
-    <div class="d-flex flex-column align-items-center gap-2 mt-5">
-        <h2 class="display-5 font-display text-on-gradient">JOIN AN EVENT</h2>
+    <!-- Join Event section. Deliberately smaller/secondary, sitting inline beside its
+         "or join with a code" tag rather than stacked with its own full heading. -->
+    <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 mt-4">
+        <h2 class="visually-hidden">Join an event</h2>
+        <p class="ww-join-divider mb-0">
+            <span class="ww-join-divider-line" aria-hidden="true"></span>
+            or join with a code
+        </p>
 
         <!-- Form posts the entered event code to the Join action -->
         <form asp-action="Join"
@@ -44,18 +68,18 @@
               method="post"
               class="d-flex flex-column align-items-center gap-2">
 
-            <!-- Event code input and submit button are aligned horizontally for a compact layout -->
-            <div class="d-flex align-items-start gap-2">
+            <div class="ww-pill-group ww-pill-group-blue ww-pill-group-sm">
                 <input asp-for="EventCode"
-                       class="form-control form-control-sm text-uppercase text-center input-pill input-pill-blue"
-                       style="width: 13ch;"
+                       class="form-control text-uppercase ww-pill-input ww-pill-input-code"
                        maxlength="@WhenWorksWeb.Common.ModelConstants.UniqueCodeLength"
                        autocomplete="off"
                        autocapitalize="characters"
                        oninput="this.value = this.value.toUpperCase();"
-                       placeholder="Event Code" />
+                       placeholder="ABC123" />
 
-                <button type="submit" class="btn go-button">GO!</button>
+                <button type="submit" class="btn go-button go-button-icon" aria-label="Join event">
+                    <span class="ww-shiny-text"><i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                </button>
             </div>
 
             <!-- Validation summary and field-specific validation messages appear below the controls -->
@@ -65,4 +89,54 @@
             </div>
         </form>
     </div>
+
+    <!-- "Why WhenWorks" mini-feature row, in its own soft banded section (matching the
+         reference mockups). No bottom margin — the band sits flush against the footer
+         (see .ww-feature-band in site.css). Copy describes only what the app does today
+         (create/join, personalize, find your events again) — availability voting and
+         chat aren't built yet (see CLAUDE.md), so this doesn't advertise either. -->
+    <div class="ww-feature-band mt-5">
+        <div class="ww-feature-band-inner">
+            <div class="row g-4 justify-content-center">
+                <!-- .ww-feature-card-slot: the hover trigger for the bounce animation
+                     (site.css) lives on this column, not on .ww-feature-card itself —
+                     a Bootstrap grid column never moves under a child transform, so its
+                     hit box stays put while the card lifts on hover. Hovering the card
+                     directly caused a re-entry loop near its bottom edge (see site.css's
+                     comment on .ww-feature-card-slot:hover, and site.js's matching fix
+                     on the confetti hover listeners). -->
+                <div class="col-sm-6 col-md-4 ww-feature-card-slot">
+                    <div class="ww-feature-card ww-feature-card--yellow h-100">
+                        <span class="ww-feature-icon"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i></span>
+                        <div>
+                            <h3 class="ww-feature-title">No account, no fuss</h3>
+                            <p class="ww-feature-text mb-0">No sign-up needed. Just make an event and share the code.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-4 ww-feature-card-slot">
+                    <div class="ww-feature-card ww-feature-card--blue h-100">
+                        <span class="ww-feature-icon"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
+                        <div>
+                            <h3 class="ww-feature-title">Set the scene</h3>
+                            <p class="ww-feature-text mb-0">Personalize your event with colors, emojis, and more.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-4 ww-feature-card-slot">
+                    <div class="ww-feature-card ww-feature-card--green h-100">
+                        <span class="ww-feature-icon"><i class="bi bi-calendar-heart-fill" aria-hidden="true"></i></span>
+                        <div>
+                            <h3 class="ww-feature-title">Pick up where you left off</h3>
+                            <p class="ww-feature-text mb-0">Your joined events are saved so you can find them again anytime.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@* The feature-card confetti effect lives in site.js (with the other shared-layout
+   ambient effects) rather than here, so it's cached/parsed once with the rest of the
+   site JS instead of re-downloaded as part of this page's HTML. *@

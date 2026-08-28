@@ -38,7 +38,17 @@ public static class ModelConstants
     // The default emoji used for events when no custom emoji is provided.
     public const string DefaultEventEmoji = "🎉";
 
+    // The event name submitted by the quick "New Event" actions (My Events page, navbar)
+    // that skip the Home page's name-entry form and create an event immediately.
+    public const string DefaultEventTitle = "New Event";
+
     // The default color assigned to a user or participant when no custom color is provided.
+    // Literal copy of --color-accent-pink-fill in wwwroot/css/site.css (that variable is the
+    // single source of truth for this hue — it's the site's global "hot pink" accent used
+    // for link hovers, checked checkboxes, etc.; this constant just mirrors it in C# code
+    // wherever a default color value is needed server-side, e.g. new ApplicationUser/
+    // EventSignInViewModel instances and the development data seeder). Update both together
+    // if this ever changes.
     public const string DefaultParticipantColor = "ff66c4";
 
     // The length of the event code used to uniquely identify an event.
