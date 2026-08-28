@@ -5,33 +5,35 @@
 }
 
 <!-- Resend Email Confirmation page container -->
-<div class="text-center">
-    <h1 class="display-4 font-display text-on-gradient mb-4">RESEND EMAIL CONFIRMATION</h1>
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">RESEND EMAIL CONFIRMATION</h1>
 
     <div class="row justify-content-center">
         <div class="col-md-5 mx-auto">
             <section>
-                <div class="account-column-heading">
-                    <h2 class="h4 font-display text-on-gradient mb-2">ENTER YOUR EMAIL</h2>
-                </div>
-                <hr class="account-divider w-100" />
-
-                <form method="post" class="d-flex flex-column align-items-center gap-2">
-                    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
-
-                    <!-- Email input -->
-                    <div>
-                        <label asp-for="Input.Email" class="visually-hidden"></label>
-                        <input asp-for="Input.Email"
-                               class="form-control input-pill input-pill-yellow mx-auto"
-                               style="width: 16rem;"
-                               aria-required="true"
-                               placeholder="Email" />
-                        <span asp-validation-for="Input.Email" class="text-danger d-block mt-1"></span>
+                <div class="ww-account-card ww-account-card-yellow">
+                    <div class="account-column-heading">
+                        <h2 class="h4 font-display text-on-gradient mb-2">ENTER YOUR EMAIL</h2>
                     </div>
+                    <hr class="account-divider w-100" />
 
-                    <button type="submit" class="btn enter-button mt-3">RESEND EMAIL</button>
-                </form>
+                    <form method="post" class="d-flex flex-column align-items-center gap-2">
+                        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+
+                        <!-- Email input -->
+                        <div>
+                            <label asp-for="Input.Email" class="visually-hidden"></label>
+                            <input asp-for="Input.Email"
+                                   class="form-control input-pill input-pill-yellow mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   aria-required="true"
+                                   placeholder="Email" />
+                            <span asp-validation-for="Input.Email" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <button type="submit" class="btn enter-button mt-3"><span class="ww-shiny-text">RESEND EMAIL</span></button>
+                    </form>
+                </div>
             </section>
         </div>
     </div>

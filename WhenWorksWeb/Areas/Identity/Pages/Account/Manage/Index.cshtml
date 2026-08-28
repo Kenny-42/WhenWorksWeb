@@ -48,18 +48,21 @@
 
     <!-- Color picker input that stores a hex value, styled as a circular swatch
          matching the participant color picker on the Event Sign-In and
-         Register pages. -->
+         Register pages (including its hover/focus eyedropper icon overlay). -->
     <div class="mt-1 d-flex flex-column align-items-center">
         <label class="text-on-gradient fw-bold mb-1" for="colorPicker">Pick your personal color!</label>
-        <input type="color"
-               id="colorPicker"
-               class="color-swatch-picker"
-               value="#@Model.Input.Color" />
+        <div class="ww-color-picker-wrap">
+            <input type="color"
+                   id="colorPicker"
+                   class="color-swatch-picker"
+                   value="#@Model.Input.Color" />
+            <i class="bi bi-eyedropper ww-color-picker-icon" aria-hidden="true"></i>
+        </div>
         <input asp-for="Input.Color" type="hidden" id="Input_Color" />
         <span asp-validation-for="Input.Color" class="text-danger d-block mt-1"></span>
     </div>
 
-    <button id="update-profile-button" type="submit" class="btn enter-button mt-3">SAVE</button>
+    <button id="update-profile-button" type="submit" class="btn enter-button mt-3"><span class="ww-shiny-text">SAVE</span></button>
 </form>
 
 @section Scripts {

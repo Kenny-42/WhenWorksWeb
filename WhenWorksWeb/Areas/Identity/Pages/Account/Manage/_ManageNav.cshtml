@@ -12,24 +12,24 @@
      until those pages are scaffolded in a follow-up pass. -->
 <ul class="nav flex-column gap-2">
     <li class="nav-item">
-        <a class="manage-nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">Profile</a>
+        <a class="manage-nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index"><span class="ww-shiny-text">Profile</span></a>
     </li>
     <li class="nav-item">
-        <a class="manage-nav-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">Email</a>
+        <a class="manage-nav-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email"><span class="ww-shiny-text">Email</span></a>
     </li>
     <li class="nav-item">
-        <a class="manage-nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">Password</a>
+        <a class="manage-nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword"><span class="ww-shiny-text">Password</span></a>
     </li>
     @if (hasExternalLogins)
     {
         <li id="external-logins" class="nav-item">
-            <a id="external-login" class="manage-nav-link @ManageNavPages.ExternalLoginsNavClass(ViewContext)" asp-page="./ExternalLogins">External logins</a>
+            <a id="external-login" class="manage-nav-link @ManageNavPages.ExternalLoginsNavClass(ViewContext)" asp-page="./ExternalLogins"><span class="ww-shiny-text">External logins</span></a>
         </li>
     }
     <li class="nav-item">
-        <a class="manage-nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">Two-factor authentication</a>
+        <a class="manage-nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication"><span class="ww-shiny-text">Two-factor authentication</span></a>
     </li>
     <li class="nav-item">
-        <a class="manage-nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">Personal data</a>
+        <a class="manage-nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData"><span class="ww-shiny-text">Personal data</span></a>
     </li>
 </ul>
