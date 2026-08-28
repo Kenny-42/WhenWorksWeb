@@ -17,6 +17,18 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(IdentityConfiguration.Confi
     .AddRoles<IdentityRole>() // Add role support to Identity
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+// Add Google as an external login provider, alongside the local username/password flow above.
+// Client ID/secret come from configuration (dotnet user-secrets locally, environment variables/host
+// secret store in production) and are intentionally not present in appsettings.json.
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"]
+            ?? throw new InvalidOperationException("Configuration value 'Authentication:Google:ClientId' not found.");
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
+            ?? throw new InvalidOperationException("Configuration value 'Authentication:Google:ClientSecret' not found.");
+    });
+
 // Register the UniqueCodeGenerator as a scoped service, so it can be injected into controllers and other services.
 builder.Services.AddScoped<UniqueCodeGenerator>();
 // Register the DevelopmentDataSeeder as a scoped service, so it can be injected and used during application startup.
