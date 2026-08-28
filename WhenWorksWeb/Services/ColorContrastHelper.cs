@@ -18,7 +18,9 @@ public static class ColorContrastHelper
     /// higher WCAG contrast ratio against <paramref name="hexColor"/>.
     /// </summary>
     /// <param name="hexColor">A 6-digit hex color, with or without a leading '#'.</param>
-    public static string GetReadableTextColor(string hexColor)
+public static string GetReadableTextColor(string hexColor)
+{
+    try
     {
         var (r, g, b) = ParseHex(hexColor);
         var backgroundLuminance = RelativeLuminance(r, g, b);
@@ -28,6 +30,15 @@ public static class ColorContrastHelper
 
         return contrastWithLight >= contrastWithDark ? LightTextColor : DarkTextColor;
     }
+    catch (ArgumentOutOfRangeException)
+    {
+        return DarkTextColor;
+    }
+    catch (FormatException)
+    {
+        return DarkTextColor;
+    }
+}
 
     private static (int R, int G, int B) ParseHex(string hexColor)
     {
