@@ -3069,3 +3069,197 @@ label:has(+ .input-pill:disabled) {
     -webkit-text-fill-color: currentColor;
   }
 }
+
+/* ==========================================================================
+   Event home page (Views/Events/Home.cshtml, People.cshtml, Settings.cshtml)
+   ==========================================================================
+   First functional pass on this page's chrome (badge/title/code/tab bar), shared by all
+   three tabs via the _EventHeader partial. Per STYLE_GUIDE.md, this page hadn't been styled
+   at all before now — treat this section as a starting point to refine against the reference
+   mockups, not a finished design pass. Card outlines on this page use yellow (matching the
+   rest of the site's primary/yellow accent) rather than blue, per the feature spec. */
+
+.ww-event-header {
+  margin-bottom: 1.75rem;
+}
+
+.ww-event-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ww-event-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ww-event-title-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+/* The event code, rendered as a single pill button that copies itself to the clipboard —
+   replaces the old separate "Share code" button (see feature spec's page-wide changes). */
+.ww-event-code-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  padding: 0.35rem 0.9rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-event-code-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-event-code-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-code-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Two stacked glyphs crossfade via opacity on copy, same technique as .ww-myevent-copy-button. */
+.ww-event-code-button .bi-check-lg {
+  opacity: 0;
+  color: var(--color-accent-green-border);
+}
+
+.ww-event-code-button.copied .bi-clipboard {
+  display: none;
+}
+
+.ww-event-code-button.copied .bi-check-lg {
+  opacity: 1;
+}
+
+/* Icon-only shortcut to the Settings tab, next to the code pill. */
+.ww-event-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: none;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  font-size: 1rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-event-settings-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-event-settings-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-settings-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Tab bar: Availability/People/Settings. Extra top margin (vs. the page-nav pagination's own
+   spacing) per the feature spec's "more vertical spacing between the tab buttons and the
+   divider below them." */
+.ww-event-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ww-event-tab {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  padding: 0.45rem 1.1rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ww-event-tab:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+  color: var(--color-text-strong);
+}
+
+.ww-event-tab:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-tab:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+.ww-event-tab.active {
+  background-color: var(--color-accent-yellow-fill);
+  pointer-events: none;
+}
+
+.ww-event-divider {
+  margin-top: 1.5rem;
+  border: none;
+  border-top: 2px solid var(--color-accent-yellow-border);
+  opacity: 0.5;
+}
+
+/* Shared yellow-outlined card treatment for this page's tab content (best bets/status/people
+   roster/settings cards) — white-glass surface per STYLE_GUIDE.md, yellow border per the
+   feature spec's page-wide accent swap. */
+.ww-event-card {
+  background-color: rgba(255, 255, 255, 0.82);
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-hard);
+  padding: 1.25rem;
+}
+
+/* People tab: crown/"Organizer" label shown next to every participant with IsOrganizer = true. */
+.ww-event-organizer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-accent-yellow-border);
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
