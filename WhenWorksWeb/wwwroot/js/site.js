@@ -549,6 +549,58 @@
   });
 })();
 
+// Shrinks any element carrying the .ww-autofit-title class (event titles on the My
+// Events cards, the Sign-In card heading, and the Event Home page heading) down toward a
+// floor font size until its content fits the element's own box on one line. These are
+// all user-supplied event titles, which can be a single long word with no natural break
+// point — CSS alone has no way to detect "this exact string overflows this exact box"
+// and shrink in response, only to wrap at existing spaces. Re-measures on resize
+// (debounced) and once webfonts finish loading, since both change the rendered width
+// this depends on.
+(function () {
+  "use strict";
+
+  var MIN_FONT_SIZE_PX = 12;
+  var FONT_STEP_PX = 1;
+  var MAX_SHRINK_STEPS = 60;
+
+  var targets = document.querySelectorAll(".ww-autofit-title");
+  if (targets.length === 0) {
+    return;
+  }
+
+  function fit(el) {
+    // Reset to the CSS-authored size first — otherwise a box that's grown back (window
+    // resized wider) would only ever shrink further from wherever it last stopped, never
+    // recover.
+    el.style.fontSize = "";
+    var fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+
+    var steps = 0;
+    while (el.scrollWidth > el.clientWidth && fontSize > MIN_FONT_SIZE_PX && steps < MAX_SHRINK_STEPS) {
+      fontSize -= FONT_STEP_PX;
+      el.style.fontSize = fontSize + "px";
+      steps++;
+    }
+  }
+
+  function fitAll() {
+    targets.forEach(fit);
+  }
+
+  fitAll();
+
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(fitAll);
+  }
+
+  var resizeTimeoutId = null;
+  window.addEventListener("resize", function () {
+    window.clearTimeout(resizeTimeoutId);
+    resizeTimeoutId = window.setTimeout(fitAll, 120);
+  });
+})();
+
 // Every circular color-swatch picker (Event Sign-In, Register, Manage account) shares
 // this one class, but each page wires its own "sync visible picker -> hidden posted
 // field" script separately (they post to different hidden field ids) — this IIFE only

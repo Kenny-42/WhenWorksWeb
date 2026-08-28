@@ -143,16 +143,14 @@ body {
   color: var(--color-text-on-gradient);
 }
 
-.my-events-card::selection,
-.my-events-list::selection,
+.ww-myevent-card::selection,
 .input-pill-yellow::selection,
 .input-pill-blue::selection,
 .select-arrow-inset.input-pill-blue::selection,
 .account-dropdown-menu::selection,
 .modal-content.delete-modal-content::selection,
 .go-button::selection,
-.enter-button::selection,
-.my-events-go-button::selection {
+.enter-button::selection {
   background-color: var(--color-accent-pink-fill);
   color: var(--color-text-on-gradient);
 }
@@ -377,6 +375,27 @@ body {
 }
 
 .navbar .nav-link.nav-link-register:active {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(2px);
+}
+
+/* New Event — the signed-in nav's own primary CTA, same green solid-fill treatment as
+   Register (the signed-out nav's primary CTA) rather than the quiet white-glass pill
+   every other link gets. A <button> submitting a POST to Events/Create (not an <a>,
+   since this creates an event immediately rather than just navigating), but takes the
+   same .nav-link classes directly — same pattern .navbar-toggler/.nav-link-logout
+   already use to style a native button as one of these pills with no separate reset
+   needed. */
+.navbar .nav-link.nav-link-newevent {
+  background-color: var(--color-accent-green);
+}
+
+.navbar .nav-link.nav-link-newevent:hover {
+  background-color: var(--color-accent-green-border);
+  transform: translateY(-2px);
+}
+
+.navbar .nav-link.nav-link-newevent:active {
   background-color: var(--color-accent-green-border);
   transform: translateY(2px);
 }
@@ -849,6 +868,10 @@ body {
   /* --color-text-strong, not white — white-on-green measured ~1.4:1, badly failing WCAG
   AA. See the --color-text-strong token comment in :root. */
   color: var(--color-text-strong);
+  /* .go-button is also used on <a> elements (e.g. .ww-myevents-new-button,
+     .ww-myevent-enter-button) — anchors get a browser-default underline that <button>s
+     never do, so it's suppressed unconditionally here. */
+  text-decoration: none;
   font-family: var(--font-body);
   font-weight: 800;
   font-size: 0.85rem;
@@ -869,7 +892,9 @@ body {
 
 /* .go-button's own `gap` only spaces direct flex children — now that the label and icon
    both live inside one wrapping .ww-shiny-text span, that gap has nothing to apply to,
-   so the spacing is restored directly on the icon instead. */
+   so the spacing is restored directly on the icon instead. Assumes the icon trails the
+   label (every other .go-button instance) — .ww-myevents-new-button below overrides
+   this the other way since its icon leads. */
 .go-button .ww-shiny-text i {
   margin-left: 0.4rem;
 }
@@ -1287,11 +1312,9 @@ body {
   }
 }
 
-/* Right column: the card holding the sign-in form. Same rounded/bordered
-   "card" language as .my-events-card (radius, border, overflow: hidden) but
-   with its own soft cream fill (the mockup's card isn't pure white) and the
-   site's one hard-shadow pop, since unlike .my-events-card this one isn't
-   nested inside other chrome that already supplies depth.
+/* Right column: the card holding the sign-in form. Same rounded/bordered "card"
+   language as .ww-myevent-card (radius, border) but with its own soft cream fill (the
+   mockup's card isn't pure white) and the site's one hard-shadow pop.
 
    Shares the "PROXIMITY BORDER" block's variables so its border-color expression stays
    valid, but isn't in site.js's glowTargets — no confetti on this card (a large static
@@ -1450,6 +1473,33 @@ body {
   background-color: var(--color-accent-blue-fill);
   color: var(--color-text-on-gradient);
 }
+
+/* Red variant of the three rules above — same shapes/mechanics, just the red accent
+   pair instead of blue. Used by the delete modal's participant picker (destructive
+   context, so it takes the site's red accent rather than blue). */
+.select-arrow-inset.input-pill-red {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, var(--color-accent-red-border) 2.5rem, transparent 2.5rem);
+}
+
+/* Disabled state's arrow band is gray, not red — .input-pill:disabled (sitewide) already
+   repaints the pill body/border gray via !important, so a still-red band here read as a
+   mismatched leftover accent on an otherwise-neutral "inactive" pill. #495057 matches that
+   rule's own disabled border color. */
+.select-arrow-inset.input-pill-red:disabled {
+  background-image:
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M2 5l6 6 6-6z'/%3e%3c/svg%3e"),
+    linear-gradient(to left, #495057 2.5rem, transparent 2.5rem);
+  background-color: #6c757d;
+  color: var(--color-text-on-gradient);
+  opacity: 0.6;
+}
+
+/* Deliberately no .select-arrow-inset.input-pill-red option rule (unlike the blue
+   variant above) — a red options-list background read poorly here, so the open list
+   is left at the browser/OS default instead; the closed pill (and its :disabled state
+   above) still carry the full red treatment. */
 
 /* Native color input, restyled as a circular swatch via its own
    ::-webkit-color-swatch-* / ::-moz-color-swatch pseudo-elements (no cross-browser way
@@ -1616,145 +1666,445 @@ body {
   box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
+/* Login's "LOG IN" label is short enough to always fit on one line, unlike this
+   button's other reuses (e.g. "CHANGE EMAIL") which need to wrap on narrow screens —
+   see .enter-button's own max-width: 100% safety-net comment above. So only this one
+   instance gets nowrap + flex-shrink: 0 (same pattern as .go-button), with the media
+   query below shrinking padding/font instead to keep it fitting on narrow phones. */
+#login-submit {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 420px) {
+  #login-submit {
+    padding: 0.55rem 1.75rem;
+    font-size: 1.05rem;
+  }
+}
+
 /* ==========================================================================
-   My Events page. The joined-events list reuses the yellow/orange accent
-   pair as opaque row fills (not the usual pill-input treatment) inside a
-   rounded, coral-bordered card, plus the same green circular "GO!" pattern
-   as .go-button, scaled up for a page-level action.
+   My Events page. A responsive grid of cards (one per joined/created event),
+   each an opaque cream "3D pop" card in the same family as .ww-signin-card/
+   .ww-account-card — with its own copiable event code, organizer avatar
+   stack, and direct Enter/delete actions, plus page-number navigation below
+   the grid for lists longer than one page.
    ========================================================================== */
-.my-events-card {
-  border: 3px solid var(--color-accent-yellow-border);
-  border-radius: 1.75rem;
-  background-color: #fff;
-  overflow: hidden;
+
+/* Same entrance fade-up as Home/Sign-In's own header + card reveals. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-myevents-header {
+    animation: ww-fade-up 0.5s ease-out both;
+  }
 }
 
-/* Rows are opaque color blocks, not pills — the card's own border-radius +
-   overflow:hidden above clips the first row's top corners, so no per-row radius is
-   needed. */
-.my-events-list {
-  background-color: #fff;
+/* "+ New event" reuses .go-button as-is (icon + label wrapped in .ww-shiny-text like
+   every other go-button instance) — no overrides needed beyond fitting the header row. */
+.ww-myevents-new-button {
+  flex-shrink: 0;
 }
 
-/* Scrollbar styling for the fixed-height list — Firefox via scrollbar-color, Chromium/
-   Safari via ::-webkit-scrollbar (no single standard covers both). */
-.my-events-list {
-  scrollbar-color: var(--color-accent-yellow-border) #fff;
-  scrollbar-width: thin;
+/* This button's icon leads the label ("+ New Event"), unlike every other .go-button
+   instance (icon trails) that .go-button .ww-shiny-text i's own margin-left is written
+   for — reapplying that margin here would push the icon further right instead of
+   spacing it from the label, throwing the whole glyph+text group off-center within the
+   pill. Zero that out and space the icon from its own right side instead. */
+.ww-myevents-new-button .ww-shiny-text i {
+  margin-left: 0;
+  margin-right: 0.4rem;
 }
 
-.my-events-list::-webkit-scrollbar {
-  width: 0.6rem;
+/* Card slot: the Bootstrap grid column wrapping each card. Entrance animation lives here
+   (not on .ww-myevent-card itself) for the same reason as .ww-feature-card-slot — the
+   card also gets a separate hover-triggered transform, and animating the wrapper avoids
+   the two fighting over the `transform`/`animation` properties. Staggered per card via
+   --ww-card-index (set inline in markup) so the grid reveals in a light cascade rather
+   than all six cards popping in at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-myevent-card-slot {
+    animation: ww-fade-up 0.5s ease-out both;
+    animation-delay: calc(var(--ww-card-index, 0) * 0.06s);
+  }
 }
 
-.my-events-list::-webkit-scrollbar-track {
-  background-color: #fff;
+/* The card itself — cream "3D pop" fill matching .ww-signin-card/.ww-account-card, blue
+   accent border (this page's own accent, distinct from the yellow/green Home already
+   uses for Create/GO). Static resting border via the shared "PROXIMITY BORDER" block
+   further down (not in site.js's glowTargets, so no live blend/confetti — see that
+   block's own rule) plus a genuine hover-triggered bounce below, the same two-part
+   treatment as .ww-feature-card. */
+.ww-myevent-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 3px solid var(--glow-border-color);
+  border-radius: 1.5rem;
+  background-color: #fffaf1;
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-hard), var(--glow-tint-shadow);
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.3s ease;
 }
 
-.my-events-list::-webkit-scrollbar-thumb {
-  background-color: var(--color-accent-yellow-border);
-  border-radius: var(--radius-pill);
+/* Bounce on hover — triggered off the slot wrapper, not the card itself, for the same
+   anti-jitter reason documented on .ww-feature-card-slot:hover .ww-feature-card. */
+.ww-myevent-card-slot:hover .ww-myevent-card {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-hard-focus), var(--glow-tint-shadow);
+  transition: border-color 0.18s ease, box-shadow 0.15s ease, transform 0.4s cubic-bezier(.28, 1.55, .4, 1);
 }
 
-.my-event-item {
-  background-color: var(--color-accent-yellow-fill);
-  border: none;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
-  color: var(--color-text-on-gradient);
-  font-family: var(--font-body);
-  padding: 0.85rem 1.25rem;
+.ww-myevent-code-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
-.my-events-list .list-group-item:last-child .my-event-item,
-.my-event-item:last-child {
-  border-bottom: none;
+.ww-myevent-code {
+  color: var(--color-text-strong);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
 }
 
-/* Bootstrap's .list-group-item-action default hover/focus (a translucent dark overlay)
-   is replaced with the orange accent fill instead. */
-.my-event-item.list-group-item-action:hover,
-.my-event-item.list-group-item-action:focus {
-  background-color: var(--color-accent-orange-fill);
-  color: var(--color-text-on-gradient);
-}
-
-/* Selected state gets its own color rather than reusing the hover fill, so hovering and
-   selecting read as two different states. The ".selected" combos below win over the
-   hover rule (equal specificity, later in source) when the selected row is also
-   hovered. */
-.my-event-item.selected,
-.my-event-item.selected.list-group-item-action:hover,
-.my-event-item.selected.list-group-item-action:focus {
-  background-color: var(--color-accent-selected-fill);
-  color: var(--color-text-on-gradient);
-}
-
-/* Deliberately no separate :hover/:active rule — the icon looks identical regardless of
-   the row's hover/selected state. */
-.my-event-item .my-event-delete-button,
-.my-event-item .my-event-delete-button:hover,
-.my-event-item .my-event-delete-button:active {
-  color: var(--color-text-on-gradient);
-  opacity: 1;
-}
-
-/* Large circular "GO!" action below the card — same green fill/border and hover/active
-   treatment as .go-button, sized up for a page-level action. */
-.my-events-go-button {
+/* Copy-to-clipboard trigger next to the event code. Two stacked glyphs (clipboard +
+   checkmark) crossfade via opacity rather than swapping textContent, so the click
+   feedback below animates instead of snapping. */
+.ww-myevent-copy-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 5rem;
-  height: 5rem;
+  width: 1.3rem;
+  height: 1.3rem;
   padding: 0;
-  border: 3px solid var(--color-accent-green-border);
+  border: none;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(.2, 1.4, .4, 1), color 0.15s ease;
+}
+
+.ww-myevent-copy-button i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.ww-myevent-copy-button .bi-check-lg {
+  opacity: 0;
+  color: var(--color-accent-green-border);
+  transform: scale(0.5);
+}
+
+.ww-myevent-copy-button:hover,
+.ww-myevent-copy-button:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ww-myevent-copy-button:active {
+  transform: translateY(1px) scale(0.92);
+}
+
+.ww-myevent-copy-button:focus-visible {
+  outline: 2px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Momentary "copied" confirmation state, toggled by site JS after a successful clipboard
+   write and removed again after ~1.5s. */
+.ww-myevent-copy-button.copied {
+  opacity: 1;
+}
+
+.ww-myevent-copy-button.copied .bi-clipboard {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.ww-myevent-copy-button.copied .bi-check-lg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ww-myevent-people {
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Event emoji, replacing the old sparkle-icon badge — a small circular chip in the
+   corner opposite the code, same treatment as .ww-feature-icon but sized for a glyph
+   instead of a Bootstrap icon font. */
+.ww-myevent-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
   border-radius: 50%;
-  background-color: var(--color-accent-green);
-  color: var(--color-text-on-gradient);
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-}
-
-.my-events-go-button:hover,
-.my-events-go-button:active {
-  background-color: var(--color-accent-green-border) !important;
-  border-color: var(--color-accent-green-border) !important;
-  color: var(--color-text-on-gradient) !important;
-  box-shadow: none !important;
-}
-
-.my-events-go-button:focus {
-  box-shadow: none;
-}
-
-/* Delete confirmation modal — same rounded, yellow-accented "card" language as
-   .my-events-card, since it's opened directly from that list. One solid yellow-filled
-   surface rather than a plain white Bootstrap modal. */
-.modal-content.delete-modal-content {
+  border: 2px solid var(--color-accent-yellow-border);
   background-color: var(--color-accent-yellow-fill);
-  border: 3px solid var(--color-accent-yellow-border);
+  font-size: 1rem;
+}
+
+.ww-myevent-title {
+  color: var(--color-text-strong);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Event description — falls back to a default placeholder server-side when the
+   organizer hasn't set one (see MyEventsController). Clamped to two lines so a long
+   description can't stretch one card taller than its row siblings. */
+.ww-myevent-description {
+  color: var(--color-text-strong);
+  opacity: 0.8;
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* A long unbroken word (no natural break point) would otherwise overflow the card's
+     edge instead of wrapping onto the clamped lines above — this forces a break inside
+     the word itself once it's the only way to keep it inside the card's width. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ww-myevent-divider {
+  height: 2px;
+  margin: 0 0 0.9rem;
+  background-color: var(--color-text-strong);
+  opacity: 0.15;
+  border-radius: var(--radius-pill);
+}
+
+.ww-myevent-footer {
+  margin-top: auto;
+}
+
+/* Organizer avatar stack — one circle per current-user participant record on this
+   event, initial + that participant's own color. Wraps onto a new line rather than
+   overlapping once there isn't room for more on one row. */
+.ww-myevent-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 7rem;
+}
+
+.ww-myevent-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background-color: var(--avatar-color, var(--color-accent-pink-fill));
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.65rem;
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Trash icon — a plain icon button (no pill chrome of its own) that opens the delete
+   modal for this specific card. Tints red and lifts slightly on hover/press so it reads
+   as a destructive action without needing full button chrome next to Enter. */
+.ww-myevent-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.55;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.15s cubic-bezier(.2, 1.4, .4, 1);
+}
+
+.ww-myevent-delete-button:hover,
+.ww-myevent-delete-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
+  background-color: rgba(239, 93, 93, 0.12);
+  transform: translateY(-2px);
+}
+
+.ww-myevent-delete-button:active {
+  transform: translateY(1px) scale(0.94);
+}
+
+.ww-myevent-delete-button:focus-visible {
+  outline: 2px solid var(--color-accent-red-border);
+  outline-offset: 2px;
+}
+
+/* Per-card "Enter" action — .go-button as-is, just scaled down to fit beside the trash
+   icon at the bottom of a compact card instead of standing alone as a page-level CTA. */
+.ww-myevent-enter-button {
+  padding: 0.45rem 1.1rem;
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   My Events pagination — previous/next, a window of nearby page numbers,
+   ellipses when the window doesn't reach page 1 or the last page, and a
+   jump-to-page box. Small circular/pill "page chip" buttons in the same
+   accent-fill/hard-shadow language as every other control on the page.
+   ========================================================================== */
+.ww-myevents-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.ww-page-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 2px solid var(--color-accent-blue-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.ww-page-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-page-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-page-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* The current page reads as a filled, non-interactive chip rather than another link. */
+.ww-page-button.active {
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-on-gradient);
+  pointer-events: none;
+}
+
+/* Prev/Next arrows and the disabled state at either end of the range — visually present
+   (so the row's width doesn't jump as the current page moves) but inert. */
+.ww-page-nav-button.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-page-ellipsis {
+  color: var(--color-text-on-gradient);
+  font-weight: 700;
+  padding: 0 0.15rem;
+}
+
+
+.ww-page-jump-form {
+  display: inline-flex;
+  margin-left: 0.4rem;
+}
+
+.ww-page-jump-input {
+  width: 4.2rem;
+  height: 2.2rem;
+  padding: 0 0.5rem;
+  border: 2px solid var(--color-accent-blue-border);
+  background-color: var(--color-accent-blue-fill);
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-hard);
+}
+
+.ww-page-jump-input:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-page-jump-input:focus {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover) !important;
+}
+
+/* Suppresses the sitewide .input-pill:focus-visible outline (text inputs match
+   :focus-visible even on a plain mouse click, unlike buttons/links) — the lift + taller
+   shadow above is already a sufficient focus indicator, same reasoning as
+   .ww-signin-card .input-pill:focus-visible. */
+.ww-page-jump-input:focus-visible {
+  outline: none;
+}
+
+/* Delete confirmation modal — the same opaque cream "3D pop" card language as
+   .ww-myevent-card/.ww-signin-card/.ww-account-card, rather than the old solid-yellow
+   block treatment, so it reads as one consistent surface family with the rest of the
+   page. Red accent border, matching the modal's own destructive intent (the Delete
+   button/checked radio state already use this same red). */
+.modal-content.delete-modal-content {
+  background-color: #fffaf1;
+  border: 3px solid var(--color-accent-red-border);
   border-radius: 1.75rem;
   overflow: hidden;
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
 }
 
 .delete-modal-content .modal-header {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(81, 76, 84, 0.15);
 }
 
 .delete-modal-content .modal-title {
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
   font-weight: 700;
 }
 
 .delete-modal-content .modal-footer {
-  border-top: 2px solid rgba(255, 255, 255, 0.6);
+  border-top: 2px solid rgba(81, 76, 84, 0.15);
 }
 
 .delete-modal-content .form-check-label {
-  color: var(--color-text-on-gradient);
+  color: var(--color-text-strong);
 }
 
 /* Native radio inputs are Bootstrap's own SVG-background controls, so recoloring means
@@ -1762,8 +2112,8 @@ body {
    accent since these radios pick a mode of a destructive action, not an affirmative
    "GO!" choice. */
 .delete-modal-content .form-check-input {
-  background-color: rgba(255, 255, 255, 0.15);
-  border-color: var(--color-text-on-gradient);
+  background-color: rgba(81, 76, 84, 0.08);
+  border-color: var(--color-text-strong);
 }
 
 .delete-modal-content .form-check-input:checked {
@@ -1773,15 +2123,54 @@ body {
 
 .delete-modal-content .form-check-input:focus {
   box-shadow: none;
-  border-color: var(--color-text-on-gradient);
+  border-color: var(--color-text-strong);
 }
 
-.delete-modal-content .text-danger {
-  color: #6b1414 !important;
+/* The participant picker's own hard-shadow pop + hover-lift/press/focus states — same
+   treatment as .ww-signin-card .input-pill/.ww-account-card .input-pill, which this
+   modal's select was previously missing (it only had the resting select-arrow-inset
+   fill, no interaction states of its own, hence reading as "static"). */
+.delete-modal-content .input-pill {
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.delete-modal-content .input-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.delete-modal-content .input-pill:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.delete-modal-content .input-pill:focus {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+/* Suppresses the sitewide outline ring — selects match :focus-visible even on a mouse
+   click (unlike buttons/links), and the lift + taller shadow above is already a
+   sufficient focus indicator. Same reasoning as .ww-signin-card .input-pill:focus-visible. */
+.delete-modal-content .input-pill:focus-visible {
+  outline: none;
+}
+
+/* Bootstrap's own ".form-select:disabled" rule flattens background/box-shadow at higher
+   specificity than the interaction states above — this modal's select is disabled
+   whenever the current user has no participant on the event being deleted, and it
+   should read as visibly inert rather than still lifting on hover. */
+.delete-modal-content .input-pill:disabled {
+  transform: none;
+  box-shadow: var(--shadow-hard) !important;
 }
 
 /* Cancel — a transparent pill outlined in white, echoing the navbar's own pill-link
-   treatment, rather than Bootstrap's flat gray secondary button. Brought up to the same
+   treatment, rather than Bootstrap's flat gray secondary button. Meant for sitting
+   directly on the open gradient; .ww-account-card and .delete-modal-content (below) each
+   override this to a filled/dark-outline variant instead, since white-on-white doesn't
+   read once this button sits on their own opaque card fills. Brought up to the same
    shadow-hard-family hover/press language as .enter-button/.go-button per
    STYLE_GUIDE.md's Deliberately Deferred note (this page was flagged to get that
    treatment "the next time it's touched"). */
@@ -1869,6 +2258,29 @@ body {
   background-color: var(--color-accent-red);
   border-color: var(--color-accent-red-border);
   opacity: 0.5;
+}
+
+/* .modal-cancel-button is normally a transparent, white-outlined pill meant for the open
+   gradient (see its own rule above) — unreadable against this modal's cream card fill
+   (see .modal-content.delete-modal-content above), so here it switches to a filled gray
+   pill instead — same neutral gray as the disabled pills elsewhere on this modal
+   (.input-pill:disabled), since Cancel is a neutral "back out" action, not an accent
+   color with a meaning of its own. */
+.delete-modal-content .modal-cancel-button {
+  background-color: #6c757d;
+  border-color: #495057;
+  color: var(--color-text-on-gradient);
+}
+
+.delete-modal-content .modal-cancel-button:hover,
+.delete-modal-content .modal-cancel-button:active {
+  background-color: #495057 !important;
+  border-color: #495057 !important;
+  color: var(--color-text-on-gradient) !important;
+}
+
+.delete-modal-content .modal-cancel-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
 /* ==========================================================================
@@ -2079,11 +2491,27 @@ body {
   border-color: #495057 !important;
   color: var(--color-text-on-gradient) !important;
   opacity: 1;
+  /* Read-only pills (Username, current email) aren't interactable — suppresses the
+     hover/press bounce that .ww-account-card .input-pill/.delete-modal-content
+     .input-pill still apply by default, since :disabled doesn't block :hover on its
+     own. */
+  pointer-events: none;
 }
 
 .input-pill:disabled::placeholder {
   color: var(--color-text-on-gradient);
   opacity: 0.85;
+}
+
+/* The <label for="..."> immediately above a disabled pill (Username, current email)
+   natively forwards :hover to its associated control — a browser behavior that bypasses
+   the input's own pointer-events:none above, since it isn't driven by hit-testing the
+   input itself. Moving the cursor down toward the field crosses this label first, so
+   without this the pill still visibly bounces right before the cursor reaches it. Scoped
+   to the immediately-preceding label via :has() rather than pointer-events:none on every
+   label, since interactive fields' labels should keep forwarding hover as normal. */
+label:has(+ .input-pill:disabled) {
+  pointer-events: none;
 }
 
 /* Sidebar nav link for the Manage pages. Same transparent white-outlined pill as
@@ -2103,8 +2531,12 @@ body {
      links do, permanently resolved to its static resting color per this class not being
      in site.js's glowTargets (see the "PROXIMITY BORDER" block further down). */
   border: 2px solid var(--glow-border-color);
-  background-color: transparent;
-  color: var(--color-text-on-gradient);
+  /* Filled blue pill at rest (matching --glow-rest-border's blue-border further down),
+     same fill/border pairing as .navbar .nav-link.nav-link-myevents/-login — flips to
+     green on the active page below instead of white, so "current tab" doesn't borrow
+     the yellow/pink tokens' own meanings. */
+  background-color: var(--color-accent-blue-fill);
+  color: var(--color-text-strong);
   font-family: var(--font-body);
   font-weight: 600;
   text-align: center;
@@ -2115,12 +2547,13 @@ body {
 }
 
 .manage-nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: var(--color-accent-blue-border);
   transform: translateY(-2px);
   box-shadow: var(--shadow-hard-hover);
 }
 
 .manage-nav-link:active {
+  background-color: var(--color-accent-blue-border);
   transform: translateY(2px);
   box-shadow: var(--shadow-hard-active);
 }
@@ -2131,8 +2564,14 @@ body {
 }
 
 .manage-nav-link.active {
-  background-color: var(--color-text-on-gradient);
-  color: var(--color-accent-blue-border);
+  background-color: var(--color-accent-green);
+  border-color: var(--color-accent-green-border);
+  color: var(--color-text-strong);
+}
+
+.manage-nav-link.active:hover,
+.manage-nav-link.active:active {
+  background-color: var(--color-accent-green-border);
 }
 
 /* ==========================================================================
@@ -2366,6 +2805,7 @@ body {
 .ww-feature-card,
 .ww-signin-card,
 .ww-account-card,
+.ww-myevent-card,
 .manage-nav-link {
   --glow-intensity: 0;
   /* Resting border color, i.e. what --glow-border-color falls back to at intensity 0 —
@@ -2422,7 +2862,8 @@ body {
   --glow-rest-border: var(--color-accent-blue-border);
 }
 
-.navbar .nav-link.nav-link-register {
+.navbar .nav-link.nav-link-register,
+.navbar .nav-link.nav-link-newevent {
   --glow-rest-border: var(--color-accent-green-border);
 }
 
@@ -2456,6 +2897,10 @@ body {
   --glow-rest-border: var(--color-accent-blue-border);
 }
 
+.ww-myevent-card {
+  --glow-rest-border: var(--color-accent-blue-border);
+}
+
 /* Manage sidebar links use the same blue as the navbar's My Events/Login links —
    they're a secondary/navigational pill, not a primary action. */
 .manage-nav-link {
@@ -2478,7 +2923,8 @@ body {
   --card-glow-rgb: 79, 184, 196;
 }
 
-.nav-link-register {
+.nav-link-register,
+.nav-link-newevent {
   --card-glow-rgb: 142, 202, 81;
 }
 
@@ -2504,7 +2950,8 @@ body {
 }
 
 .ww-account-card-blue,
-.manage-nav-link {
+.manage-nav-link,
+.ww-myevent-card {
   --card-glow-rgb: 79, 184, 196;
 }
 
@@ -2602,6 +3049,7 @@ body {
   .ww-feature-card,
   .ww-signin-card,
   .ww-account-card,
+  .ww-myevent-card,
   .manage-nav-link {
     --glow-intensity: 0 !important;
   }
