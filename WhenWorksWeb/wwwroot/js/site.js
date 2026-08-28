@@ -286,13 +286,17 @@
     spotlight.style.setProperty("--spotlight-b", rgb[2]);
   }
 
-  // Every "pill container" this glow applies to, across the shared layout, Home, and
-  // Event Sign-In — outermost containers only, never a nested control (see site.css's
-  // shared glow block for that rule). Queried once since this set doesn't change after
-  // load.
-  var glowTargets = document.querySelectorAll(
-    ".ww-feature-card, .navbar .nav-link, .navbar-toggler, .ww-hero-badge, .ww-brand-badge, .ww-pill-group, .account-dropdown-menu, .ww-signin-card"
-  );
+  // The live proximity-glow border is reserved for elements that also get Home's
+  // card-sparkle confetti (.ww-feature-card), plus one deliberate exception: the navbar's
+  // sparkle-icon brand badge (.ww-brand-badge) — everything else that still *looks* like
+  // it has a glow-capable border (nav links, the hamburger toggler, the hero badge, the
+  // Create/Join capsules, the account dropdown, the Sign-In/account cards, the Manage
+  // nav links) keeps its --glow-intensity permanently at the CSS default of 0 (see
+  // site.css's shared glow block), which resolves to a plain static resting border —
+  // this NodeList is what actually drives the live blend, so simply not including an
+  // element here is enough to keep its border static without touching its own CSS rule.
+  // Queried once since this set doesn't change after load.
+  var glowTargets = document.querySelectorAll(".ww-feature-card, .ww-brand-badge");
 
   // How close the cursor needs to be to a glow target before it's "under the spotlight" —
   // proximity, not literal :hover, drives --glow-intensity below, so a nearby card/pill
