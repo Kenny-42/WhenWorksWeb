@@ -71,8 +71,8 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
 
         var viewResult = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<EventHomeViewModel>(viewResult.Model);
-        Assert.Equal("BCDFGH", model.Code);
-        Assert.Equal("Trivia Night", model.Title);
+        Assert.Equal("BCDFGH", model.Header.Code);
+        Assert.Equal("Trivia Night", model.Header.Title);
 
         Assert.Single(Db.Participants);
     }
