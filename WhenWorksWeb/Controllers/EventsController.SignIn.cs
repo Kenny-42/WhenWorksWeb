@@ -88,13 +88,23 @@ public partial class EventsController
         }
 
         // Create or update the participant depending on whether an existing participant was selected.
-        var participant = selectedExistingParticipant is null
+        var isNewParticipant = selectedExistingParticipant is null;
+        var participant = isNewParticipant
             ? await TryCreateNewParticipantAsync(eventEntity, model, currentUser, cancellationToken)
             : await TryUpdateExistingParticipantAsync(eventEntity, selectedExistingParticipant, model, currentUser, cancellationToken);
 
         if (participant is null)
         {
             return View(viewModel);
+        }
+
+        // If this browser is the one that created the event, its first new participant becomes the event's
+        // permanent creator and starts out as an organizer. Only applies to a freshly created participant,
+        // not one selected from the existing-participants dropdown.
+        if (isNewParticipant && TryConsumeEventCreatorCookie(eventEntity))
+        {
+            participant.IsCreator = true;
+            participant.IsOrganizer = true;
         }
 
         // Save changes to the database to persist the new or updated participant record.

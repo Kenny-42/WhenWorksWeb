@@ -24,10 +24,11 @@ public partial class EventsController
             return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
         }
 
+        var emoji = await GetEventEmojiAsync(eventEntity, cancellationToken);
+
         return View(new EventHomeViewModel
         {
-            Code = eventEntity.Code,
-            Title = eventEntity.Title
+            Header = BuildEventHeader(eventEntity, emoji, EventTab.Availability)
         });
     }
 }
