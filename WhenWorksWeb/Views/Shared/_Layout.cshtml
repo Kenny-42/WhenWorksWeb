@@ -12,14 +12,6 @@
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
-    @* The "WhenWorks" brand hover color is linked to
-       Common/ModelConstants.DefaultParticipantColor (the default participant color)
-       instead of a separate hardcoded value that could drift out of sync. *@
-    <style>
-        :root {
-            --color-accent-pink-fill: #@WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
-        }
-    </style>
 </head>
 <body>
     <!-- Fixed full-viewport canvas the animated background blobs are drawn onto in JS
