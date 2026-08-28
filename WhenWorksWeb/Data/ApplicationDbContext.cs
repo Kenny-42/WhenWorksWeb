@@ -23,11 +23,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Participant> Participants => Set<Participant>();
 
     /// <summary>
-    /// Roles assigned to participants within an event.
-    /// </summary>
-    public DbSet<EventRole> EventRoles => Set<EventRole>();
-
-    /// <summary>
     /// Chat messages posted within an event.
     /// </summary>
     public DbSet<EventMessage> EventMessages => Set<EventMessage>();
@@ -122,15 +117,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasCheckConstraint(
                 "CK_Participants_DisplayName_Trimmed",
                 "[DisplayName] = LTRIM(RTRIM([DisplayName]))");
-        });
-
-        // Configure the one-to-one role record attached to a participant.
-        modelBuilder.Entity<EventRole>(entity =>
-        {
-            entity.HasOne(r => r.Participant)
-                .WithOne(p => p.Role)
-                .HasForeignKey<EventRole>(r => r.ParticipantId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configure the available dates for each event.

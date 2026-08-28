@@ -101,7 +101,9 @@ public sealed class DevelopmentDataSeeder(
             EventId = lunchEvent.Id,
             UserId = alice.Id,
             DisplayName = "Alice Dev",
-            Color = ModelConstants.DefaultParticipantColor
+            Color = ModelConstants.DefaultParticipantColor,
+            IsCreator = true,
+            IsOrganizer = true
         };
 
         var lunchBen = new Participant
@@ -125,7 +127,9 @@ public sealed class DevelopmentDataSeeder(
             EventId = tripEvent.Id,
             UserId = ben.Id,
             DisplayName = "Ben Carter",
-            Color = "4d96ff"
+            Color = "4d96ff",
+            IsCreator = true,
+            IsOrganizer = true
         };
 
         var tripChloe = new Participant
@@ -174,14 +178,12 @@ public sealed class DevelopmentDataSeeder(
             tripBen, tripChloe, tripGuest,
             planningAlice, planningChloe, planningGuest);
 
-        // Save participants to generate IDs for the roles
+        // Save participants to generate IDs for the dependent rows below (dates, settings, messages, bookmarks).
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // Create roles for participants
-        dbContext.EventRoles.AddRange(
-            new EventRole { ParticipantId = lunchAlice.Id, Name = "Organizer" },
-            new EventRole { ParticipantId = tripBen.Id, Name = "Planner" },
-            new EventRole { ParticipantId = planningChloe.Id, Name = "Host" });
+        // Note: the planning event (PRJ633) is guest-created (CreatedByUserId is null), so none of its
+        // participants are flagged as creator/organizer — it's left in the seed data on purpose to exercise
+        // the "no organizer yet" fallback state, where organizer-only actions are open to every participant.
 
         // Create event dates for the events
         dbContext.EventDates.AddRange(
