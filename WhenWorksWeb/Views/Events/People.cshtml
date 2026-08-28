@@ -1,0 +1,139 @@
+@model WhenWorksWeb.Models.EventPeopleViewModel
+
+@{
+    ViewData["Title"] = Model.Header.Title;
+    ViewData["DisableTitleSuffix"] = true;
+}
+
+<!-- Event People tab: shared header/tab bar, the participant roster card, then pagination -->
+<div class="container py-4" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    <!-- "The crew" card: every participant, organizers first then alphabetically, 8/page -->
+    <div class="ww-event-card">
+        <h2 class="font-display mb-3">The crew</h2>
+        <ul class="list-unstyled d-flex flex-column gap-3 mb-0">
+            @foreach (var person in Model.Participants)
+            {
+                <li class="d-flex align-items-center gap-2">
+                    <span class="ww-myevent-avatar" style="--avatar-color:#@person.Color">
+                        @person.DisplayName.Substring(0, 1).ToUpperInvariant()
+                    </span>
+                    <span class="fw-bold">
+                        @person.DisplayName
+                        @if (person.IsCurrentParticipant)
+                        {
+                            <span class="text-muted">(You)</span>
+                        }
+                    </span>
+                    @if (person.IsOrganizer)
+                    {
+                        <span class="ww-event-organizer-badge">
+                            <i class="bi bi-award-fill" aria-hidden="true"></i> Organizer
+                        </span>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+
+    <!-- Page navigation: previous/next, a window of nearby page numbers, a jump-to-page box, and
+         a link to the last page — same markup/behavior as Views/MyEvents/Index.cshtml's own
+         pagination, reused verbatim per the feature spec. -->
+    @if (Model.TotalPages > 1)
+    {
+        var windowStart = Math.Max(1, Model.CurrentPage - 2);
+        var windowEnd = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+
+        <nav class="ww-myevents-pagination mt-4" aria-label="People pages">
+            <a asp-route="EventPeople"
+               asp-route-code="@Model.Header.Code"
+               asp-route-page="@(Model.CurrentPage - 1)"
+               class="ww-page-button ww-page-nav-button @(Model.CurrentPage <= 1 ? "disabled" : "")"
+               aria-label="Previous page"
+               aria-disabled="@(Model.CurrentPage <= 1 ? "true" : "false")">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </a>
+
+            @if (windowStart > 1)
+            {
+                <a asp-route="EventPeople" asp-route-code="@Model.Header.Code" asp-route-page="1" class="ww-page-button">1</a>
+                @if (windowStart > 2)
+                {
+                    <span class="ww-page-ellipsis">&hellip;</span>
+                }
+            }
+
+            @for (var pageNumber = windowStart; pageNumber <= windowEnd; pageNumber++)
+            {
+                <a asp-route="EventPeople"
+                   asp-route-code="@Model.Header.Code"
+                   asp-route-page="@pageNumber"
+                   class="ww-page-button @(pageNumber == Model.CurrentPage ? "active" : "")"
+                   aria-current="@(pageNumber == Model.CurrentPage ? "page" : null)">
+                    @pageNumber
+                </a>
+            }
+
+            @if (windowEnd < Model.TotalPages)
+            {
+                @if (windowEnd < Model.TotalPages - 1)
+                {
+                    <span class="ww-page-ellipsis">&hellip;</span>
+                }
+                <a asp-route="EventPeople" asp-route-code="@Model.Header.Code" asp-route-page="@Model.TotalPages" class="ww-page-button">@Model.TotalPages</a>
+            }
+
+            <a asp-route="EventPeople"
+               asp-route-code="@Model.Header.Code"
+               asp-route-page="@(Model.CurrentPage + 1)"
+               class="ww-page-button ww-page-nav-button @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")"
+               aria-label="Next page"
+               aria-disabled="@(Model.CurrentPage >= Model.TotalPages ? "true" : "false")">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </a>
+
+            <form asp-route="EventPeople" asp-route-code="@Model.Header.Code" method="get" class="ww-page-jump-form" id="event-people-page-jump-form">
+                <label for="event-people-page-jump-input" class="visually-hidden">Go to page</label>
+                <input type="number"
+                       inputmode="numeric"
+                       name="page"
+                       id="event-people-page-jump-input"
+                       class="input-pill ww-page-jump-input"
+                       min="1"
+                       max="@Model.TotalPages"
+                       value="@Model.CurrentPage"
+                       data-current-page="@Model.CurrentPage"
+                       aria-label="Go to page (1 to @Model.TotalPages)" />
+            </form>
+        </nav>
+    }
+</div>
+
+@* Jump-to-page behavior — same pattern as Views/MyEvents/Index.cshtml's own copy. *@
+@section Scripts {
+    <script>
+        (function () {
+            const pageJumpForm = document.getElementById('event-people-page-jump-form');
+            const pageJumpInput = document.getElementById('event-people-page-jump-input');
+
+            if (!pageJumpForm || !pageJumpInput) {
+                return;
+            }
+
+            var maxPage = parseInt(pageJumpInput.getAttribute('max') || '1', 10);
+            var currentPage = parseInt(pageJumpInput.dataset.currentPage || '1', 10);
+
+            pageJumpForm.addEventListener('submit', function (event) {
+                var requested = parseInt(pageJumpInput.value, 10);
+                if (!requested || requested < 1) {
+                    requested = currentPage;
+                }
+                else if (requested > maxPage) {
+                    requested = maxPage;
+                }
+                pageJumpInput.value = requested.toString();
+            });
+        })();
+    </script>
+}

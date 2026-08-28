@@ -1,15 +1,18 @@
-﻿@model WhenWorksWeb.Models.EventHomeViewModel
+@model WhenWorksWeb.Models.EventHomeViewModel
 
 @{
-    ViewData["Title"] = Model.Title;
+    ViewData["Title"] = Model.Header.Title;
     ViewData["DisableTitleSuffix"] = true;
 }
 
-<!-- Event home container -->
-<div class="container py-4" style="max-width: 32rem;">
-    <div class="text-center">
-        <h1 class="ww-hero-title font-display mb-3 ww-autofit-title">@Model.Title</h1>
-        <p class="lead mb-1 text-on-gradient">You have entered the event successfully.</p>
-        <p class="text-on-gradient mb-0">Event code: <strong>@Model.Code</strong></p>
+<!-- Event home container: shared header/tab bar, then this tab's own content -->
+<div class="container py-4" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    <!-- Availability tab content: calendar + best-bets/status sidebar is a separate, larger
+         follow-up (see Spec/Features/FEATURES-event-home-page.ospec) — this placeholder just
+         confirms sign-in succeeded until that's built. -->
+    <div class="ww-event-card text-center">
+        <p class="mb-0">You have entered the event successfully.</p>
     </div>
 </div>

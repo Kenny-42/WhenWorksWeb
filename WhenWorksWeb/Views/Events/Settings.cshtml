@@ -1,0 +1,25 @@
+@model WhenWorksWeb.Models.EventSettingsViewModel
+
+@{
+    ViewData["Title"] = Model.Header.Title;
+    ViewData["DisableTitleSuffix"] = true;
+}
+
+<!-- Event Settings tab: shared header/tab bar, then this tab's own content -->
+<div class="container py-4" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    <!-- "Shape the plan"/"Call the date"/Delete Event cards are a separate, larger follow-up
+         (see Spec/Features/FEATURES-event-home-page.ospec) — this placeholder only reflects
+         whether the current participant currently has organizer permissions. -->
+    <div class="ww-event-card text-center">
+        @if (Model.CanManageEvent)
+        {
+            <p class="mb-0">You can manage this event's details, final dates, and deletion.</p>
+        }
+        else
+        {
+            <p class="mb-0">Only this event's organizer can manage its details, final dates, and deletion.</p>
+        }
+    </div>
+</div>
