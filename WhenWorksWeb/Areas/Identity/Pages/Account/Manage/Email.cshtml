@@ -22,11 +22,12 @@
                disabled />
         @if (Model.IsEmailConfirmed)
         {
-            <span class="text-on-gradient fw-bold d-block mt-1">&#10003; Confirmed</span>
+            <span class="text-on-gradient fw-bold d-block mt-1">&#10003; Email verified</span>
         }
         else
         {
-            <button id="email-verification" type="submit" asp-page-handler="SendVerificationEmail" class="btn btn-link text-on-gradient fw-semibold p-0 mt-1">
+            <span class="text-on-gradient fw-bold d-block mt-1">Email not verified</span>
+            <button id="email-verification" type="submit" asp-page-handler="SendVerificationEmail" class="btn btn-link text-link text-on-gradient fw-semibold p-0 mt-1">
                 Send verification email
             </button>
         }

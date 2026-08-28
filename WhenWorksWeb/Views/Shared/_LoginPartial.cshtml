@@ -10,6 +10,20 @@
     var userColor = currentUser?.Color ?? WhenWorksWeb.Common.ModelConstants.DefaultParticipantColor;
     var userColorText = WhenWorksWeb.Services.ColorContrastHelper.GetReadableTextColor(userColor);
 
+    <!-- Quick "New Event" action, to the left of My Events — creates an event immediately with a default
+         title (no name-entry step) and sends the user straight to its sign-in page. Same Events/Create POST
+         the My Events page's own "New Event" button submits to, just styled/sized as a navbar pill instead
+         of a page-level button. A <button> (not <a>) since it's a state-changing POST, but still takes the
+         .nav-link classes directly — same pattern as .navbar-toggler/.nav-link-logout already use to style a
+         native button as one of these pills with no separate reset needed. -->
+    <li class="nav-item">
+        <form asp-controller="Events" asp-action="Create" method="post" class="d-flex">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="CreateEventName" value="@WhenWorksWeb.Common.ModelConstants.DefaultEventTitle" />
+            <button type="submit" class="nav-link nav-link-newevent"><span class="ww-shiny-text"><i class="bi bi-plus-lg" aria-hidden="true"></i> New Event</span></button>
+        </form>
+    </li>
+
     <!-- Link to the authenticated user's joined events page -->
     <li class="nav-item">
         <a class="nav-link nav-link-myevents" asp-controller="MyEvents" asp-action="Index"><span class="ww-shiny-text">My Events</span></a>

@@ -16,15 +16,25 @@ namespace WhenWorksWeb.Controllers;
 [Authorize]
 public class MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager) : Controller
 {
+    /// <summary>The number of events displayed per page on the My Events list.</summary>
+    private const int PageSize = 6;
+
+    /// <summary>Shown in place of an event's description when the organizer hasn't set one.</summary>
+    private const string DefaultEventDescription = "A new plan is taking shape.";
+
     /// <summary>
-    /// This action retrieves the list of events the current user has joined or created and displays them on the My Events page.
-    /// The events are ordered alphabetically by title and then by code. Each event's emoji is also included for display.
+    /// This action retrieves one page of the events the current user has joined or created and displays them on the
+    /// My Events page. The events are ordered by most recently updated (LastActiveAt, which is set to the creation
+    /// time when an event is first created and bumped on every later modification), then by code to break ties.
+    /// Each event's emoji and description are also included for display, along with a total participant count
+    /// across all users.
     /// If the user is not authenticated, they will be challenged to log in.
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the database query.</param>
+    /// <param name="page">The 1-based page number to display; clamped into the valid range rather than erroring.</param>
     /// <returns>The My Events view, or a challenge result if the user is not authenticated.</returns>
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(CancellationToken cancellationToken, int page = 1)
     {
         var currentUser = await GetAuthenticatedUserAsync();
         if (currentUser is null)
@@ -34,13 +44,26 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
 
         var currentUserId = currentUser.Id;
 
-        // Load all events the current user has joined or created in a single query shape.
-        // The participant details are pulled with correlated subqueries so the page does not need a second merge step.
-        var events = await db.Events
+        // Base query for events the current user created or has joined, shared between the total count below and
+        // the paged slice further down so both agree on exactly the same set of events.
+        var baseQuery = db.Events
             .AsNoTracking()
-            .Where(e => e.CreatedByUserId == currentUserId || e.Participants.Any(p => p.UserId == currentUserId))
-            .OrderBy(e => e.Title)
+            .Where(e => e.CreatedByUserId == currentUserId || e.Participants.Any(p => p.UserId == currentUserId));
+
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)PageSize));
+
+        // Clamp the requested page into the valid range instead of erroring on an out-of-range value (e.g. a stale
+        // bookmark to a page that no longer exists after events were deleted).
+        var currentPage = Math.Clamp(page, 1, totalPages);
+
+        // Load one page of events. The participant details are pulled with correlated subqueries so the page does
+        // not need a second merge step.
+        var events = await baseQuery
+            .OrderByDescending(e => e.LastActiveAt)
             .ThenBy(e => e.Code)
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize)
             .Select(e => new
             {
                 e.Id,
@@ -48,9 +71,11 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                 e.Title,
                 e.CreatedByUserId,
                 Emoji = e.Settings != null ? e.Settings.Emoji : ModelConstants.DefaultEventEmoji,
+                Description = e.Settings != null ? e.Settings.Description : null,
+                TotalParticipantCount = e.Participants.Count(),
                 Participants = e.Participants
                     .Where(p => p.UserId == currentUserId)
-                    .Select(p => new { p.Id, p.DisplayName })
+                    .Select(p => new { p.Id, p.DisplayName, p.Color })
                     .ToList()
             })
             .ToListAsync(cancellationToken);
@@ -64,18 +89,28 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                     .Select(p => new MyEventParticipantViewModel
                     {
                         ParticipantId = p.Id,
-                        DisplayName = p.DisplayName
+                        DisplayName = p.DisplayName,
+                        Color = p.Color
                     })
                     .ToList(),
                 CreatedByUserId = myEvent.CreatedByUserId,
                 Code = myEvent.Code,
                 Title = myEvent.Title,
                 Emoji = myEvent.Emoji,
+                Description = string.IsNullOrWhiteSpace(myEvent.Description) ? DefaultEventDescription : myEvent.Description,
+                TotalParticipantCount = myEvent.TotalParticipantCount,
                 SignInUrl = Url.RouteUrl("EventSignIn", new { code = myEvent.Code }) ?? string.Empty
             })
             .ToList();
 
-        return View(viewModel);
+        return View(new MyEventsPageViewModel
+        {
+            Events = viewModel,
+            CurrentPage = currentPage,
+            TotalPages = totalPages,
+            TotalCount = totalCount,
+            PageSize = PageSize
+        });
     }
 
     /// <summary>
@@ -85,10 +120,11 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
     /// <param name="participantId">The id of the current user's participant record, required when <paramref name="deleteMode"/> is "participant".</param>
     /// <param name="deleteMode">Either "event" to delete the entire event, or "participant" to leave it.</param>
     /// <param name="cancellationToken">Token used to cancel the database operations.</param>
+    /// <param name="page">The My Events page the user deleted from, so the redirect lands back on the same page.</param>
     /// <returns>A redirect to the My Events list on success, or an error result otherwise.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int eventId, int? participantId, string deleteMode, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(int eventId, int? participantId, string deleteMode, CancellationToken cancellationToken, int page = 1)
     {
         var currentUser = await GetAuthenticatedUserAsync();
         if (currentUser is null)
@@ -120,7 +156,7 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
             db.Events.Remove(eventEntity);
 
             await db.SaveChangesAsync(cancellationToken);
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Index), new { page });
         }
 
         // Handle participant deletion (leaving the event).
@@ -161,7 +197,7 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                 await db.SaveChangesAsync(cancellationToken);
 
                 await transaction.CommitAsync(cancellationToken);
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(Index), new { page });
             }
             catch
             {
