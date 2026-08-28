@@ -193,6 +193,14 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                         setters => setters.SetProperty(m => m.ParticipantId, (int?)null),
                         cancellationToken);
 
+                // Remove this participant's availability marks first — that FK is NoAction (not
+                // cascade) to avoid a multiple-cascade-paths conflict with EventDate's own
+                // cascade into the same table (see ApplicationDbContext), so it isn't cleaned up
+                // automatically the way EventMessages is above.
+                await db.ParticipantAvailabilities
+                    .Where(a => a.ParticipantId == participantEntity.Id)
+                    .ExecuteDeleteAsync(cancellationToken);
+
                 db.Participants.Remove(participantEntity);
                 await db.SaveChangesAsync(cancellationToken);
 

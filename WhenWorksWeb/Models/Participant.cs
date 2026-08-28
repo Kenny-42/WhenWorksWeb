@@ -73,6 +73,11 @@ public class Participant
     /// The chat messages sent by this participant.
     /// </summary>
     public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
+
+    /// <summary>
+    /// The candidate dates this participant has marked themselves available on.
+    /// </summary>
+    public ICollection<ParticipantAvailability> Availabilities { get; set; } = new List<ParticipantAvailability>();
 }
 
 /// <summary>

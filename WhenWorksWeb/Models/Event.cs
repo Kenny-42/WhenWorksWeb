@@ -78,6 +78,12 @@ public class Event
     public EventSettings? Settings { get; set; }
 
     /// <summary>
+    /// The organizer-chosen final date(s) for the event, set independently of participant
+    /// availability. Each entry is either a single day or a date range.
+    /// </summary>
+    public ICollection<EventFinalDate> FinalDates { get; set; } = new List<EventFinalDate>();
+
+    /// <summary>
     /// The chat messages posted within the event.
     /// </summary>
     public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
@@ -131,6 +137,77 @@ public class EventDate
 
     /// <summary>
     /// The event this date belongs to.
+    /// </summary>
+    public Event Event { get; set; } = null!;
+
+    /// <summary>
+    /// The participants who have marked themselves available on this date.
+    /// </summary>
+    public ICollection<ParticipantAvailability> Availabilities { get; set; } = new List<ParticipantAvailability>();
+}
+
+/// <summary>
+/// Represents one participant's mark of availability on one candidate <see cref="EventDate"/>.
+/// A join row between <see cref="Participant"/> and <see cref="EventDate"/> — its presence means
+/// that participant is available on that date; there is no "unavailable" row, only absence.
+/// </summary>
+public class ParticipantAvailability
+{
+    /// <summary>
+    /// Foreign key to the participant who marked themselves available. Together with
+    /// <see cref="EventDateId"/>, this forms the composite primary key.
+    /// </summary>
+    public required int ParticipantId { get; set; }
+
+    /// <summary>
+    /// Foreign key to the candidate date the participant marked themselves available on.
+    /// </summary>
+    public required int EventDateId { get; set; }
+
+    /// <summary>
+    /// The participant who marked themselves available.
+    /// </summary>
+    public Participant Participant { get; set; } = null!;
+
+    /// <summary>
+    /// The candidate date this availability mark applies to.
+    /// </summary>
+    public EventDate EventDate { get; set; } = null!;
+}
+
+/// <summary>
+/// Represents an organizer-chosen final date (or date range) for an event, set independently of
+/// candidate <see cref="EventDate"/> entries and participant availability. A single-day final
+/// date has a null <see cref="EndDate"/>.
+/// </summary>
+public class EventFinalDate
+{
+    /// <summary>
+    /// The database id for the final date entry.
+    /// </summary>
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
+
+    /// <summary>
+    /// Foreign key to the Event this final date belongs to.
+    /// </summary>
+    public required int EventId { get; set; }
+
+    /// <summary>
+    /// The first (or only, if <see cref="EndDate"/> is null) day of this final date entry.
+    /// </summary>
+    public required DateOnly StartDate { get; set; }
+
+    /// <summary>
+    /// The last day of this final date entry, for a date range. Null for a single-day entry.
+    /// When set, must be on or after <see cref="StartDate"/> — enforced by the controller, not
+    /// a database constraint.
+    /// </summary>
+    public DateOnly? EndDate { get; set; }
+
+    /// <summary>
+    /// The event this final date belongs to.
     /// </summary>
     public Event Event { get; set; } = null!;
 }

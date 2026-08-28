@@ -1,0 +1,209 @@
+## Event home page
+
+### Status
+Not started.
+
+### GitHub Issue
+#46
+
+### Summary
+Replace the current placeholder event home page (`Views/Events/Home.cshtml`, just a title/code
+confirmation) with a full tabbed event workspace matching the provided reference mockups:
+an Availability tab (calendar + best-bets/status sidebar), a People tab (participant roster),
+and a Settings tab (event details, emoji, final-date selection, delete). The Chat tab is
+excluded entirely for now — `EventMessage` stays unbuilt-on, per the existing roadmap note in
+CLAUDE.md.
+
+This is the first real build of the "Availability system" the CLAUDE.md roadmap calls out as
+needing a collaborative design pass before implementation — the schema below is that pass's
+outcome, agreed in chat before this spec was written.
+
+### Motivation
+Event creation/join/sign-in already exist; the event itself currently does nothing once you're
+in it. This is the first substantive feature of the app: letting a group actually mark
+availability, see overlap, and land on a final date.
+
+---
+
+### Schema Changes
+All new; no existing table's shape changes except `Event` (new nav property).
+
+1. **`ParticipantAvailability`** (new type, added to `Models/Event.cs` alongside `EventDate`,
+   since it's a join record between `Participant` and `EventDate`) — one row per participant
+   per candidate date they've marked themselves available on.
+   - `ParticipantId` (FK to `Participant`, cascade delete)
+   - `EventDateId` (FK to `EventDate`, cascade delete)
+   - Composite key `(ParticipantId, EventDateId)`; unique index (a participant can only mark a
+     given date once — marking again just means "unmark").
+2. **`EventFinalDate`** (new type in `Event.cs`) — the organizer's chosen final date(s),
+   independent of `EventDate`/votes entirely. Supports both a single day and a range.
+   - `Id` (PK, identity)
+   - `EventId` (FK to `Event`, cascade delete)
+   - `StartDate` (`DateOnly`, required)
+   - `EndDate` (`DateOnly?`, null for a single-day final date, `>= StartDate` when set —
+     enforced in the controller, not a DB check constraint, consistent with how other
+     cross-field rules in this codebase are validated)
+3. `Event` gets a new `ICollection<EventFinalDate> FinalDates` nav property.
+4. New indexes: `ParticipantAvailability` composite unique index above;
+   `EventFinalDate.EventId` (filter/sort column per CODING_CONVENTIONS.md performance rules).
+5. Migration via `dotnet ef migrations add AddAvailabilityAndFinalDates` — CLI only, per
+   CODING_CONVENTIONS.md. **Not run until this spec is approved.**
+
+Deliberately *not* changed: `EventDate` itself stays exactly as it is today (a plain candidate
+date row); it does not gain an `IsFinal` flag or any reference to `EventFinalDate` — the two are
+intentionally decoupled, matching "select a final date independently of availability."
+
+---
+
+### Proposed Changes
+
+#### 1. Availability tab — calendar
+- Real calendar grid (accurate month, not the estimate in the mockup), Sunday-start, matching
+  the reference layout. Prev/next chevrons page between months (client-side re-render from
+  data already sent down for the event's date range — no per-month round trip needed since
+  `EventDate`/`EventFinalDate` sets are small).
+- Clicking a date toggles the current participant's own availability for that date (creates/
+  deletes their `ParticipantAvailability` row via a small POST endpoint,
+  `EventsController.Availability.cs`, mirroring the partial-class-per-subject pattern).
+- Cell fill: when N participants have marked a date available, the cell's fill splits into N
+  even wedges/segments, one per participant's color (conic-gradient in CSS, generated from the
+  same participant-color data already used for avatars elsewhere).
+- The small circle marker on a cell is shown only for **the current participant's own** selected
+  dates (not every participant who picked that date), using their own color — matches your note.
+- Legend at the bottom: replaces the reference's "your availability / group overlap" key with a
+  color-to-name roster — one swatch + display name per participant, in the same colors used for
+  their calendar wedges/avatars. Lays out as a grid (CSS Grid, not inline-wrapping flow) so
+  swatches stay aligned both horizontally and vertically as rows fill and wrap, rather than
+  ragged left-to-right wrapping — entries read down each column before continuing to the next,
+  matching how a multi-column legend conventionally reads.
+
+#### 2. Availability tab — sidebar
+- **Best bets card**: top 3 candidate dates ranked by number of participants available (ties
+  broken by earliest date). Each row shows the date, a small colored dot per available
+  participant (wrapping to a second line, right-aligned, when too many to fit on one line — per
+  your note), and the count text.
+- **Status card** (bottom right), two mutually exclusive states:
+  - Not everyone has picked yet: "`X`/`Y` have picked" heading + "Mark your availability, then
+    choose the final date." subheading (your reworded copy) + a button routing to the Settings
+    tab's final-date section.
+  - Every participant has at least one `ParticipantAvailability` row (regardless of whether
+    it's the same date): "Everyone's in." heading + existing subheading + the same
+    button-to-Settings.
+  - Card outline: yellow, matching the rest of the site (per your note replacing the mockup's
+    blue).
+
+#### 3. People tab
+- "The crew" card lists all participants (`DisplayName`, avatar initial in their color, "You"
+  suffix on the current participant, crown icon + "Organizer" label for the event's creator —
+  reusing the crown treatment already implied by the mockup).
+- **Pagination**: 8 participants per page, reusing the exact `ww-page-button`/`ww-page-nav-button`/
+  jump-form markup and behavior from `Views/MyEvents/Index.cshtml` verbatim (same CSS classes,
+  same prev/next/window/jump JS pattern), not a new pagination component.
+
+#### 4. Settings tab
+- **"Shape the plan" card**: title/description edit (organizer-only, matching the mockup's own
+  "Only the organizer can edit these details" note), Save changes button.
+  - **"EVENT EMOJI"** (renamed from "EVENT MARKER" per your note) — clicking the current emoji
+    button opens an `emoji-picker-element` popup (see Libraries below) anchored below/beside the
+    button, with a pencil icon (`bi-pencil`) replacing the color picker's eyedropper icon as the
+    hover/click affordance. Selecting an emoji sets the hidden field posted with the form.
+- **"Call the date" card**:
+  - Top: the existing "top suggestions" list (same best-bets ranking as the Availability
+    sidebar), explicitly labeled as suggestions, each still shows its available-count.
+  - An explicit "Add a date" action opens a small date-range picker (a lightweight native
+    `<input type="date">` pair — start date + optional end date — consistent with the "no new
+    heavy dependency unless discussed" bar; a JS date-range-picker library is not needed for two
+    plain date inputs). Confirming adds one `EventFinalDate` row and the picker resets, ready to
+    add another — the action repeats freely, so the organizer can add any number of final
+    dates/ranges, and they don't need to be consecutive (e.g. Aug 20, then separately Sep 3-5).
+  - Each listed final date/range gets its own remove control.
+  - Organizer-only (confirmed) — the section is hidden/disabled for non-organizer participants,
+    same permission level as title/description editing.
+- **Delete Event** button (recapitalized from "Delete event" per your note) opens a confirmation
+  modal before submitting, reusing the delete-modal visual pattern (`.delete-modal-content`,
+  `.modal-cancel-button`, `.modal-delete-button`) from `Views/MyEvents/Index.cshtml`, adapted to
+  a single "delete this whole event" confirmation (no participant-vs-event radio choice needed
+  here, since this page's Delete Event button only ever deletes the whole event).
+
+#### 5. Page-wide changes (per your notes)
+- "EVENT / `{code}`" badge → just "EVENT".
+- "Share code" button becomes the code itself; clicking it copies to clipboard (mirrors the
+  copy-button pattern already in `Views/MyEvents/Index.cshtml`'s `.ww-myevent-copy-button`).
+- The icon button beside it opens/routes to the Settings tab instead of a separate share-options
+  popup.
+- More vertical spacing between the Availability/People/Settings tab buttons and the divider
+  below them.
+- Card outlines switched from the mockup's blue to the site's yellow accent throughout this
+  page.
+- Chat tab omitted entirely (no tab, no route, no view).
+
+#### Libraries
+- **`emoji-picker-element`** (MIT, zero runtime dependencies, Shadow DOM custom element) added
+  via CDN `<script type="module">` in `Views/Shared/_Layout.cshtml` — loaded **globally**, not
+  scoped to this page's Scripts block, since you want it reusable elsewhere later. Chosen over
+  Picmo per your earlier decision: smaller bundle, Shadow DOM isolation keeps it from needing
+  any CSS special-casing against Bootstrap/our custom styles. This page wires up its own
+  trigger button + `emoji-click` listener; the `<script>` tag is the only shared piece.
+
+#### View Models
+New/replaced, following the `required` + one-line-XML-doc convention (`MyEventViewModel` is the
+model to match):
+- `EventHomeViewModel` (replaced): Code, Title, Description, Emoji, IsCurrentUserOrganizer,
+  current participant's id/color, `IReadOnlyList<EventCalendarDateViewModel>` (date +
+  participant colors available that day + whether the current participant picked it),
+  `IReadOnlyList<EventFinalDateViewModel>`, best-bets list, all-participants-picked flag,
+  picked/total counts.
+- `EventPeopleViewModel` / paginated participant list, mirroring `MyEventsPageViewModel`'s
+  CurrentPage/TotalPages/TotalCount/PageSize shape.
+- `EventSettingsViewModel`: Title, Description, Emoji, final dates, delete permission flag.
+
+#### Controller
+- Split `EventsController` further by subject, matching the existing partial-class pattern:
+  `EventsController.Availability.cs` (toggle a participant's availability on a date),
+  `EventsController.FinalDate.cs` (add/remove `EventFinalDate` rows, organizer-only),
+  `EventsController.Settings.cs` (title/description/emoji edits), reusing `EventsController.Home.cs`
+  for the tab-hosting GET action(s). Exact route shape (one `Home` action rendering all three
+  tabs client-side vs. three separate GET routes) is an implementation detail I'll settle while
+  building, consistent with how `SignIn`/`Home` are split today.
+
+---
+
+### Acceptance Criteria
+- Availability tab shows an accurate calendar for the current month with working prev/next
+  month navigation; clicking a date toggles the signed-in participant's own availability.
+- A date with N participants available renders N evenly-split color wedges; the small "this is
+  mine" circle marker appears only on the current participant's own picks.
+- The legend below the calendar lists every participant's swatch + name, laid out in aligned
+  columns (not ragged wrapping) that add a new column once a column's rows run out of vertical
+  space.
+- Best bets shows the top 3 dates by availability count with per-participant color dots,
+  wrapping to a second right-aligned line when needed.
+- The status card shows "Mark your availability, then choose the final date." + a
+  route-to-Settings button when not everyone has picked at least one date, and "Everyone's in."
+  + the same button when every participant has picked at least one date (not necessarily the
+  same date).
+- People tab paginates at 8 participants/page using the same pagination markup/behavior as My
+  Events.
+- Settings tab: emoji click opens the `emoji-picker-element` popup and updates the event's
+  emoji on save; "Call the date" lets the organizer repeatedly add any number of final dates
+  and/or ranges (not required to be consecutive), each as its own removable `EventFinalDate`
+  row, and is hidden/disabled for non-organizer participants; Delete Event requires confirmation
+  via modal before the event is actually deleted.
+- `emoji-picker-element`'s script tag loads from `_Layout.cshtml` so it's available to any page,
+  not just this one.
+- "EVENT" badge, code-as-copy-button, settings-shortcut icon button, extra tab/divider spacing,
+  and yellow card outlines are all in place; no Chat tab exists anywhere on this page.
+- New `ParticipantAvailability`/`EventFinalDate` tables exist via an EF Core CLI migration, with
+  the indexes described above.
+
+### Out of Scope
+- Chat system (`EventMessage`) — untouched, no UI added for it here.
+- Any change to `EventDate` itself (no `IsFinal` flag, no link to `EventFinalDate`).
+- Tests — per CLAUDE.md, added only on separate explicit request (though CODING_CONVENTIONS.md's
+  enforcement hook will still flag controller/model changes for the developer's attention).
+- Real-time/live updates (e.g. seeing another participant's pick appear without a refresh) —
+  not discussed, assumed out of scope unless raised.
+- Notifications/reminders around the final date being set.
+
+### Dependencies
+None — builds on existing `Event`/`Participant`/`EventDate` schema and the sign-in flow.
