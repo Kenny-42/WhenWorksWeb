@@ -6,27 +6,28 @@
    isn't duplicated three times. *@
 <div class="ww-event-header">
     <div class="ww-event-header-top">
-        <div>
+        <div class="ww-event-header-badge-row">
             <span class="ww-hero-badge mb-2">
                 <span class="ww-hero-badge-dot" aria-hidden="true"></span>
                 <span class="ww-shiny-text">EVENT</span>
             </span>
-            <div class="ww-event-title-row">
-                <span class="ww-event-title-emoji" aria-hidden="true">@Model.Emoji</span>
-                <h1 class="ww-hero-title font-display ww-autofit-title mb-0">@Model.Title</h1>
+
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="ww-event-code-button" data-code="@Model.Code" aria-label="Copy event code" title="Copy event code">
+                    <span>@Model.Code</span>
+                    <i class="bi bi-clipboard" aria-hidden="true"></i>
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                </button>
+
+                <a asp-route="EventSettings" asp-route-code="@Model.Code" class="ww-event-settings-button" aria-label="Event settings" title="Event settings">
+                    <i class="bi bi-gear" aria-hidden="true"></i>
+                </a>
             </div>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
-            <button type="button" class="ww-event-code-button" data-code="@Model.Code" aria-label="Copy event code" title="Copy event code">
-                <span>@Model.Code</span>
-                <i class="bi bi-clipboard" aria-hidden="true"></i>
-                <i class="bi bi-check-lg" aria-hidden="true"></i>
-            </button>
-
-            <a asp-route="EventSettings" asp-route-code="@Model.Code" class="ww-event-settings-button" aria-label="Event settings" title="Event settings">
-                <i class="bi bi-gear" aria-hidden="true"></i>
-            </a>
+        <div class="ww-event-title-row">
+            <span class="ww-event-title-emoji" aria-hidden="true">@Model.Emoji</span>
+            <h1 class="ww-hero-title font-display ww-autofit-title mb-0" data-min-font-size="20" data-max-lines="2">@Model.Title</h1>
         </div>
     </div>
 

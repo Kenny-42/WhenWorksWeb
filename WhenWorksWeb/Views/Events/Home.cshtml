@@ -1,18 +1,537 @@
+@using System.Text.Json
 @model WhenWorksWeb.Models.EventHomeViewModel
 
 @{
     ViewData["Title"] = Model.Header.Title;
     ViewData["DisableTitleSuffix"] = true;
+
+    var calendarJsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    var calendarJson = JsonSerializer.Serialize(Model.Calendar, calendarJsonOptions);
 }
 
-<!-- Event home container: shared header/tab bar, then this tab's own content -->
-<div class="container py-4" style="max-width: 48rem;">
+<!-- Event home container: shared header/tab bar, then the calendar + best-bets/status sidebar.
+     Wider than the other two tabs' 48rem container since this is a two-column layout. -->
+<div class="container py-4" style="max-width: 64rem;">
     @await Html.PartialAsync("_EventHeader", Model.Header)
 
-    <!-- Availability tab content: calendar + best-bets/status sidebar is a separate, larger
-         follow-up (see Spec/Features/FEATURES-event-home-page.ospec) — this placeholder just
-         confirms sign-in succeeded until that's built. -->
-    <div class="ww-event-card text-center">
-        <p class="mb-0">You have entered the event successfully.</p>
+    <div class="ww-availability-layout">
+        <!-- Calendar card: month grid + legend. Entirely rendered/updated by JS below from the
+             data-calendar JSON blob, so paging months and toggling a date never need a server
+             round trip beyond the small POST the toggle itself makes. -->
+        <div class="ww-event-card ww-calendar-card">
+            <div class="ww-calendar-header">
+                <button type="button" class="ww-calendar-nav-button" data-direction="-1" aria-label="Previous month">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <div class="ww-calendar-title">
+                    <h2 id="ww-calendar-month-label" class="font-display mb-0"></h2>
+                    <p class="ww-calendar-subtitle font-display mb-0 text-muted">Click a date to mark yourself available</p>
+                </div>
+                <button type="button" class="ww-calendar-nav-button" data-direction="1" aria-label="Next month">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="ww-calendar-weekdays" aria-hidden="true">
+                <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+
+            <div class="ww-calendar-grid"
+                 id="ww-calendar-grid"
+                 data-calendar="@calendarJson"
+                 data-code="@Model.Header.Code"
+                 role="grid"
+                 aria-label="Availability calendar">
+            </div>
+
+            <hr class="ww-event-divider" style="margin-top: 1rem;" />
+
+            <div class="ww-calendar-legend" id="ww-calendar-legend" aria-label="Participant color key"></div>
+        </div>
+
+        <!-- Best-bets/status sidebar. -->
+        <div class="ww-availability-sidebar">
+            <div class="ww-event-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h3 class="font-display mb-0">Best bets</h3>
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                </div>
+                <div id="ww-best-bets-list"></div>
+            </div>
+
+            <div class="ww-event-card" id="ww-status-card"></div>
+        </div>
     </div>
+
+    <!-- Hidden antiforgery token the calendar's fetch-based toggle POST sends the same way a
+         normal form submit would, just without a full-page navigation. -->
+    <form id="ww-availability-antiforgery-form" class="visually-hidden">
+        @Html.AntiForgeryToken()
+    </form>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            "use strict";
+
+            var gridEl = document.getElementById('ww-calendar-grid');
+            if (!gridEl) {
+                return;
+            }
+
+            var calendar = JSON.parse(gridEl.dataset.calendar);
+            var code = gridEl.dataset.code;
+            var tokenInput = document.querySelector('#ww-availability-antiforgery-form input[name="__RequestVerificationToken"]');
+
+            var monthLabelEl = document.getElementById('ww-calendar-month-label');
+            var legendEl = document.getElementById('ww-calendar-legend');
+            var bestBetsEl = document.getElementById('ww-best-bets-list');
+            var statusEl = document.getElementById('ww-status-card');
+            var prevButton = document.querySelector('.ww-calendar-nav-button[data-direction="-1"]');
+            var nextButton = document.querySelector('.ww-calendar-nav-button[data-direction="1"]');
+
+            var MONTH_NAMES = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+
+            // Participants, keyed by id, for color/name lookups everywhere below.
+            var participantsById = {};
+            calendar.participants.forEach(function (p) {
+                participantsById[p.id] = p;
+            });
+
+            // 'yyyy-MM-dd' -> participant ids available that day. The single source of truth for
+            // wedges, the legend's picks, best bets, and the status card — updated in place after
+            // every toggle so all of those stay consistent without a page reload.
+            var datesByKey = {};
+            calendar.dates.forEach(function (d) {
+                datesByKey[d.date] = d.participantIds.slice();
+            });
+
+            var windowStart = parseMonth(calendar.windowStartMonth);
+            var windowEnd = parseMonth(calendar.windowEndMonth);
+            var viewMonth = parseMonth(calendar.initialMonth);
+
+            gridEl.style.setProperty('--current-participant-color', '#' + colorFor(calendar.currentParticipantId));
+
+            // The event's own emoji (rendered once already, in the page header) — reused as the
+            // "everyone's in" marker overlaid on a fully-picked date, so it reads as *this
+            // event's* celebration rather than a generic icon. Falls back to a party popper on
+            // the off chance the header emoji isn't on the page for some reason.
+            var eventEmojiEl = document.querySelector('.ww-event-title-emoji');
+            var eventEmoji = (eventEmojiEl && eventEmojiEl.textContent.trim()) || '🎉';
+
+            // Confetti burst colors — the site's own pink/yellow/green/blue accents, cycled per
+            // particle so the burst reads as multicolored rather than a single flat tint.
+            var rootStyle = window.getComputedStyle(document.documentElement);
+            var CONFETTI_COLORS = [
+                rootStyle.getPropertyValue('--color-accent-pink-fill').trim() || '#ff66c4',
+                rootStyle.getPropertyValue('--color-accent-yellow-fill').trim() || '#f2d675',
+                rootStyle.getPropertyValue('--color-accent-green').trim() || '#bee776',
+                rootStyle.getPropertyValue('--color-accent-blue-fill').trim() || '#8fd8e0'
+            ];
+            var CONFETTI_PARTICLE_COUNT = 20;
+            var CONFETTI_BURST_DISTANCE_PX = 70;
+            var confettiLayerEl = null;
+
+            function parseMonth(dateOnlyString) {
+                var parts = dateOnlyString.split('-');
+                return { year: parseInt(parts[0], 10), month: parseInt(parts[1], 10) };
+            }
+
+            function pad(n) {
+                return n < 10 ? '0' + n : '' + n;
+            }
+
+            function addMonths(m, delta) {
+                var total = (m.year * 12 + (m.month - 1)) + delta;
+                var year = Math.floor(total / 12);
+                var month = (total % 12) + 1;
+                return { year: year, month: month };
+            }
+
+            function monthDiff(a, b) {
+                return (a.year * 12 + a.month) - (b.year * 12 + b.month);
+            }
+
+            function daysInMonth(m) {
+                return new Date(m.year, m.month, 0).getDate();
+            }
+
+            function firstWeekday(m) {
+                return new Date(m.year, m.month - 1, 1).getDay();
+            }
+
+            function dateKey(m, day) {
+                return m.year + '-' + pad(m.month) + '-' + pad(day);
+            }
+
+            function colorFor(participantId) {
+                var participant = participantsById[participantId];
+                return participant ? participant.color : 'cccccc';
+            }
+
+            function formatDateLabel(key) {
+                var parts = key.split('-');
+                var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                return MONTH_NAMES[d.getMonth()].slice(0, 3) + ' ' + d.getDate();
+            }
+
+            function renderCalendar() {
+                monthLabelEl.innerHTML = '';
+                monthLabelEl.appendChild(document.createTextNode(MONTH_NAMES[viewMonth.month - 1] + ' '));
+                var yearEl = document.createElement('span');
+                yearEl.className = 'ww-calendar-month-year';
+                yearEl.textContent = viewMonth.year;
+                monthLabelEl.appendChild(yearEl);
+
+                prevButton.disabled = monthDiff(viewMonth, windowStart) <= 0;
+                nextButton.disabled = monthDiff(viewMonth, windowEnd) >= 0;
+
+                gridEl.innerHTML = '';
+
+                // Leading days from the previous month and trailing days from the next fill out
+                // the grid to full weeks — a smoother transition between months (no gap before the
+                // 1st or after the last day) and no dead space in the final row. They're rendered
+                // as full, clickable cells (just dimmed) so a date can be toggled without first
+                // paging to the month it belongs to.
+                var prevMonth = addMonths(viewMonth, -1);
+                var nextMonth = addMonths(viewMonth, 1);
+                var prevMonthDays = daysInMonth(prevMonth);
+                var currentMonthDays = daysInMonth(viewMonth);
+
+                var leadingCount = firstWeekday(viewMonth);
+                for (var i = 0; i < leadingCount; i++) {
+                    var leadingDay = prevMonthDays - leadingCount + 1 + i;
+                    gridEl.appendChild(buildCell(prevMonth, leadingDay, true));
+                }
+
+                for (var day = 1; day <= currentMonthDays; day++) {
+                    gridEl.appendChild(buildCell(viewMonth, day, false));
+                }
+
+                var cellsSoFar = leadingCount + currentMonthDays;
+                var trailingCount = (7 - (cellsSoFar % 7)) % 7;
+                for (var trailingDay = 1; trailingDay <= trailingCount; trailingDay++) {
+                    gridEl.appendChild(buildCell(nextMonth, trailingDay, true));
+                }
+            }
+
+            function buildCell(month, day, isAdjacent) {
+                var key = dateKey(month, day);
+
+                var cell = document.createElement('button');
+                cell.type = 'button';
+                cell.className = 'ww-calendar-cell' + (isAdjacent ? ' ww-calendar-cell-adjacent' : '');
+                cell.dataset.date = key;
+                cell.setAttribute('role', 'gridcell');
+                cell.setAttribute('aria-label', formatDateLabel(key));
+                cell.addEventListener('click', function () {
+                    toggleDate(key, cell);
+                });
+
+                var numberEl = document.createElement('span');
+                numberEl.className = 'ww-calendar-cell-number';
+                numberEl.textContent = day;
+                cell.appendChild(numberEl);
+
+                applyWedges(cell, datesByKey[key] || []);
+                updateCellCompletion(cell, datesByKey[key] || []);
+
+                return cell;
+            }
+
+            // True once every participant in the event has picked this date.
+            function isDateComplete(participantIds) {
+                return calendar.participants.length > 0 && participantIds.length === calendar.participants.length;
+            }
+
+            // Adds/removes the permanent emoji marker for a fully-picked date. Called on every
+            // render (initial paint, month navigation, and after each toggle) so the marker's
+            // presence always matches the date's current pick state — not just the moment it was
+            // first completed (see celebrateDate for that one-off animation).
+            function updateCellCompletion(cell, participantIds) {
+                var complete = isDateComplete(participantIds);
+                cell.classList.toggle('ww-calendar-cell-complete', complete);
+
+                var existing = cell.querySelector('.ww-calendar-cell-emoji');
+                if (complete && !existing) {
+                    var emojiEl = document.createElement('span');
+                    emojiEl.className = 'ww-calendar-cell-emoji';
+                    emojiEl.setAttribute('aria-hidden', 'true');
+                    emojiEl.textContent = eventEmoji;
+                    cell.appendChild(emojiEl);
+                } else if (!complete && existing) {
+                    existing.remove();
+                }
+            }
+
+            function getConfettiLayer() {
+                if (!confettiLayerEl) {
+                    confettiLayerEl = document.createElement('div');
+                    confettiLayerEl.className = 'ww-calendar-confetti-layer';
+                    confettiLayerEl.setAttribute('aria-hidden', 'true');
+                    document.body.appendChild(confettiLayerEl);
+                }
+                return confettiLayerEl;
+            }
+
+            // One confetti flake, fired outward (and slightly upward) from (originX, originY) —
+            // viewport coordinates, since the layer it's appended to is position: fixed.
+            function spawnConfettiPiece(originX, originY) {
+                var layer = getConfettiLayer();
+
+                var angle = Math.random() * Math.PI * 2;
+                var distance = CONFETTI_BURST_DISTANCE_PX * (0.5 + Math.random() * 0.7);
+                var dx = Math.cos(angle) * distance;
+                var dy = Math.sin(angle) * distance - 30;
+
+                var piece = document.createElement('div');
+                piece.className = 'ww-calendar-confetti-piece';
+                piece.style.left = originX + 'px';
+                piece.style.top = originY + 'px';
+                piece.style.backgroundColor = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+
+                var flakeWidth = 4 + Math.round(Math.random() * 4);
+                var flakeHeight = Math.round(flakeWidth * (0.6 + Math.random() * 0.8));
+                piece.style.width = flakeWidth + 'px';
+                piece.style.height = flakeHeight + 'px';
+
+                piece.style.setProperty('--confetti-dx', dx.toFixed(0) + 'px');
+                piece.style.setProperty('--confetti-dy', dy.toFixed(0) + 'px');
+                var spin = (360 + Math.random() * 540) * (Math.random() < 0.5 ? -1 : 1);
+                piece.style.setProperty('--confetti-rot', spin.toFixed(0) + 'deg');
+
+                piece.addEventListener('animationend', function () {
+                    piece.remove();
+                });
+                layer.appendChild(piece);
+
+                // Reduced-motion: site.css skips the animation entirely, so the piece would
+                // otherwise sit at full opacity forever with no animationend to clean it up.
+                if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    piece.remove();
+                }
+            }
+
+            // Plays once, the moment a date flips from "not everyone's in" to "everyone's in" —
+            // a confetti burst from the cell's own position plus a bouncy pop on its (already
+            // permanent) emoji marker.
+            function celebrateDate(cell) {
+                var rect = cell.getBoundingClientRect();
+                var originX = rect.left + rect.width / 2;
+                var originY = rect.top + rect.height / 2;
+
+                for (var i = 0; i < CONFETTI_PARTICLE_COUNT; i++) {
+                    spawnConfettiPiece(originX, originY);
+                }
+
+                cell.classList.add('ww-calendar-cell-celebrating');
+                window.setTimeout(function () {
+                    cell.classList.remove('ww-calendar-cell-celebrating');
+                }, 700);
+            }
+
+            function applyWedges(cell, participantIds) {
+                if (participantIds.length === 0) {
+                    cell.style.background = '';
+                } else if (participantIds.length === 1) {
+                    cell.style.background = '#' + colorFor(participantIds[0]);
+                } else {
+                    var slice = 100 / participantIds.length;
+                    var stops = participantIds.map(function (id, index) {
+                        var start = Math.round(index * slice);
+                        var end = Math.round((index + 1) * slice);
+                        return '#' + colorFor(id) + ' ' + start + '% ' + end + '%';
+                    });
+                    // A horizontal linear gradient with hard stops — vertical bands stacked left
+                    // to right. Tried a vertical version (horizontal bands), a radial gradient
+                    // (concentric rings), and a conic gradient with feathered edges (pie wedges,
+                    // blended borders) first; this read best.
+                    cell.style.background = 'linear-gradient(90deg, ' + stops.join(', ') + ')';
+                }
+
+                cell.classList.toggle('ww-calendar-cell-picked', participantIds.indexOf(calendar.currentParticipantId) !== -1);
+            }
+
+            function toggleDate(key, cell) {
+                if (cell.disabled) {
+                    return;
+                }
+                cell.disabled = true;
+
+                var body = new URLSearchParams();
+                body.set('date', key);
+                body.set('__RequestVerificationToken', tokenInput ? tokenInput.value : '');
+
+                fetch('/event/' + code + '/availability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString()
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Availability toggle failed');
+                        }
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        var wasComplete = isDateComplete(datesByKey[data.date] || []);
+
+                        if (data.participantIds.length === 0) {
+                            delete datesByKey[data.date];
+                        } else {
+                            datesByKey[data.date] = data.participantIds;
+                        }
+                        applyWedges(cell, data.participantIds);
+                        updateCellCompletion(cell, data.participantIds);
+
+                        if (!wasComplete && isDateComplete(data.participantIds)) {
+                            celebrateDate(cell);
+                        }
+
+                        renderBestBets();
+                        renderStatus();
+                    })
+                    .catch(function () {
+                        // No dedicated error UI for this pass — the cell simply stays in its
+                        // last-known state and the click can be retried.
+                    })
+                    .finally(function () {
+                        cell.disabled = false;
+                    });
+            }
+
+            function renderLegend() {
+                legendEl.innerHTML = '';
+                calendar.participants.forEach(function (p) {
+                    var item = document.createElement('div');
+                    item.className = 'ww-calendar-legend-item';
+
+                    var swatch = document.createElement('span');
+                    swatch.className = 'ww-calendar-legend-swatch';
+                    swatch.style.backgroundColor = '#' + p.color;
+                    item.appendChild(swatch);
+
+                    var name = document.createElement('span');
+                    name.textContent = p.displayName;
+                    item.appendChild(name);
+
+                    legendEl.appendChild(item);
+                });
+            }
+
+            function renderBestBets() {
+                var entries = Object.keys(datesByKey)
+                    .map(function (key) { return { date: key, participantIds: datesByKey[key] }; })
+                    .filter(function (entry) { return entry.participantIds.length > 0; });
+
+                entries.sort(function (a, b) {
+                    if (b.participantIds.length !== a.participantIds.length) {
+                        return b.participantIds.length - a.participantIds.length;
+                    }
+                    return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+                });
+
+                var topEntries = entries.slice(0, 3);
+                bestBetsEl.innerHTML = '';
+
+                if (topEntries.length === 0) {
+                    var empty = document.createElement('p');
+                    empty.className = 'text-muted mb-0';
+                    empty.textContent = 'The best date will appear once your group starts picking.';
+                    bestBetsEl.appendChild(empty);
+                    return;
+                }
+
+                topEntries.forEach(function (entry) {
+                    var row = document.createElement('div');
+                    row.className = 'ww-best-bet-row';
+
+                    var info = document.createElement('div');
+                    info.className = 'ww-best-bet-info';
+
+                    var dateLabel = document.createElement('span');
+                    dateLabel.className = 'ww-best-bet-date';
+                    dateLabel.textContent = formatDateLabel(entry.date);
+                    info.appendChild(dateLabel);
+
+                    var count = document.createElement('span');
+                    count.className = 'ww-best-bet-count';
+                    count.textContent = entry.participantIds.length + ' of ' + calendar.participants.length + ' available';
+                    info.appendChild(count);
+
+                    row.appendChild(info);
+
+                    var dots = document.createElement('span');
+                    dots.className = 'ww-best-bet-dots';
+                    entry.participantIds.forEach(function (id) {
+                        var dot = document.createElement('span');
+                        dot.className = 'ww-best-bet-dot';
+                        dot.style.backgroundColor = '#' + colorFor(id);
+                        dots.appendChild(dot);
+                    });
+                    row.appendChild(dots);
+
+                    bestBetsEl.appendChild(row);
+                });
+            }
+
+            function renderStatus() {
+                var pickedParticipantIds = {};
+                Object.keys(datesByKey).forEach(function (key) {
+                    datesByKey[key].forEach(function (id) {
+                        pickedParticipantIds[id] = true;
+                    });
+                });
+
+                var totalParticipants = calendar.participants.length;
+                var pickedCount = Object.keys(pickedParticipantIds).length;
+                var allPicked = totalParticipants > 0 && pickedCount >= totalParticipants;
+
+                statusEl.innerHTML = '';
+
+                var heading = document.createElement('p');
+                heading.className = 'ww-status-heading mb-1';
+                heading.textContent = allPicked ? "Everyone's in." : (pickedCount + '/' + totalParticipants + ' have picked');
+                statusEl.appendChild(heading);
+
+                var subheading = document.createElement('p');
+                subheading.className = 'ww-status-subheading font-display text-muted mb-3';
+                subheading.textContent = allPicked
+                    ? 'The group has picked their dates. Times to make it official.'
+                    : 'Mark your availability, then choose the final date.';
+                statusEl.appendChild(subheading);
+
+                var button = document.createElement('a');
+                button.className = 'btn ww-status-button';
+                button.href = '/event/' + code + '/settings';
+                button.textContent = 'Choose the final date';
+                statusEl.appendChild(button);
+            }
+
+            prevButton.addEventListener('click', function () {
+                if (prevButton.disabled) {
+                    return;
+                }
+                viewMonth = addMonths(viewMonth, -1);
+                renderCalendar();
+            });
+
+            nextButton.addEventListener('click', function () {
+                if (nextButton.disabled) {
+                    return;
+                }
+                viewMonth = addMonths(viewMonth, 1);
+                renderCalendar();
+            });
+
+            renderCalendar();
+            renderLegend();
+            renderBestBets();
+            renderStatus();
+        })();
+    </script>
+}

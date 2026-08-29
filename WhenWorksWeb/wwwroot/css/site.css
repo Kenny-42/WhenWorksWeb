@@ -3085,7 +3085,17 @@ label:has(+ .input-pill:disabled) {
 
 .ww-event-header-top {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Badge and the code/settings buttons share one row so the buttons always line up with the
+   "EVENT" badge, regardless of how long the title below them is. The title gets its own row
+   underneath — a separate flex row, so a long title never pushes the buttons out of place or
+   wraps them below-left of it (they can only ever drop below the badge, on narrow viewports). */
+.ww-event-header-badge-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
@@ -3095,6 +3105,42 @@ label:has(+ .input-pill:disabled) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
+  /* Breathing room from the badge/buttons row above — without it the (potentially large,
+     two-line) title sits flush against it. */
+  margin-top: 0.75rem;
+}
+
+/* min-width: 0 overrides the flex default of min-width: auto, which otherwise refuses to
+   shrink a flex item below its content's intrinsic width — the exact case a single long,
+   unbroken word in an event title hits, pushing the heading (and the page) wider than the
+   viewport instead of wrapping/shrinking. overflow-wrap covers the same case once the
+   .ww-autofit-title JS below has shrunk the font to its floor and the word still doesn't fit.
+
+   Deliberately NO max-height/overflow: hidden on this element. Three earlier versions of this
+   rule tried adding one anyway — as the actual "does it fit in two lines" signal (broken twice:
+   an em-based slack scaled with font-size and let a real third line sneak through at large
+   sizes; moving that slack into padding instead grew scrollHeight and clientHeight in lockstep
+   under this app's global border-box sizing, so it bought no room at all) and, once line-count
+   was decided independently by the autofit script's own countLines() (site.js), as a
+   deliberately generous safety-net clip that was never supposed to actually engage. It still
+   clipped the shadow anyway — on titles that needed only *one* line, nowhere near whatever
+   budget was set, ruling out every one of those explanations. Rather than keep guessing at
+   another height budget, the cap is now enforced *only* by the JS actually keeping the text to
+   two rendered lines (data-max-lines="2" below) — with nothing on this element left to clip its
+   own text-shadow, there's nothing left that can cut it off. A bigger clamp() ceiling and
+   steeper preferred value than the shared .ww-hero-title default (used as-is by the landing
+   hero/My Events/Sign-in) — this heading has the room and reads better bigger, and the previous
+   ceiling (7.5rem) read too small for short titles that never needed to shrink at all. The floor
+   (data-min-font-size) was also lowered from 32px to 20px: a full-length (30-char, see
+   ModelConstants.EventTitleMaxLength) single unbroken word can still need something close to
+   that floor to reach two lines on a narrow phone viewport, and 32px wasn't always low enough —
+   the other reported cause of "still three lines" (a floor that's too high genuinely can't be
+   shrunk past, regardless of how correctly the fit check itself behaves). */
+.ww-event-title-row .ww-hero-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(2.5rem, 12vw, 9rem);
 }
 
 .ww-event-title-emoji {
@@ -3241,6 +3287,19 @@ label:has(+ .input-pill:disabled) {
   opacity: 0.5;
 }
 
+/* The header's own divider (under the tab bar) sits directly on the page's open gradient, like
+   .ww-event-header itself — white matches that gradient-chrome treatment. Other
+   .ww-event-divider uses (e.g. inside the calendar card) sit on the white/glass card surface,
+   where a yellow line is what's visible, so this override is scoped to the header only.
+   Same rounded-capsule technique as .account-divider (a filled, border-radius bar) rather
+   than a plain border-top — the site's usual divider treatment. */
+.ww-event-header .ww-event-divider {
+  height: 2px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-text-on-gradient);
+}
+
 /* Shared yellow-outlined card treatment for this page's tab content (best bets/status/people
    roster/settings cards) — white-glass surface per STYLE_GUIDE.md, yellow border per the
    feature spec's page-wide accent swap. */
@@ -3262,4 +3321,413 @@ label:has(+ .input-pill:disabled) {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* Availability tab: two-column layout — calendar card on the left, best-bets/status cards
+   stacked on the right. Stacks to a single column on narrow viewports. */
+.ww-availability-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Bootstrap's own "below lg" breakpoint, not the "below md" 768px this used to stack at — the
+   sidebar's 1fr share got too narrow for its own content (best-bets rows wrapping their "N of M
+   available" line) well before 768px, so this stacks a tier sooner to keep those cards legible. */
+@media (max-width: 991.98px) {
+  .ww-availability-layout {
+    /* minmax(0, 1fr), not a bare 1fr — a bare 1fr track's automatic minimum is its content's
+       min-content width, which on narrow viewports is wider than the viewport itself (mainly
+       driven by the calendar grid's own min-content floor below), forcing this whole layout to
+       overflow horizontally instead of actually shrinking to fit. minmax(0, ...) lets the track
+       shrink past that floor. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ww-availability-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ww-calendar-card {
+  padding: 1.5rem;
+}
+
+.ww-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ww-calendar-title {
+  text-align: center;
+}
+
+/* Month name in black, year in the site's hot-pink text accent (same token/technique as
+   .text-link's hover color) — the rest of #ww-calendar-month-label inherits its default
+   (near-black) heading color already, so only the year needs its own rule. font-weight bumped
+   past .font-display's own default — Fredoka's regular weight didn't read noticeably rounder/
+   "bubblier" than the body font next to it; its bold weight does (same reasoning as
+   .ww-hero-title's own weight-700 override elsewhere in this file). */
+#ww-calendar-month-label {
+  color: #000;
+  font-weight: 700;
+}
+
+.ww-calendar-month-year {
+  color: var(--color-accent-pink-fill);
+}
+
+/* Sized down from its old 0.85rem — Fredoka (.font-display, added alongside the status card's
+   own .ww-status-subheading) reads noticeably bigger than the body font at the same rem size. */
+.ww-calendar-subtitle {
+  font-size: 0.75rem;
+}
+
+/* Round prev/next month buttons — same hard-shadow/pill language as the rest of the page's
+   buttons, sized down and circular to match the reference layout. */
+.ww-calendar-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-accent-yellow-border);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-calendar-nav-button:hover:not(:disabled) {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-calendar-nav-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-calendar-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ww-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--color-accent-yellow-border);
+  margin-bottom: 0.5rem;
+}
+
+.ww-calendar-grid {
+  display: grid;
+  /* minmax(0, 1fr), not a bare 1fr — see .ww-availability-layout's own comment above. Here the
+     content-based floor a bare 1fr won't shrink past comes from each .ww-calendar-cell's
+     aspect-ratio combined with its min-height, which transfers into a minimum cell width wider
+     than a phone screen can fit across 7 columns. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  /* Set from JS to the current participant's own color, so the "my pick" marker below doesn't
+     need to be recomputed per cell. */
+  --current-participant-color: var(--color-accent-yellow-border);
+}
+
+.ww-calendar-cell {
+  position: relative;
+  /* Taller than wide (rather than a square) so the day number at the top and the "my pick"
+     marker at the bottom always have clear space between them, even on narrow viewports where
+     seven columns of gaps compress each cell's width. */
+  aspect-ratio: 4 / 5;
+  min-height: 2.75rem;
+  /* Solid, not the translucent rgba() this used to be — a translucent border optically blends
+     with whatever's drawn behind it (JS sets a cell's own background to a participant color or,
+     for multiple participants, a conic-gradient of several), so the "same" border color read
+     differently around a single-color fill vs. inconsistently around a multi-color wedge (a
+     different blend at every point the border crossed a wedge boundary — the reported "wonky"
+     outline). A solid color can't blend with the fill beneath it, so every cell's border reads
+     identically regardless of how many participants (or which colors) picked it. */
+  border: 2px solid #f7d9c5;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+}
+
+.ww-calendar-cell:hover:not(:disabled) {
+  border-color: var(--color-accent-yellow-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-calendar-cell:disabled {
+  cursor: wait;
+}
+
+/* Leading/trailing days from the adjacent month — dimmed, but still a full, clickable cell (not
+   `visibility: hidden`/`pointer-events: none` like the old blank filler this replaces), so a date
+   can be toggled without first paging to the month it belongs to. */
+.ww-calendar-cell-adjacent {
+  opacity: 0.5;
+}
+
+.ww-calendar-cell-number {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--color-text-strong);
+}
+
+/* The small "this is mine" marker — shown only on the current participant's own picks,
+   regardless of how many other participants also picked that date. */
+.ww-calendar-cell-picked::after {
+  content: "";
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.35rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background-color: var(--current-participant-color);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Permanent marker for a date every participant has picked — the event's own emoji, centered
+   over the cell's wedge fill. Stays as long as the date stays fully picked (site.js adds/removes
+   it on every render, not just the moment it's completed); .ww-calendar-cell-celebrating (below)
+   is the one-off entrance animation that plays only at the moment it *becomes* complete. */
+.ww-calendar-cell-emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(73, 18, 50, 0.35);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ww-calendar-cell-celebrating .ww-calendar-cell-emoji {
+    animation: ww-calendar-emoji-pop 0.6s cubic-bezier(.28, 1.55, .4, 1);
+  }
+}
+
+@keyframes ww-calendar-emoji-pop {
+  0% {
+    transform: scale(0.2) rotate(-15deg);
+  }
+  55% {
+    transform: scale(1.4) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Confetti burst played once, the moment a date goes from "not everyone's in" to "everyone's
+   in" — appended to a single fixed, viewport-spanning layer (not into the cell/card itself) so
+   particles aren't clipped by the calendar card's own rounded corners or overflow, and can fly
+   past the card's edge. Same particle technique as .ww-sparkle (site.js's card-hover confetti)
+   — a flat-colored rectangle animated via per-particle custom properties — but multicolored
+   (site.js cycles the site's pink/yellow/green/blue accents) and fired as a one-shot burst
+   instead of a hover-driven stream. */
+.ww-calendar-confetti-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1200;
+}
+
+.ww-calendar-confetti-piece {
+  position: fixed;
+  border-radius: 1px;
+  pointer-events: none;
+  opacity: 0;
+  --confetti-dx: 0px;
+  --confetti-dy: 0px;
+  --confetti-rot: 0deg;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ww-calendar-confetti-piece {
+    animation: ww-calendar-confetti-float 0.9s ease-out forwards;
+  }
+}
+
+/* Every keyframe re-applies the translate(-50%, -50%) centering (the piece's own left/top is
+   set to its origin point, not its top-left corner) alongside the burst's own translate, so it
+   stays centered on that point as it travels rather than snapping to a corner. */
+@keyframes ww-calendar-confetti-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.3);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(calc(var(--confetti-dx) * 0.3), calc(var(--confetti-dy) * 0.3)) rotate(calc(var(--confetti-rot) * 0.3)) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--confetti-dx), calc(var(--confetti-dy) + 40px)) rotate(var(--confetti-rot)) scale(0.5);
+  }
+}
+
+/* Legend: names flow left-to-right and only wrap to a new line once a row runs out of
+   width — a plain wrapping flex row does that for free. Every item shares the same height
+   (one line of text + a fixed-size swatch), so items on the same wrapped line land at the
+   same baseline automatically, keeping every swatch aligned horizontally within its row and
+   vertically against the swatch directly below it on the next row. */
+.ww-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.5rem;
+  row-gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.ww-calendar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+}
+
+.ww-calendar-legend-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(73, 18, 50, 0.15);
+}
+
+/* Best bets: each date is its own yellow pill/card — date + "N of M available" stacked on the
+   left, per-participant color dots on the right. Cards stack with a gap between them instead of
+   the old flat divided-list rows. */
+.ww-best-bet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1rem;
+  background-color: var(--color-accent-yellow-fill);
+  padding: 0.6rem 0.9rem;
+}
+
+.ww-best-bet-row + .ww-best-bet-row {
+  margin-top: 0.6rem;
+}
+
+.ww-best-bet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  /* Lets the dots keep their own space on the right instead of being pushed off/overlapped
+     when the date/count text is long. */
+  min-width: 0;
+}
+
+.ww-best-bet-date {
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.ww-best-bet-count {
+  font-size: 0.8rem;
+  color: var(--color-text-strong);
+  opacity: 0.75;
+}
+
+/* Wraps onto a second (third, ...) line, right-aligned, once more dots are picked for a date
+   than fit on one line — so a busy date's dots cascade downward instead of overlapping the
+   date/count text beside them. */
+.ww-best-bet-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  gap: 0.3rem;
+  flex: none;
+  max-width: 40%;
+}
+
+.ww-best-bet-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+/* Status card: "X/Y have picked"/"Everyone's in." heading + subheading + a button to Settings. */
+.ww-status-heading {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+/* Bubblier (Fredoka, via .font-display on the element itself) like the calendar's own
+   "Click a date..." subheading, but sized down from the default paragraph size — at this
+   card's normal text size the rounder font read as oversized/cartoonish next to the bold
+   heading above it. */
+.ww-status-subheading {
+  font-size: 0.75rem;
+}
+
+.ww-status-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-accent-yellow-border);
+  background-color: var(--color-accent-yellow-fill);
+  color: var(--color-text-strong);
+  font-weight: 700;
+  padding: 0.6rem 1rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Dark-yellow fill on press, same token/technique as the navbar's account toggle
+   (.nav-link-account-toggle:hover/:active) — Bootstrap's own .btn base rule (this button
+   also carries the "btn" class) would otherwise turn the background white on hover, which
+   is what this overrides. */
+.ww-status-button:hover,
+.ww-status-button:active {
+  background-color: var(--color-accent-yellow-border);
+  color: var(--color-text-strong);
+}
+
+.ww-status-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-status-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
 }
