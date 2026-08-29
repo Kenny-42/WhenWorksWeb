@@ -36,6 +36,11 @@ public partial class EventsController : Controller
     private readonly UniqueCodeGenerator _codeGenerator;
 
     /// <summary>
+    /// Removes now-empty candidate dates after an availability mark is toggled off.
+    /// </summary>
+    private readonly EventDateCleanupService _eventDateCleanup;
+
+    /// <summary>
     /// Resolves the currently signed-in application user, if any.
     /// </summary>
     private readonly UserManager<ApplicationUser> _userManager;
@@ -61,11 +66,13 @@ public partial class EventsController : Controller
     public EventsController(
         ApplicationDbContext db,
         UniqueCodeGenerator codeGenerator,
+        EventDateCleanupService eventDateCleanup,
         UserManager<ApplicationUser> userManager,
         IDataProtectionProvider dataProtectionProvider)
     {
         _db = db;
         _codeGenerator = codeGenerator;
+        _eventDateCleanup = eventDateCleanup;
         _userManager = userManager;
         // Create a data protector specifically for event access operations, using a unique purpose string to ensure that the
         // protected data is isolated from other uses of data protection in the application.
