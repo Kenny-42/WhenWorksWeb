@@ -150,7 +150,11 @@ body {
 .account-dropdown-menu::selection,
 .modal-content.delete-modal-content::selection,
 .go-button::selection,
-.enter-button::selection {
+.enter-button::selection,
+/* Same yellow fill as .input-pill-yellow, just not built on that class (it needs left-aligned
+   multi-line text, which .input-pill's own centered single-line styling isn't) — belongs in this
+   list for the same contrast reason as .input-pill-yellow itself. */
+.ww-settings-textarea::selection {
   background-color: var(--color-accent-pink-fill);
   color: var(--color-text-on-gradient);
 }
@@ -3719,12 +3723,47 @@ label:has(+ .input-pill:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  /* Width isn't automatic here: the Settings tab's clickable suggestions render this as a
+     <button>, which — unlike a <div> — is an inline-level box by default and shrinks to fit its
+     content instead of filling the card/column it sits in (the same reason its text needs the
+     explicit left-align below). */
+  width: 100%;
+  box-sizing: border-box;
   border: 2px solid var(--color-accent-yellow-border);
   border-radius: 1rem;
   /* Same pale yellow tint as .ww-people-card on the People tab, not the solid
      --color-accent-yellow-fill this used before. */
   background-color: rgba(232, 147, 90, 0.1);
   padding: 0.6rem 0.9rem;
+}
+
+/* Undoes a plain <button>'s browser-default centered text/font and non-pointer cursor, and adds
+   the same hover-lift/press-down "3D pop" + shadow as the rest of this page's buttons — signals
+   these particular rows are clickable, unlike Home's plain (non-interactive) best-bets list,
+   which stays a flat <div> with none of this. Fill color is untouched (still the yellow tint from
+   .ww-best-bet-row above) — only shadow/transform respond to interaction, per feedback that the
+   suggestions needed a "this is clickable" affordance without changing their color. */
+.ww-best-bet-row-button {
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease;
+}
+
+.ww-best-bet-row-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-best-bet-row-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-best-bet-row-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-hard-hover), 0 0 0 3px var(--color-text-strong);
 }
 
 .ww-best-bet-row + .ww-best-bet-row {
@@ -3770,6 +3809,13 @@ label:has(+ .input-pill:disabled) {
   border-radius: 50%;
   flex: none;
   border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+/* Empty state ("The best date will appear once...", "Suggestions will appear once...") — still a
+   .ww-best-bet-row card, just centered since there's no date/dots content to space apart. */
+.ww-best-bet-empty {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 /* Status card: regular white-glass .ww-event-card fill, just with a pink outline instead of
@@ -3833,4 +3879,334 @@ label:has(+ .input-pill:disabled) {
 .ww-status-button:active {
   transform: translateY(2px);
   box-shadow: var(--shadow-hard-active);
+}
+
+/* ==========================================================================
+   Event Settings tab (Spec/Features/FEATURES-event-home-page.ospec, "4. Settings tab")
+   ========================================================================== */
+
+/* "Shape the plan" card heading — no color rule previously, so it fell back to default black
+   instead of the site's dark-gray heading color (same fix as .ww-people-roster-card h2/
+   .ww-availability-sidebar h3 elsewhere). Already bold via .font-display's class on the element;
+   .font-display's own regular weight doesn't read noticeably rounder/bubblier next to the body
+   font beside it — its bold weight does (same "bubblier" fix as those other headings). */
+.ww-settings-shape-card h2 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+/* Field labels above the "Shape the plan" form's inputs — same small-caps treatment as
+   .ww-people-subtitle/.ww-myevent-people elsewhere rather than a bare <label>. */
+.ww-settings-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* "(optional)" beside the End date label — smaller than the label itself (.ww-people-meta's own
+   0.82rem read larger than the 0.75rem label it sits inside); color/opacity/uppercase are
+   inherited from .ww-settings-label, only the size differs. */
+.ww-settings-optional-tag {
+  font-size: 0.6rem;
+}
+
+/* Left-aligns this page's pill inputs/textarea/emoji button (.input-pill's own base rule centers
+   text, which suits Home's centered create-event input but not this page's label-above-field
+   layout) and gives them the same hard-shadow pop/hover-lift/press-down bounce as
+   .ww-signin-card's own inputs elsewhere on the site. -webkit-appearance: none hands a native
+   <input type="date"> fully back to author styles instead of the platform theme — Chromium
+   otherwise keeps drawing its own default (blue) focus ring around a date/time input's shadow-DOM
+   internals on top of whatever this stylesheet sets on the element's own box, unlike a plain text
+   input where -webkit-appearance isn't needed for that. accent-color additionally repaints that
+   control's internal picker/segment highlighting in the site's own focus-ring color (Chromium
+   respects this for the calendar dropdown's selected-day highlight) for whatever
+   -webkit-appearance alone doesn't reach. Scoped to the whole page rather than one input class so
+   the title/date pill inputs, the textarea, and the emoji button all move as one consistent set. */
+.ww-settings-page .input-pill,
+.ww-settings-page .ww-settings-textarea,
+.ww-settings-page .ww-settings-emoji-button {
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: var(--shadow-hard);
+  accent-color: var(--color-text-strong);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.ww-settings-page .input-pill:hover:not(:disabled),
+.ww-settings-page .ww-settings-textarea:hover:not(:disabled),
+.ww-settings-page .ww-settings-emoji-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-settings-page .input-pill:active:not(:disabled),
+.ww-settings-page .ww-settings-textarea:active:not(:disabled),
+.ww-settings-page .ww-settings-emoji-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Taller lift + shadow as the focus indicator — no encircling ring (tried one, but at this
+   pill's small size a 3px solid ring in --color-text-strong read as a plain black/dark border,
+   not as "the site's plum" — the lift+shadow alone is a large enough visual change to read as
+   focus without it). outline: none is unconditional (both :focus and :focus-visible, not gated
+   to :focus-visible alone) — composite controls like <input type="date"> aren't reliably treated
+   as "keyboard only" by that heuristic the way a plain text input is (a browser can reasonably
+   expect keyboard use — arrow keys between day/month/year — right after a mouse click into one),
+   so gating the suppression on :focus-visible left it inconsistently applied on click depending
+   on the browser. !important needed to beat the sitewide `.input-pill:focus { box-shadow: none
+   !important; }` rule. */
+.ww-settings-page .input-pill:focus,
+.ww-settings-page .ww-settings-textarea:focus,
+.ww-settings-page .ww-settings-emoji-button:focus,
+.ww-settings-page .input-pill:focus-visible,
+.ww-settings-page .ww-settings-textarea:focus-visible,
+.ww-settings-page .ww-settings-emoji-button:focus-visible {
+  outline: none !important;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+.ww-settings-input {
+  text-align: left;
+}
+
+.ww-settings-page .ww-settings-input::placeholder {
+  text-align: left;
+}
+
+/* Sub-headings inside the "Call the date" card ("Suggestions"/"Final dates") — smaller than the
+   card's own h3, same heading color as the rest of this page's headings. */
+.ww-settings-sublabel {
+  margin-bottom: 0.5rem;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Description textarea: same yellow fill/border as .input-pill-yellow, but a smaller corner
+   radius (not a full pill) and left-aligned text — .input-pill's own center alignment and
+   var(--radius-pill) rounding are meant for single-line inputs, not multi-line text. */
+.ww-settings-textarea {
+  width: 100%;
+  border-radius: 1rem;
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+  color: var(--color-text-strong);
+  caret-color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.65rem 0.9rem;
+  resize: vertical;
+}
+
+/* Bootstrap's own .form-control:focus/:hover rules (this element also carries .form-control)
+   otherwise swap in a white background and blue-ish border at the same specificity — every
+   color they touch has to be explicitly restated here, same reasoning as .input-pill:focus. */
+.ww-settings-textarea:hover:not(:disabled),
+.ww-settings-textarea:focus,
+.ww-settings-textarea:active {
+  background-color: var(--color-accent-yellow-fill) !important;
+  border-color: var(--color-accent-yellow-border) !important;
+  color: var(--color-text-strong) !important;
+}
+
+.ww-settings-textarea::placeholder {
+  color: var(--color-text-strong);
+  opacity: 0.75;
+}
+
+.ww-settings-textarea:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Emoji trigger button: shows the event's current emoji, same yellow-pill treatment as the text
+   inputs beside it (see the shared hover/focus/active rules above). */
+.ww-settings-emoji-button {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+  color: var(--color-text-strong);
+  padding: 0.5rem 1rem;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.ww-settings-emoji-button:hover:not(:disabled),
+.ww-settings-emoji-button:focus,
+.ww-settings-emoji-button:active {
+  background-color: var(--color-accent-yellow-fill);
+  border-color: var(--color-accent-yellow-border);
+}
+
+.ww-settings-emoji-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Popup anchor for <emoji-picker> (emoji-picker-element, loaded globally in _Layout.cshtml) —
+   positioned below the trigger button. The element's own Shadow DOM keeps its internals from
+   needing any styling here. */
+.ww-settings-emoji-popup {
+  position: relative;
+  z-index: 20;
+}
+
+.ww-settings-emoji-popup emoji-picker {
+  position: absolute;
+  top: 0.5rem;
+  left: 0;
+}
+
+/* Add-a-date form beneath the Suggestions list — no card of its own, sits directly on the
+   "Call the date" card's surface. */
+.ww-settings-add-date-form {
+  border-top: 2px solid var(--color-accent-yellow-border);
+  padding-top: 1rem;
+}
+
+/* One confirmed EventFinalDate row — a solid blue pill/button (.input-pill-blue's own fill/
+   border pairing), not the yellow-tinted-card treatment .ww-best-bet-row uses for suggestions,
+   so the two sub-lists read as visually distinct and a confirmed date reads as more "settled"
+   than a suggestion. */
+.ww-final-date-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-blue-fill);
+  border: 2px solid var(--color-accent-blue-border);
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Same hover-lift/press-down bounce as the rest of this page's pills — even though the row
+   itself has no click handler of its own (only the small remove button inside it does), it
+   still gets the same hover/press feedback as a matter of visual consistency with every other
+   pill on this page, per feedback. */
+.ww-final-date-row:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-final-date-row:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-final-date-row + .ww-final-date-row {
+  margin-top: 0.5rem;
+}
+
+/* Shrinks toward data-min-font-size (via .ww-autofit-title, site.js) rather than wrapping or
+   overflowing — a "MMM d – MMM d" range is long enough to threaten the remove button's space in
+   a narrow sidebar. min-width: 0 lets this flex item actually shrink below its content's natural
+   width (a flex item's default min-width is auto, i.e. its content size, which would otherwise
+   stop the row from ever measuring as overflowing); white-space/overflow give the autofit script
+   a single-line box with a measurable scrollWidth to shrink against. */
+.ww-final-date-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.ww-final-date-remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-final-date-remove-button:hover,
+.ww-final-date-remove-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
+  background-color: rgba(239, 93, 93, 0.12);
+}
+
+/* Delete Event button — stands alone (no .ww-event-card wrapper) rather than sitting inside its
+   own card the way the mockup had it, so it reads as a plain full-width action in the sidebar.
+   Solid red fill (.input-pill-red's own fill/border/text pairing — text-strong reads correctly
+   on this fill, same as every other red-fill control on the site), with the same hover-lift/
+   press-down "3D pop" + darker-fill-on-press language as .go-button elsewhere on this page. */
+.ww-delete-event-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-red);
+  border: 2px solid var(--color-accent-red-border);
+  color: var(--color-text-strong);
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-delete-event-button:hover {
+  background-color: var(--color-accent-red-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* Same plum ring as every other focus-visible control on the site, not another red state. */
+.ww-delete-event-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+.ww-delete-event-button:active {
+  background-color: var(--color-accent-red-border);
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Small text "Clear" affordance beside each date field's label — lets the organizer blank a
+   date back out, which a native <input type="date"> has no built-in control for once a value is
+   set. */
+.ww-settings-clear-date-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.ww-settings-clear-date-button:hover,
+.ww-settings-clear-date-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
 }
