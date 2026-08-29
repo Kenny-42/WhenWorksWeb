@@ -187,6 +187,23 @@ public partial class EventsController : Controller
     }
 
     /// <summary>
+    /// Returns the tracked event for the provided code, for actions that need to modify it
+    /// (e.g. editing its title, or deleting it), or null if it does not exist.
+    /// </summary>
+    private async Task<Event?> GetTrackedEventAsync(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var normalizedCode = code.Trim().ToUpperInvariant();
+
+        return await _db.Events
+            .SingleOrDefaultAsync(e => e.Code == normalizedCode, cancellationToken);
+    }
+
+    /// <summary>
     /// Returns a friendly shared error page for an event code that does not exist.
     /// </summary>
     private IActionResult CreateEventNotFoundResult()
