@@ -112,12 +112,11 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
     }
 
     [Fact]
-    public async Task Settings_ReturnsCurrentTitleDescriptionEmojiAndFinalDates()
+    public async Task Settings_ReturnsCurrentTitleDescriptionAndEmoji()
     {
         var evt = await CreateEventAsync();
         evt.Title = "Trivia Night";
         Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎲", Description = "Bring snacks." });
-        Db.EventFinalDates.Add(new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 8, 28) });
         await Db.SaveChangesAsync();
 
         var (_, controller) = await SignInParticipantAsync(evt);
@@ -128,9 +127,6 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         Assert.Equal("Trivia Night", model.Title);
         Assert.Equal("Bring snacks.", model.Description);
         Assert.Equal("🎲", model.Emoji);
-        var finalDate = Assert.Single(model.FinalDates);
-        Assert.Equal(new DateOnly(2026, 8, 28), finalDate.StartDate);
-        Assert.Null(finalDate.EndDate);
     }
 
     [Fact]

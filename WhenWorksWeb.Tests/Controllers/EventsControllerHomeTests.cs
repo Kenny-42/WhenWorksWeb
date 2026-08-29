@@ -214,4 +214,60 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
         var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
         Assert.Equal(["Amy", "Zack"], model.Calendar.Participants.Select(p => p.DisplayName));
     }
+
+    /// <summary>
+    /// With no organizer-chosen final dates on the event, the calendar's FinalDates list must be
+    /// empty rather than, say, null or throwing — the Availability tab's live "Final dates" card
+    /// relies on an empty (not missing) list to know it should render nothing.
+    /// </summary>
+    [Fact]
+    public async Task Home_WithNoFinalDates_ReturnsEmptyCalendarFinalDates()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Empty(model.Calendar.FinalDates);
+    }
+
+    /// <summary>
+    /// The calendar's FinalDates list carries every EventFinalDate row for the event, ordered by
+    /// start date, so the Availability tab's live "Final dates" card shows the same entries as
+    /// the Finalize tab in the same order.
+    /// </summary>
+    [Fact]
+    public async Task Home_WithFinalDates_ReturnsThemOrderedByStartDate()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        Db.EventFinalDates.AddRange(
+            new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 9, 10) },
+            new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 8, 28), EndDate = new DateOnly(2026, 8, 30) });
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(
+            [new DateOnly(2026, 8, 28), new DateOnly(2026, 9, 10)],
+            model.Calendar.FinalDates.Select(f => f.StartDate));
+        Assert.Equal(new DateOnly(2026, 8, 30), model.Calendar.FinalDates[0].EndDate);
+    }
 }

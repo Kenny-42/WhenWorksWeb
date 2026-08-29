@@ -9,7 +9,7 @@ namespace WhenWorksWeb.Tests.Controllers;
 
 /// <summary>
 /// Tests for <see cref="WhenWorksWeb.Controllers.EventsController"/>'s AddFinalDate/RemoveFinalDate
-/// actions (<c>EventsController.FinalDate.cs</c>) — the Settings tab's "Call the date" card, kept
+/// actions (<c>EventsController.FinalDate.cs</c>) — the Finalize tab's "Call the date" card, kept
 /// entirely decoupled from <see cref="EventDate"/>/<see cref="ParticipantAvailability"/> per the
 /// feature spec.
 /// </summary>
@@ -125,7 +125,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", null, CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
-        Assert.Equal("EventSettings", redirect.RouteName);
+        Assert.Equal("EventFinalize", redirect.RouteName);
 
         var finalDate = Assert.Single(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
         Assert.Equal(new DateOnly(2026, 8, 28), finalDate.StartDate);
@@ -157,15 +157,15 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     }
 
     [Fact]
-    public async Task AddFinalDate_WithEndDateBeforeStartDate_ReturnsSettingsViewWithModelErrorAndDoesNotAdd()
+    public async Task AddFinalDate_WithEndDateBeforeStartDate_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
         var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", "2026-08-20", CancellationToken.None);
 
         var viewResult = Assert.IsType<ViewResult>(result);
-        Assert.Equal("Settings", viewResult.ViewName);
-        Assert.IsType<EventSettingsViewModel>(viewResult.Model);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.IsType<EventFinalizeViewModel>(viewResult.Model);
         Assert.False(controller.ModelState.IsValid);
         Assert.Empty(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
     }
@@ -235,7 +235,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         var result = await controller.RemoveFinalDate("BCDFGH", finalDate.Id, CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
-        Assert.Equal("EventSettings", redirect.RouteName);
+        Assert.Equal("EventFinalize", redirect.RouteName);
         Assert.Empty(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
     }
 
