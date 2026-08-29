@@ -131,4 +131,98 @@ public class WebApplicationFactorySmokeTests : IClassFixture<CustomWebApplicatio
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.False(await db.Events.AnyAsync(e => e.Title == "Should Never Be Created"));
     }
+
+    /// <summary>
+    /// The Availability tab's calendar toggle is this app's first fetch-based (not full-page-postback)
+    /// endpoint — it reuses the ordinary antiforgery mechanism by sending the token as a plain
+    /// <c>application/x-www-form-urlencoded</c> field, exactly mirroring what the view's JS actually does
+    /// (see EventsController.Availability.cs's remarks). This proves that mechanism really works through
+    /// the real pipeline, not just that the controller method behaves correctly when called directly.
+    /// </summary>
+    [Fact]
+    public async Task ToggleAvailability_ThroughRealPipeline_TogglesAndPersists()
+    {
+        var creatorClient = CreateClient();
+        var homePageHtml = await creatorClient.GetStringAsync("/");
+        var createToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(homePageHtml);
+
+        var createResponse = await creatorClient.PostAsync("/Events/Create", new FormUrlEncodedContent(
+        [
+            new("CreateEventName", "Availability Smoke Test Event"),
+            new("__RequestVerificationToken", createToken)
+        ]));
+        createResponse.EnsureSuccessStatusCode();
+        var eventCode = createResponse.RequestMessage!.RequestUri!.AbsolutePath.Split('/')[2];
+
+        var signInPageHtml = await createResponse.Content.ReadAsStringAsync();
+        var signInToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(signInPageHtml);
+        var signInResponse = await creatorClient.PostAsync($"/event/{eventCode}/signin", new FormUrlEncodedContent(
+        [
+            new("Code", eventCode),
+            new("DisplayName", "Avail Tester"),
+            new("Color", "ff66c4"),
+            new("__RequestVerificationToken", signInToken)
+        ]));
+        signInResponse.EnsureSuccessStatusCode();
+
+        var eventHomeHtml = await signInResponse.Content.ReadAsStringAsync();
+        var availabilityToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(eventHomeHtml);
+
+        var toggleResponse = await creatorClient.PostAsync($"/event/{eventCode}/availability", new FormUrlEncodedContent(
+        [
+            new("date", "2026-08-28"),
+            new("__RequestVerificationToken", availabilityToken)
+        ]));
+        toggleResponse.EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var savedDate = await db.EventDates.SingleAsync(d => d.Event.Code == eventCode);
+        Assert.Equal(new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero), savedDate.Date);
+        Assert.True(await db.ParticipantAvailabilities.AnyAsync(a => a.EventDateId == savedDate.Id));
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="CreateEvent_WithoutAntiForgeryToken_IsRejected"/> for the new fetch-based
+    /// endpoint: a POST with no token must be rejected outright by the real pipeline, proving
+    /// [ValidateAntiForgeryToken] still applies even though this endpoint is called via fetch rather than
+    /// a full-page form submit.
+    /// </summary>
+    [Fact]
+    public async Task ToggleAvailability_WithoutAntiForgeryToken_IsRejected()
+    {
+        var creatorClient = CreateClient();
+        var homePageHtml = await creatorClient.GetStringAsync("/");
+        var createToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(homePageHtml);
+
+        var createResponse = await creatorClient.PostAsync("/Events/Create", new FormUrlEncodedContent(
+        [
+            new("CreateEventName", "Availability Rejection Test Event"),
+            new("__RequestVerificationToken", createToken)
+        ]));
+        createResponse.EnsureSuccessStatusCode();
+        var eventCode = createResponse.RequestMessage!.RequestUri!.AbsolutePath.Split('/')[2];
+
+        var signInPageHtml = await createResponse.Content.ReadAsStringAsync();
+        var signInToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(signInPageHtml);
+        var signInResponse = await creatorClient.PostAsync($"/event/{eventCode}/signin", new FormUrlEncodedContent(
+        [
+            new("Code", eventCode),
+            new("DisplayName", "Avail Tester"),
+            new("Color", "ff66c4"),
+            new("__RequestVerificationToken", signInToken)
+        ]));
+        signInResponse.EnsureSuccessStatusCode();
+
+        var toggleResponse = await creatorClient.PostAsync($"/event/{eventCode}/availability", new FormUrlEncodedContent(
+        [
+            new("date", "2026-08-28")
+        ]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, toggleResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.EventDates.AnyAsync(d => d.Event.Code == eventCode));
+    }
 }

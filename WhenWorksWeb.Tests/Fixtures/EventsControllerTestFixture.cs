@@ -35,6 +35,7 @@ public abstract class EventsControllerTestFixture : SqliteDbContextFixture
         var controller = new EventsController(
             Db,
             new UniqueCodeGenerator(Db),
+            new EventDateCleanupService(Db),
             TestUserManagerFactory.Create(Db),
             _dataProtectionProvider);
 

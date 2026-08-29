@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
@@ -99,5 +100,118 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
         var setCookieHeaders = httpContext.Response.Headers.SetCookie.ToArray();
         Assert.Contains(setCookieHeaders, h => h!.StartsWith("WhenWorksWeb.EventAccess.BCDFGH=", StringComparison.Ordinal)
             && h.Contains("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// With no availability marks anywhere in the event, the calendar's sparse Dates list must be empty
+    /// rather than, say, one entry per participant or per day — there's nothing to render yet.
+    /// </summary>
+    [Fact]
+    public async Task Home_WithNoAvailabilityMarks_ReturnsEmptyCalendarDates()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Empty(model.Calendar.Dates);
+        Assert.Single(model.Calendar.Participants);
+    }
+
+    /// <summary>
+    /// The calendar's Dates list must be sparse — only calendar days that have at least one participant
+    /// available appear, carrying exactly that set of participant ids and no others.
+    /// </summary>
+    [Fact]
+    public async Task Home_WithAvailabilityMarks_ReturnsOnlyDatesWithPicksAndCorrectParticipantIds()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        var alice = await Db.Participants.SingleAsync(p => p.DisplayName == "Alice");
+
+        var pickedDate = new EventDateBuilder().ForEvent(evt).WithDate(new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero)).Build();
+        var unpickedDate = new EventDateBuilder().ForEvent(evt).WithDate(new DateTimeOffset(2026, 8, 29, 0, 0, 0, TimeSpan.Zero)).Build();
+        Db.EventDates.AddRange(pickedDate, unpickedDate);
+        await Db.SaveChangesAsync();
+
+        Db.ParticipantAvailabilities.Add(new ParticipantAvailability { ParticipantId = alice.Id, EventDateId = pickedDate.Id });
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        var onlyDate = Assert.Single(model.Calendar.Dates);
+        Assert.Equal(new DateOnly(2026, 8, 28), onlyDate.Date);
+        Assert.Equal([alice.Id], onlyDate.ParticipantIds);
+    }
+
+    /// <summary>
+    /// The navigable month window is a generous, fixed sanity bound (10 years either way) around today —
+    /// not a data-volume optimization (see EventsController.Home.cs's own remarks).
+    /// </summary>
+    [Fact]
+    public async Task Home_CalendarWindow_Spans10YearsBeforeAndAfterTheCurrentMonth()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var expectedInitialMonth = new DateOnly(today.Year, today.Month, 1);
+
+        Assert.Equal(expectedInitialMonth, model.Calendar.InitialMonth);
+        Assert.Equal(expectedInitialMonth.AddMonths(-120), model.Calendar.WindowStartMonth);
+        Assert.Equal(expectedInitialMonth.AddMonths(120), model.Calendar.WindowEndMonth);
+    }
+
+    /// <summary>
+    /// Every participant in the event appears in the calendar's Participants list (for the legend), ordered
+    /// alphabetically by display name — not just organizers, and not just ones who've picked a date.
+    /// </summary>
+    [Fact]
+    public async Task Home_Calendar_IncludesEveryParticipantOrderedByDisplayName()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Zack", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName("Amy").WithColor("111111").Build());
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.Home("BCDFGH", CancellationToken.None);
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(["Amy", "Zack"], model.Calendar.Participants.Select(p => p.DisplayName));
     }
 }
