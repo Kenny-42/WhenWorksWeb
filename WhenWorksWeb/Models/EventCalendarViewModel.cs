@@ -78,4 +78,12 @@ public sealed class EventCalendarViewModel
     /// Every candidate date with at least one participant available on it.
     /// </summary>
     public required IReadOnlyList<EventCalendarDateViewModel> Dates { get; init; }
+
+    /// <summary>
+    /// The organizer's current final date entries, ordered by start date. Carried on the same
+    /// JSON blob as <see cref="Dates"/> so the Availability tab's "Final dates" card can compute
+    /// live per-date availability from <see cref="Dates"/> client-side (the same data Best Bets
+    /// already reads) without a second server round trip.
+    /// </summary>
+    public required IReadOnlyList<EventFinalDateViewModel> FinalDates { get; init; }
 }
