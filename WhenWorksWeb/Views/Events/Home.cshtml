@@ -71,6 +71,7 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/event-best-bets.js"></script>
     <script>
         (function () {
             "use strict";
@@ -174,9 +175,7 @@
             }
 
             function formatDateLabel(key) {
-                var parts = key.split('-');
-                var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                return MONTH_NAMES[d.getMonth()].slice(0, 3) + ' ' + d.getDate();
+                return WWBestBets.formatDateLabel(key);
             }
 
             function renderCalendar() {
@@ -424,59 +423,7 @@
             }
 
             function renderBestBets() {
-                var entries = Object.keys(datesByKey)
-                    .map(function (key) { return { date: key, participantIds: datesByKey[key] }; })
-                    .filter(function (entry) { return entry.participantIds.length > 0; });
-
-                entries.sort(function (a, b) {
-                    if (b.participantIds.length !== a.participantIds.length) {
-                        return b.participantIds.length - a.participantIds.length;
-                    }
-                    return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
-                });
-
-                var topEntries = entries.slice(0, 3);
-                bestBetsEl.innerHTML = '';
-
-                if (topEntries.length === 0) {
-                    var empty = document.createElement('p');
-                    empty.className = 'text-muted mb-0';
-                    empty.textContent = 'The best date will appear once your group starts picking.';
-                    bestBetsEl.appendChild(empty);
-                    return;
-                }
-
-                topEntries.forEach(function (entry) {
-                    var row = document.createElement('div');
-                    row.className = 'ww-best-bet-row';
-
-                    var info = document.createElement('div');
-                    info.className = 'ww-best-bet-info';
-
-                    var dateLabel = document.createElement('span');
-                    dateLabel.className = 'ww-best-bet-date';
-                    dateLabel.textContent = formatDateLabel(entry.date);
-                    info.appendChild(dateLabel);
-
-                    var count = document.createElement('span');
-                    count.className = 'ww-best-bet-count';
-                    count.textContent = entry.participantIds.length + ' of ' + calendar.participants.length + ' available';
-                    info.appendChild(count);
-
-                    row.appendChild(info);
-
-                    var dots = document.createElement('span');
-                    dots.className = 'ww-best-bet-dots';
-                    entry.participantIds.forEach(function (id) {
-                        var dot = document.createElement('span');
-                        dot.className = 'ww-best-bet-dot';
-                        dot.style.backgroundColor = '#' + colorFor(id);
-                        dots.appendChild(dot);
-                    });
-                    row.appendChild(dots);
-
-                    bestBetsEl.appendChild(row);
-                });
+                WWBestBets.renderBestBetsList(bestBetsEl, datesByKey, participantsById, calendar.participants.length);
             }
 
             function renderStatus() {
