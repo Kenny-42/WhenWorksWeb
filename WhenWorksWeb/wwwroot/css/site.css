@@ -150,7 +150,11 @@ body {
 .account-dropdown-menu::selection,
 .modal-content.delete-modal-content::selection,
 .go-button::selection,
-.enter-button::selection {
+.enter-button::selection,
+/* Same yellow fill as .input-pill-yellow, just not built on that class (it needs left-aligned
+   multi-line text, which .input-pill's own centered single-line styling isn't) — belongs in this
+   list for the same contrast reason as .input-pill-yellow itself. */
+.ww-settings-textarea::selection {
   background-color: var(--color-accent-pink-fill);
   color: var(--color-text-on-gradient);
 }
@@ -3068,4 +3072,1177 @@ label:has(+ .input-pill:disabled) {
     background-image: none;
     -webkit-text-fill-color: currentColor;
   }
+}
+
+/* ==========================================================================
+   Event home page (Views/Events/Home.cshtml, People.cshtml, Settings.cshtml)
+   ==========================================================================
+   First functional pass on this page's chrome (badge/title/code/tab bar), shared by all
+   three tabs via the _EventHeader partial. Per STYLE_GUIDE.md, this page hadn't been styled
+   at all before now — treat this section as a starting point to refine against the reference
+   mockups, not a finished design pass. Card outlines on this page use yellow (matching the
+   rest of the site's primary/yellow accent) rather than blue, per the feature spec. */
+
+.ww-event-header {
+  margin-bottom: 1.75rem;
+}
+
+.ww-event-header-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Badge and the code/settings buttons share one row so the buttons always line up with the
+   "EVENT" badge, regardless of how long the title below them is. The title gets its own row
+   underneath — a separate flex row, so a long title never pushes the buttons out of place or
+   wraps them below-left of it (they can only ever drop below the badge, on narrow viewports). */
+.ww-event-header-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ww-event-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  /* Breathing room from the badge/buttons row above — without it the (potentially large,
+     two-line) title sits flush against it. */
+  margin-top: 0.75rem;
+}
+
+/* min-width: 0 overrides the flex default of min-width: auto, which otherwise refuses to
+   shrink a flex item below its content's intrinsic width — the exact case a single long,
+   unbroken word in an event title hits, pushing the heading (and the page) wider than the
+   viewport instead of wrapping/shrinking. overflow-wrap covers the same case once the
+   .ww-autofit-title JS below has shrunk the font to its floor and the word still doesn't fit.
+
+   Deliberately NO max-height/overflow: hidden on this element. Three earlier versions of this
+   rule tried adding one anyway — as the actual "does it fit in two lines" signal (broken twice:
+   an em-based slack scaled with font-size and let a real third line sneak through at large
+   sizes; moving that slack into padding instead grew scrollHeight and clientHeight in lockstep
+   under this app's global border-box sizing, so it bought no room at all) and, once line-count
+   was decided independently by the autofit script's own countLines() (site.js), as a
+   deliberately generous safety-net clip that was never supposed to actually engage. It still
+   clipped the shadow anyway — on titles that needed only *one* line, nowhere near whatever
+   budget was set, ruling out every one of those explanations. Rather than keep guessing at
+   another height budget, the cap is now enforced *only* by the JS actually keeping the text to
+   two rendered lines (data-max-lines="2" below) — with nothing on this element left to clip its
+   own text-shadow, there's nothing left that can cut it off. A bigger clamp() ceiling and
+   steeper preferred value than the shared .ww-hero-title default (used as-is by the landing
+   hero/My Events/Sign-in) — this heading has the room and reads better bigger, and the previous
+   ceiling (7.5rem) read too small for short titles that never needed to shrink at all. The floor
+   (data-min-font-size) was also lowered from 32px to 20px: a full-length (30-char, see
+   ModelConstants.EventTitleMaxLength) single unbroken word can still need something close to
+   that floor to reach two lines on a narrow phone viewport, and 32px wasn't always low enough —
+   the other reported cause of "still three lines" (a floor that's too high genuinely can't be
+   shrunk past, regardless of how correctly the fit check itself behaves). */
+.ww-event-title-row .ww-hero-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(2.5rem, 12vw, 9rem);
+  text-align: center;
+}
+
+.ww-event-title-emoji {
+  line-height: 1;
+}
+
+/* The invisible mirror copy after the title (see _EventHeader.cshtml) — same rendered size as
+   the real emoji (site.js sizes both identically) so it balances the flex row and keeps the
+   title itself centered, but never actually shown. visibility: hidden, not display: none, so it
+   still takes up layout space. */
+.ww-event-title-emoji-spacer {
+  visibility: hidden;
+}
+
+/* The event code, rendered as a single pill button that copies itself to the clipboard —
+   replaces the old separate "Share code" button (see feature spec's page-wide changes). */
+.ww-event-code-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  padding: 0.25rem 0.7rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-event-code-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-event-code-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-code-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Two stacked glyphs crossfade via opacity on copy, same technique as .ww-myevent-copy-button. */
+.ww-event-code-button .bi-check-lg {
+  opacity: 0;
+  color: var(--color-accent-green-border);
+}
+
+.ww-event-code-button.copied .bi-clipboard {
+  display: none;
+}
+
+.ww-event-code-button.copied .bi-check-lg {
+  opacity: 1;
+}
+
+/* Icon-only shortcut to the Settings tab, next to the code pill. */
+.ww-event-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  font-size: 0.85rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-event-settings-button:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-event-settings-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-settings-button:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+/* Tab bar: Availability/People/Settings. Extra top margin (vs. the page-nav pagination's own
+   spacing) per the feature spec's "more vertical spacing between the tab buttons and the
+   divider below them." */
+.ww-event-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ww-event-tab {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  padding: 0.45rem 1.1rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ww-event-tab:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+  color: var(--color-text-strong);
+}
+
+.ww-event-tab:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-event-tab:focus-visible {
+  outline: 3px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
+
+.ww-event-tab.active {
+  background-color: var(--color-accent-yellow-fill);
+  pointer-events: none;
+}
+
+.ww-event-divider {
+  margin-top: 1.5rem;
+  border: none;
+  border-top: 2px solid var(--color-accent-yellow-border);
+  opacity: 0.5;
+}
+
+/* The header's own divider (under the tab bar) sits directly on the page's open gradient, like
+   .ww-event-header itself — white matches that gradient-chrome treatment. Other
+   .ww-event-divider uses (e.g. inside the calendar card) sit on the white/glass card surface,
+   where a yellow line is what's visible, so this override is scoped to the header only.
+   Same rounded-capsule technique as .account-divider (a filled, border-radius bar) rather
+   than a plain border-top — the site's usual divider treatment. */
+.ww-event-header .ww-event-divider {
+  /* Tighter than the shared .ww-event-divider's 1.5rem default — the tab bar reads better
+     sitting close to the divider beneath it rather than floating a full section-gap above it. */
+  margin-top: 0.75rem;
+  height: 2px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-text-on-gradient);
+}
+
+/* Shared yellow-outlined card treatment for this page's tab content (best bets/status/people
+   roster/settings cards) — white-glass surface per STYLE_GUIDE.md, yellow border per the
+   feature spec's page-wide accent swap. */
+.ww-event-card {
+  background-color: rgba(255, 255, 255, 0.82);
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-hard);
+  padding: 1.25rem;
+}
+
+/* People tab: "The crew" card header — the h2 itself, styled to match .ww-myevent-title's
+   dark-gray (not default black) heading color, plus the subtitle under it and the pink
+   "N PEOPLE" count badge opposite it, echoing .ww-myevent-people's small-caps treatment on
+   My Events' own cards. */
+.ww-people-roster-card h2 {
+  color: var(--color-text-strong);
+  /* Fredoka's regular weight (.font-display's own default) doesn't read noticeably rounder/
+     "bubblier" than the body font next to it; its bold weight does — same fix as
+     #ww-calendar-month-label's own weight-700 override elsewhere in this file. */
+  font-weight: 700;
+}
+
+.ww-people-subtitle {
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ww-people-count-badge {
+  flex: none;
+  color: var(--color-brand-badge-fill);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* People tab: outer "The crew" card, recolored blue instead of .ww-event-card's sitewide
+   yellow border — outline only, fill/shadow stay the shared .ww-event-card treatment. Scoped
+   to .ww-people-roster-card so the other tabs' .ww-event-card uses are untouched. */
+.ww-people-roster-card {
+  border-color: var(--color-accent-blue-border);
+}
+
+/* People tab: one card per participant row — yellow-tinted surface/border so the roster
+   reads as a set of distinct crew cards rather than a plain list. */
+.ww-people-card {
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1rem;
+  background-color: rgba(232, 147, 90, 0.1);
+  padding: 0.85rem 1.1rem;
+}
+
+.ww-people-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 50%;
+  background-color: var(--avatar-color, var(--color-accent-pink-fill));
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-people-name {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.ww-people-you {
+  margin-left: 0.3rem;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ww-people-meta {
+  color: var(--color-text-strong);
+  opacity: 0.65;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+/* Crown marker for organizers — an emoji (Bootstrap Icons has no crown glyph) matching
+   this app's existing use of emoji for playful, at-a-glance markers elsewhere. */
+.ww-people-organizer-crown {
+  flex: none;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* Availability tab: two-column layout — calendar card on the left, best-bets/status cards
+   stacked on the right. Stacks to a single column on narrow viewports. */
+.ww-availability-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Bootstrap's own "below lg" breakpoint, not the "below md" 768px this used to stack at — the
+   sidebar's 1fr share got too narrow for its own content (best-bets rows wrapping their "N of M
+   available" line) well before 768px, so this stacks a tier sooner to keep those cards legible. */
+@media (max-width: 991.98px) {
+  .ww-availability-layout {
+    /* minmax(0, 1fr), not a bare 1fr — a bare 1fr track's automatic minimum is its content's
+       min-content width, which on narrow viewports is wider than the viewport itself (mainly
+       driven by the calendar grid's own min-content floor below), forcing this whole layout to
+       overflow horizontally instead of actually shrinking to fit. minmax(0, ...) lets the track
+       shrink past that floor. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ww-availability-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ww-calendar-card {
+  padding: 1.5rem;
+}
+
+.ww-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ww-calendar-title {
+  text-align: center;
+}
+
+/* Month name in the site's dark-gray heading color (--color-text-strong, matching
+   .ww-myevent-title/.ww-people-roster-card h2 elsewhere rather than pure black), year in the
+   site's hot-pink text accent (same token/technique as .text-link's hover color). font-weight
+   bumped past .font-display's own default — Fredoka's regular weight didn't read noticeably
+   rounder/"bubblier" than the body font next to it; its bold weight does (same reasoning as
+   .ww-hero-title's own weight-700 override elsewhere in this file). */
+#ww-calendar-month-label {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+.ww-calendar-month-year {
+  color: var(--color-accent-pink-fill);
+}
+
+/* Sized down from its old 0.85rem — Fredoka (.font-display, added alongside the status card's
+   own .ww-status-subheading) reads noticeably bigger than the body font at the same rem size. */
+.ww-calendar-subtitle {
+  font-size: 0.75rem;
+}
+
+/* Round prev/next month buttons — same hard-shadow/pill language as the rest of the page's
+   buttons, sized down and circular to match the reference layout. */
+.ww-calendar-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-accent-yellow-border);
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-strong);
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-calendar-nav-button:hover:not(:disabled) {
+  background-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-calendar-nav-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-calendar-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ww-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--color-accent-yellow-border);
+  margin-bottom: 0.5rem;
+}
+
+.ww-calendar-grid {
+  display: grid;
+  /* minmax(0, 1fr), not a bare 1fr — see .ww-availability-layout's own comment above. Here the
+     content-based floor a bare 1fr won't shrink past comes from each .ww-calendar-cell's
+     aspect-ratio combined with its min-height, which transfers into a minimum cell width wider
+     than a phone screen can fit across 7 columns. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  /* Set from JS to the current participant's own color, so the "my pick" marker below doesn't
+     need to be recomputed per cell. */
+  --current-participant-color: var(--color-accent-yellow-border);
+}
+
+.ww-calendar-cell {
+  position: relative;
+  /* Taller than wide (rather than a square) so the day number at the top and the "my pick"
+     marker at the bottom always have clear space between them, even on narrow viewports where
+     seven columns of gaps compress each cell's width. */
+  aspect-ratio: 4 / 5;
+  min-height: 2.75rem;
+  /* Solid, not the translucent rgba() this used to be — a translucent border optically blends
+     with whatever's drawn behind it (JS sets a cell's own background to a participant color or,
+     for multiple participants, a conic-gradient of several), so the "same" border color read
+     differently around a single-color fill vs. inconsistently around a multi-color wedge (a
+     different blend at every point the border crossed a wedge boundary — the reported "wonky"
+     outline). A solid color can't blend with the fill beneath it, so every cell's border reads
+     identically regardless of how many participants (or which colors) picked it. */
+  border: 2px solid #f7d9c5;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+}
+
+.ww-calendar-cell:hover:not(:disabled) {
+  border-color: var(--color-accent-yellow-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-calendar-cell:disabled {
+  cursor: wait;
+}
+
+/* Leading/trailing days from the adjacent month — dimmed, but still a full, clickable cell (not
+   `visibility: hidden`/`pointer-events: none` like the old blank filler this replaces), so a date
+   can be toggled without first paging to the month it belongs to. */
+.ww-calendar-cell-adjacent {
+  opacity: 0.5;
+}
+
+/* Soft translucent chip behind the day number — without it the number was hard to read once
+   the cell's own background turned into a solid or multi-wedge participant color. */
+.ww-calendar-cell-number {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--color-text-strong);
+  background-color: rgba(255, 255, 255, 0.6);
+  border-radius: 0.35rem;
+  padding: 0 0.3rem;
+  line-height: 1.3;
+}
+
+/* The small "this is mine" marker — shown only on the current participant's own picks,
+   regardless of how many other participants also picked that date. */
+.ww-calendar-cell-picked::after {
+  content: "";
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.35rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background-color: var(--current-participant-color);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Permanent marker for a date every participant has picked — the event's own emoji, centered
+   over the cell's wedge fill. Stays as long as the date stays fully picked (site.js adds/removes
+   it on every render, not just the moment it's completed); .ww-calendar-cell-celebrating (below)
+   is the one-off entrance animation that plays only at the moment it *becomes* complete. */
+.ww-calendar-cell-emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(73, 18, 50, 0.35);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ww-calendar-cell-celebrating .ww-calendar-cell-emoji {
+    animation: ww-calendar-emoji-pop 0.6s cubic-bezier(.28, 1.55, .4, 1);
+  }
+}
+
+@keyframes ww-calendar-emoji-pop {
+  0% {
+    transform: scale(0.2) rotate(-15deg);
+  }
+  55% {
+    transform: scale(1.4) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Confetti burst played once, the moment a date goes from "not everyone's in" to "everyone's
+   in" — appended to a single fixed, viewport-spanning layer (not into the cell/card itself) so
+   particles aren't clipped by the calendar card's own rounded corners or overflow, and can fly
+   past the card's edge. Same particle technique as .ww-sparkle (site.js's card-hover confetti)
+   — a flat-colored rectangle animated via per-particle custom properties — but multicolored
+   (site.js cycles the site's pink/yellow/green/blue accents) and fired as a one-shot burst
+   instead of a hover-driven stream. */
+.ww-calendar-confetti-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1200;
+}
+
+.ww-calendar-confetti-piece {
+  position: fixed;
+  border-radius: 1px;
+  pointer-events: none;
+  opacity: 0;
+  --confetti-dx: 0px;
+  --confetti-dy: 0px;
+  --confetti-rot: 0deg;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ww-calendar-confetti-piece {
+    animation: ww-calendar-confetti-float 0.9s ease-out forwards;
+  }
+}
+
+/* Every keyframe re-applies the translate(-50%, -50%) centering (the piece's own left/top is
+   set to its origin point, not its top-left corner) alongside the burst's own translate, so it
+   stays centered on that point as it travels rather than snapping to a corner. */
+@keyframes ww-calendar-confetti-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.3);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(calc(var(--confetti-dx) * 0.3), calc(var(--confetti-dy) * 0.3)) rotate(calc(var(--confetti-rot) * 0.3)) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--confetti-dx), calc(var(--confetti-dy) + 40px)) rotate(var(--confetti-rot)) scale(0.5);
+  }
+}
+
+/* Legend: names flow left-to-right and only wrap to a new line once a row runs out of
+   width — a plain wrapping flex row does that for free. Every item shares the same height
+   (one line of text + a fixed-size swatch), so items on the same wrapped line land at the
+   same baseline automatically, keeping every swatch aligned horizontally within its row and
+   vertically against the swatch directly below it on the next row. */
+.ww-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.5rem;
+  row-gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.ww-calendar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+}
+
+.ww-calendar-legend-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(73, 18, 50, 0.15);
+}
+
+/* "Best bets" card heading — no color rule previously, so it fell back to default black
+   instead of the site's dark-gray heading color (same fix as .ww-people-roster-card h2 and
+   .ww-myevent-title elsewhere). Bold weight for the same "bubblier" reason as
+   #ww-calendar-month-label/.ww-people-roster-card h2's own weight-700 overrides. */
+.ww-availability-sidebar h3 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+/* Best bets: each date is its own yellow pill/card — date + "N of M available" stacked on the
+   left, per-participant color dots on the right. Cards stack with a gap between them instead of
+   the old flat divided-list rows. */
+.ww-best-bet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  /* Width isn't automatic here: the Settings tab's clickable suggestions render this as a
+     <button>, which — unlike a <div> — is an inline-level box by default and shrinks to fit its
+     content instead of filling the card/column it sits in (the same reason its text needs the
+     explicit left-align below). */
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1rem;
+  /* Same pale yellow tint as .ww-people-card on the People tab, not the solid
+     --color-accent-yellow-fill this used before. */
+  background-color: rgba(232, 147, 90, 0.1);
+  padding: 0.6rem 0.9rem;
+}
+
+/* Undoes a plain <button>'s browser-default centered text/font and non-pointer cursor, and adds
+   the same hover-lift/press-down "3D pop" + shadow as the rest of this page's buttons — signals
+   these particular rows are clickable, unlike Home's plain (non-interactive) best-bets list,
+   which stays a flat <div> with none of this. Fill color is untouched (still the yellow tint from
+   .ww-best-bet-row above) — only shadow/transform respond to interaction, per feedback that the
+   suggestions needed a "this is clickable" affordance without changing their color. */
+.ww-best-bet-row-button {
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease;
+}
+
+.ww-best-bet-row-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-best-bet-row-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-best-bet-row-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-hard-hover), 0 0 0 3px var(--color-text-strong);
+}
+
+.ww-best-bet-row + .ww-best-bet-row {
+  margin-top: 0.6rem;
+}
+
+.ww-best-bet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  /* Lets the dots keep their own space on the right instead of being pushed off/overlapped
+     when the date/count text is long. */
+  min-width: 0;
+}
+
+.ww-best-bet-date {
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.ww-best-bet-count {
+  font-size: 0.8rem;
+  color: var(--color-text-strong);
+  opacity: 0.75;
+}
+
+/* Wraps onto a second (third, ...) line, right-aligned, once more dots are picked for a date
+   than fit on one line — so a busy date's dots cascade downward instead of overlapping the
+   date/count text beside them. */
+.ww-best-bet-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  gap: 0.3rem;
+  flex: none;
+  max-width: 40%;
+}
+
+.ww-best-bet-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+/* Groups a final-date row's dots with its remove control (Finalize tab only — see
+   WWBestBets.renderFinalDatesList's options.renderRemoveControl) as one trailing flex item, so
+   the row's own space-between still only ever sees two children (info, this group) instead of
+   stranding the dots between two independently-spaced trailing items. */
+.ww-final-date-row-trailing {
+  display: flex;
+  align-items: center;
+  /* Wider than the row's other internal gaps — the remove button reads as tucked in too close
+     to the dots at the shared 0.5rem, per feedback. */
+  gap: 1rem;
+}
+
+/* Empty state ("The best date will appear once...", "Suggestions will appear once...") — still a
+   .ww-best-bet-row card, just centered since there's no date/dots content to space apart. */
+.ww-best-bet-empty {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Status card: regular white-glass .ww-event-card fill, just with a pink outline instead of
+   the shared .ww-event-card's sitewide yellow border — same "recolor the outline only" pattern
+   as .ww-people-roster-card's blue border on the People tab. --color-brand-badge-fill, not
+   --color-accent-pink-fill, is the darker "border" shade of pink (same one used for
+   .ww-status-button's own border/press state above). */
+#ww-status-card {
+  border-color: var(--color-brand-badge-fill);
+}
+
+/* Status card: "X/Y have picked"/"Everyone's in." heading + subheading + a button to Settings. */
+.ww-status-heading {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+/* Bubblier (Fredoka, via .font-display on the element itself) like the calendar's own
+   "Click a date..." subheading, but sized down from the default paragraph size — at this
+   card's normal text size the rounder font read as oversized/cartoonish next to the bold
+   heading above it. */
+.ww-status-subheading {
+  font-size: 0.75rem;
+}
+
+.ww-status-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  /* The site's default hot-pink accent (--color-accent-pink-fill), same pink family as
+     --color-brand-badge-fill used here for the border/press state — same lighter-fill/
+     darker-border-and-hover pairing as the yellow/blue button variants elsewhere. */
+  border: 2px solid var(--color-brand-badge-fill);
+  background-color: var(--color-accent-pink-fill);
+  color: var(--color-text-on-gradient);
+  /* Bubblier (Fredoka) rather than the body font, same treatment as .ww-status-subheading
+     and the calendar's own "Click a date..." subheading. */
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 0.6rem 1rem;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Dark-pink fill on press, same token/technique as the navbar's account toggle
+   (.nav-link-account-toggle:hover/:active) — Bootstrap's own .btn base rule (this button
+   also carries the "btn" class) would otherwise turn the background white on hover, which
+   is what this overrides. */
+.ww-status-button:hover,
+.ww-status-button:active {
+  background-color: var(--color-brand-badge-fill);
+  color: var(--color-text-on-gradient);
+}
+
+.ww-status-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* !important on every property here, same reasoning as .go-button:active — Bootstrap's own
+   ":not(.btn-check)+.btn:active" rule outranks a plain ".ww-status-button:active" (this
+   button also carries .btn), pointing color/background/border/box-shadow at its own
+   --bs-btn-active-* properties (which this button never defines) and producing the reported
+   white fill/black border/lost shadow on click. */
+.ww-status-button:active {
+  background-color: var(--color-brand-badge-fill) !important;
+  border-color: var(--color-brand-badge-fill) !important;
+  color: var(--color-text-on-gradient) !important;
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active) !important;
+}
+
+/* Overrides the sitewide `.btn:focus` pink-ring rule (site.css's :root-adjacent block up top)
+   with this button's own resting shadow, then layers a visible keyboard-focus indicator back
+   in via :focus-visible only — same split as .go-button:focus/:focus-visible. */
+.ww-status-button:focus {
+  box-shadow: var(--shadow-hard);
+}
+
+.ww-status-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+/* ==========================================================================
+   Event Settings tab (Spec/Features/FEATURES-event-home-page.ospec, "4. Settings tab")
+   ========================================================================== */
+
+/* "Shape the plan" card heading — no color rule previously, so it fell back to default black
+   instead of the site's dark-gray heading color (same fix as .ww-people-roster-card h2/
+   .ww-availability-sidebar h3 elsewhere). Already bold via .font-display's class on the element;
+   .font-display's own regular weight doesn't read noticeably rounder/bubblier next to the body
+   font beside it — its bold weight does (same "bubblier" fix as those other headings). */
+.ww-settings-shape-card h2 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+/* Field labels above the "Shape the plan" form's inputs — same small-caps treatment as
+   .ww-people-subtitle/.ww-myevent-people elsewhere rather than a bare <label>. */
+.ww-settings-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* "(optional)" beside the End date label — smaller than the label itself (.ww-people-meta's own
+   0.82rem read larger than the 0.75rem label it sits inside); color/opacity/uppercase are
+   inherited from .ww-settings-label, only the size differs. */
+.ww-settings-optional-tag {
+  font-size: 0.6rem;
+}
+
+/* Left-aligns this page's pill inputs/textarea/emoji button (.input-pill's own base rule centers
+   text, which suits Home's centered create-event input but not this page's label-above-field
+   layout) and gives them the same hard-shadow pop/hover-lift/press-down bounce as
+   .ww-signin-card's own inputs elsewhere on the site. -webkit-appearance: none hands a native
+   <input type="date"> fully back to author styles instead of the platform theme — Chromium
+   otherwise keeps drawing its own default (blue) focus ring around a date/time input's shadow-DOM
+   internals on top of whatever this stylesheet sets on the element's own box, unlike a plain text
+   input where -webkit-appearance isn't needed for that. accent-color additionally repaints that
+   control's internal picker/segment highlighting in the site's own focus-ring color (Chromium
+   respects this for the calendar dropdown's selected-day highlight) for whatever
+   -webkit-appearance alone doesn't reach. Scoped to the whole page rather than one input class so
+   the title/date pill inputs, the textarea, and the emoji button all move as one consistent set. */
+.ww-settings-page .input-pill,
+.ww-settings-page .ww-settings-textarea,
+.ww-settings-page .ww-settings-emoji-button {
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: var(--shadow-hard);
+  accent-color: var(--color-text-strong);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.ww-settings-page .input-pill:hover:not(:disabled),
+.ww-settings-page .ww-settings-textarea:hover:not(:disabled),
+.ww-settings-page .ww-settings-emoji-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-settings-page .input-pill:active:not(:disabled),
+.ww-settings-page .ww-settings-textarea:active:not(:disabled),
+.ww-settings-page .ww-settings-emoji-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Taller lift + shadow as the focus indicator — no encircling ring (tried one, but at this
+   pill's small size a 3px solid ring in --color-text-strong read as a plain black/dark border,
+   not as "the site's plum" — the lift+shadow alone is a large enough visual change to read as
+   focus without it). outline: none is unconditional (both :focus and :focus-visible, not gated
+   to :focus-visible alone) — composite controls like <input type="date"> aren't reliably treated
+   as "keyboard only" by that heuristic the way a plain text input is (a browser can reasonably
+   expect keyboard use — arrow keys between day/month/year — right after a mouse click into one),
+   so gating the suppression on :focus-visible left it inconsistently applied on click depending
+   on the browser. !important needed to beat the sitewide `.input-pill:focus { box-shadow: none
+   !important; }` rule. */
+.ww-settings-page .input-pill:focus,
+.ww-settings-page .ww-settings-textarea:focus,
+.ww-settings-page .ww-settings-emoji-button:focus,
+.ww-settings-page .input-pill:focus-visible,
+.ww-settings-page .ww-settings-textarea:focus-visible,
+.ww-settings-page .ww-settings-emoji-button:focus-visible {
+  outline: none !important;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+.ww-settings-input {
+  text-align: left;
+}
+
+.ww-settings-page .ww-settings-input::placeholder {
+  text-align: left;
+}
+
+/* Sub-headings inside the "Call the date" card ("Suggestions"/"Final dates") — smaller than the
+   card's own h3, same heading color as the rest of this page's headings. */
+.ww-settings-sublabel {
+  margin-bottom: 0.5rem;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Description textarea: same yellow fill/border as .input-pill-yellow, but a smaller corner
+   radius (not a full pill) and left-aligned text — .input-pill's own center alignment and
+   var(--radius-pill) rounding are meant for single-line inputs, not multi-line text. */
+.ww-settings-textarea {
+  width: 100%;
+  border-radius: 1rem;
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+  color: var(--color-text-strong);
+  caret-color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.65rem 0.9rem;
+  resize: vertical;
+}
+
+/* Bootstrap's own .form-control:focus/:hover rules (this element also carries .form-control)
+   otherwise swap in a white background and blue-ish border at the same specificity — every
+   color they touch has to be explicitly restated here, same reasoning as .input-pill:focus. */
+.ww-settings-textarea:hover:not(:disabled),
+.ww-settings-textarea:focus,
+.ww-settings-textarea:active {
+  background-color: var(--color-accent-yellow-fill) !important;
+  border-color: var(--color-accent-yellow-border) !important;
+  color: var(--color-text-strong) !important;
+}
+
+.ww-settings-textarea::placeholder {
+  color: var(--color-text-strong);
+  opacity: 0.75;
+}
+
+.ww-settings-textarea:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Emoji trigger button: shows the event's current emoji, same yellow-pill treatment as the text
+   inputs beside it (see the shared hover/focus/active rules above). */
+.ww-settings-emoji-button {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-yellow-fill);
+  border: 2px solid var(--color-accent-yellow-border);
+  color: var(--color-text-strong);
+  padding: 0.5rem 1rem;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.ww-settings-emoji-button:hover:not(:disabled),
+.ww-settings-emoji-button:focus,
+.ww-settings-emoji-button:active {
+  background-color: var(--color-accent-yellow-fill);
+  border-color: var(--color-accent-yellow-border);
+}
+
+.ww-settings-emoji-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Popup anchor for <emoji-picker> (emoji-picker-element, loaded globally in _Layout.cshtml) —
+   positioned below the trigger button. The element's own Shadow DOM keeps its internals from
+   needing any styling here. */
+.ww-settings-emoji-popup {
+  position: relative;
+  z-index: 20;
+}
+
+.ww-settings-emoji-popup emoji-picker {
+  position: absolute;
+  top: 0.5rem;
+  left: 0;
+}
+
+/* "Call the date"/"Final dates" card headings — no weight override previously, so they fell
+   back to Bootstrap's default heading weight instead of the site's dark-gray/bold treatment.
+   Already bold via .font-display's class on the element; .font-display's own regular weight
+   doesn't read noticeably rounder/bubblier next to the body font beside it — its bold weight
+   does (same "bubblier" fix as .ww-people-roster-card h2/.ww-availability-sidebar h3/
+   .ww-settings-shape-card h2 elsewhere). */
+.ww-finalize-page h3.font-display {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+/* Add-a-date form beneath the Suggestions list — no card of its own, sits directly on the
+   "Call the date" card's surface. */
+.ww-settings-add-date-form {
+  border-top: 2px solid var(--color-accent-yellow-border);
+  padding-top: 1rem;
+}
+
+/* Remove control appended to a "Final dates" row by WWBestBets.renderFinalDatesList's
+   options.renderRemoveControl (Finalize tab only — see Finalize.cshtml's own script). */
+.ww-final-date-remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-strong);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-final-date-remove-button:hover,
+.ww-final-date-remove-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
+  background-color: rgba(239, 93, 93, 0.12);
+}
+
+/* Delete Event button — stands alone (no .ww-event-card wrapper) rather than sitting inside its
+   own card the way the mockup had it. Sized to its content (not full-width) and centered by its
+   caller (Settings.cshtml wraps it in a centering row) so it doesn't visually compete with the
+   full-width "Shape the plan" card above it. Solid red fill (.input-pill-red's own fill/border/
+   text pairing — text-strong reads correctly on this fill, same as every other red-fill control
+   on the site), with the same hover-lift/press-down "3D pop" + darker-fill-on-press language as
+   .go-button elsewhere on this page. */
+.ww-delete-event-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-red);
+  border: 2px solid var(--color-accent-red-border);
+  color: var(--color-text-strong);
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.ww-delete-event-button:hover {
+  background-color: var(--color-accent-red-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+/* Same plum ring as every other focus-visible control on the site, not another red state. */
+.ww-delete-event-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+.ww-delete-event-button:active {
+  background-color: var(--color-accent-red-border);
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+/* Small text "Clear" affordance beside each date field's label — lets the organizer blank a
+   date back out, which a native <input type="date"> has no built-in control for once a value is
+   set. */
+.ww-settings-clear-date-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.ww-settings-clear-date-button:hover,
+.ww-settings-clear-date-button:focus-visible {
+  opacity: 1;
+  color: var(--color-accent-red-border);
+}
+
+/* Availability tab: the live "Final dates" card that sits above Best Bets once a final date
+   exists. Same "recolor the outline only" pattern as #ww-status-card's pink border and
+   .ww-people-roster-card's blue one — a regular white-glass .ww-event-card, not
+   .ww-feature-card (no proximity border-glow, no page-wide spotlight tint from this card —
+   that system stayed reserved for Home's marketing cards, and this card opts out of its
+   hover-confetti too). */
+.ww-final-dates-card {
+  border-color: var(--color-brand-badge-fill);
+}
+
+/* The individual date rows inside the "Final dates" card (rendered by WWBestBets.
+   renderFinalDatesList into #ww-final-dates-list) — blue instead of the shared
+   .ww-best-bet-row's default yellow tint, matching this card's own blue final-date-pill theme
+   from the Finalize tab, and distinguishing a confirmed date from a plain Best Bets suggestion. */
+#ww-final-dates-list .ww-best-bet-row {
+  border-color: var(--color-accent-blue-border);
+  background-color: rgba(79, 184, 196, 0.1);
 }

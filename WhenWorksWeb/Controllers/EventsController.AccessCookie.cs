@@ -119,4 +119,63 @@ public partial class EventsController
         // The cookie name is constructed by combining a fixed prefix with the uppercase event code to ensure uniqueness and consistency.
         return $"{EventAccessCookiePrefix}{code.ToUpperInvariant()}";
     }
+
+    /// <summary>
+    /// Stores a short-lived browser cookie identifying this browser as the creator of the specified event,
+    /// so the next new participant it signs in as can be flagged as the event's creator.
+    /// </summary>
+    private void SetEventCreatorCookie(Event eventEntity)
+    {
+        var cookieName = GetEventCreatorCookieName(eventEntity.Code);
+        var protectedValue = _eventCreatorProtector.Protect(eventEntity.Code.ToUpperInvariant());
+
+        Response.Cookies.Append(cookieName, protectedValue, new CookieOptions
+        {
+            HttpOnly = true,
+            IsEssential = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            // Short-lived on purpose: this only needs to survive the redirect from event creation to the
+            // sign-in page. If it's lost or expires before sign-in completes, the event simply ends up with
+            // no creator/organizer recorded, which the zero-organizer fallback (see Participant.IsOrganizer)
+            // handles by opening organizer-only actions to every participant instead.
+            Expires = DateTimeOffset.UtcNow.AddHours(1)
+        });
+    }
+
+    /// <summary>
+    /// Checks whether this browser is recorded as the creator of the specified event and, if so, consumes
+    /// (deletes) the cookie so it can only ever grant creator status once.
+    /// </summary>
+    private bool TryConsumeEventCreatorCookie(Event eventEntity)
+    {
+        var cookieName = GetEventCreatorCookieName(eventEntity.Code);
+
+        if (!Request.Cookies.TryGetValue(cookieName, out var protectedValue))
+        {
+            return false;
+        }
+
+        // Single-use regardless of outcome: a corrupted/mismatched cookie shouldn't be checked again either.
+        Response.Cookies.Delete(cookieName);
+
+        try
+        {
+            var unprotectedValue = _eventCreatorProtector.Unprotect(protectedValue);
+            return string.Equals(unprotectedValue, eventEntity.Code.ToUpperInvariant(), StringComparison.Ordinal);
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Builds the event creator cookie name for a specific event code.
+    /// </summary>
+    private static string GetEventCreatorCookieName(string code)
+    {
+        return $"{EventCreatorCookiePrefix}{code.ToUpperInvariant()}";
+    }
 }

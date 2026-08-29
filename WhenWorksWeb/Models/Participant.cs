@@ -65,40 +65,30 @@ public class Participant
     public ApplicationUser? User { get; set; }
 
     /// <summary>
-    /// The role assigned to this participant within the event, if any.
+    /// Whether this participant is the one who originally created the event. Set once, permanently,
+    /// when the participant record is created — never changed afterward. Independent of
+    /// <see cref="IsOrganizer"/>: the creator can later have their organizer status revoked while
+    /// remaining the recorded creator.
     /// </summary>
-    public EventRole? Role { get; set; }
+    public bool IsCreator { get; set; }
+
+    /// <summary>
+    /// Whether this participant currently has organizer permissions for the event (editing event
+    /// details, managing final dates, deleting the event). Defaults to true for the event's creator
+    /// at signup and can be granted or revoked afterward. If no participant in an event currently
+    /// has this set, organizer-only actions are open to every participant instead of being blocked.
+    /// </summary>
+    public bool IsOrganizer { get; set; }
 
     /// <summary>
     /// The chat messages sent by this participant.
     /// </summary>
     public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();
-}
-
-/// <summary>
-/// Represents the role assigned to a participant within a specific event.
-/// </summary>
-public class EventRole
-{
-    /// <summary>The maximum length of <see cref="Name"/>.</summary>
-    private const int RoleNameMaxLength = ModelConstants.RoleNameMaxLength;
 
     /// <summary>
-    /// References the ParticipantId as the primary key, since each participant can have at most one role in an event.
+    /// The candidate dates this participant has marked themselves available on.
     /// </summary>
-    [Key]
-    public int ParticipantId { get; set; }
-
-    /// <summary>
-    /// The name of the role assigned to the participant for this event. This can be used for permissions or display purposes.
-    /// </summary>
-    [StringLength(RoleNameMaxLength, MinimumLength = 1, ErrorMessage = "Role name must be between 1 and 30 characters.")]
-    public required string Name { get; set; }
-
-    /// <summary>
-    /// The participant this role is assigned to.
-    /// </summary>
-    public Participant Participant { get; set; } = null!;
+    public ICollection<ParticipantAvailability> Availabilities { get; set; } = new List<ParticipantAvailability>();
 }
 
 /// <summary>

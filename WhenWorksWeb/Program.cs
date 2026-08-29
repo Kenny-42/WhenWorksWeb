@@ -33,6 +33,9 @@ builder.Services.AddAuthentication()
 builder.Services.AddScoped<UniqueCodeGenerator>();
 // Register the DevelopmentDataSeeder as a scoped service, so it can be injected and used during application startup.
 builder.Services.AddScoped<DevelopmentDataSeeder>();
+// Register the EventDateCleanupService as a scoped service, so both EventsController and
+// MyEventsController can remove now-empty candidate dates after an availability mark is removed.
+builder.Services.AddScoped<EventDateCleanupService>();
 
 builder.Services.AddControllersWithViews();
 

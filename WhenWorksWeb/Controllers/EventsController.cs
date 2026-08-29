@@ -21,6 +21,11 @@ public partial class EventsController : Controller
     private const string EventAccessCookiePrefix = "WhenWorksWeb.EventAccess.";
 
     /// <summary>
+    /// Represents the prefix used for the short-lived event-creator cookies set on event creation.
+    /// </summary>
+    private const string EventCreatorCookiePrefix = "WhenWorksWeb.EventCreator.";
+
+    /// <summary>
     /// The database context used to read and persist events and participants.
     /// </summary>
     private readonly ApplicationDbContext _db;
@@ -29,6 +34,11 @@ public partial class EventsController : Controller
     /// Generates unique event codes.
     /// </summary>
     private readonly UniqueCodeGenerator _codeGenerator;
+
+    /// <summary>
+    /// Removes now-empty candidate dates after an availability mark is toggled off.
+    /// </summary>
+    private readonly EventDateCleanupService _eventDateCleanup;
 
     /// <summary>
     /// Resolves the currently signed-in application user, if any.
@@ -44,21 +54,31 @@ public partial class EventsController : Controller
     private readonly IDataProtector _eventAccessProtector;
 
     /// <summary>
+    /// Provides data protection services for the short-lived cookie that identifies the browser which
+    /// created an event, so its first participant can be marked as the event's creator.
+    /// </summary>
+    private readonly IDataProtector _eventCreatorProtector;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="EventsController"/> class and creates the event-access
     /// data protector used to secure event access cookies.
     /// </summary>
     public EventsController(
         ApplicationDbContext db,
         UniqueCodeGenerator codeGenerator,
+        EventDateCleanupService eventDateCleanup,
         UserManager<ApplicationUser> userManager,
         IDataProtectionProvider dataProtectionProvider)
     {
         _db = db;
         _codeGenerator = codeGenerator;
+        _eventDateCleanup = eventDateCleanup;
         _userManager = userManager;
         // Create a data protector specifically for event access operations, using a unique purpose string to ensure that the
         // protected data is isolated from other uses of data protection in the application.
         _eventAccessProtector = dataProtectionProvider.CreateProtector("WhenWorksWeb.EventAccess");
+        // Separate purpose string so the creator cookie is cryptographically isolated from the access cookie above.
+        _eventCreatorProtector = dataProtectionProvider.CreateProtector("WhenWorksWeb.EventCreator");
     }
 
     /// <summary>
@@ -95,6 +115,10 @@ public partial class EventsController : Controller
         // Add the new event entity to the database context and save changes to persist it in the database.
         _db.Events.Add(eventEntity);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Mark this browser as the event's creator so the first participant it signs in as on the
+        // upcoming sign-in page is automatically flagged as the event's creator and starting organizer.
+        SetEventCreatorCookie(eventEntity);
 
         // Redirect the user to the event sign-in page for the newly created event using its unique code.
         return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
@@ -159,6 +183,23 @@ public partial class EventsController : Controller
         // AsNoTracking is used since we only need read access to check for existence.
         return await _db.Events
             .AsNoTracking()
+            .SingleOrDefaultAsync(e => e.Code == normalizedCode, cancellationToken);
+    }
+
+    /// <summary>
+    /// Returns the tracked event for the provided code, for actions that need to modify it
+    /// (e.g. editing its title, or deleting it), or null if it does not exist.
+    /// </summary>
+    private async Task<Event?> GetTrackedEventAsync(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var normalizedCode = code.Trim().ToUpperInvariant();
+
+        return await _db.Events
             .SingleOrDefaultAsync(e => e.Code == normalizedCode, cancellationToken);
     }
 

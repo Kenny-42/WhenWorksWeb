@@ -14,9 +14,6 @@ public static class ModelConstants
     // The maximum length for an application user's display name.
     public const int ApplicationUserDisplayNameMaxLength = 16;
 
-    // The maximum length for the name of a user role within an event.
-    public const int RoleNameMaxLength = 30;
-
     // The maximum length of characters the user can input in their message when using the chat system within an event.
     public const int MessageBodyMaxLength = 160;
 

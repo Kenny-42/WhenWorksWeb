@@ -23,11 +23,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Participant> Participants => Set<Participant>();
 
     /// <summary>
-    /// Roles assigned to participants within an event.
-    /// </summary>
-    public DbSet<EventRole> EventRoles => Set<EventRole>();
-
-    /// <summary>
     /// Chat messages posted within an event.
     /// </summary>
     public DbSet<EventMessage> EventMessages => Set<EventMessage>();
@@ -41,6 +36,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     /// Optional display settings (emoji, description) for an event.
     /// </summary>
     public DbSet<EventSettings> EventSettings => Set<EventSettings>();
+
+    /// <summary>
+    /// Participant marks of availability on candidate event dates.
+    /// </summary>
+    public DbSet<ParticipantAvailability> ParticipantAvailabilities => Set<ParticipantAvailability>();
+
+    /// <summary>
+    /// Organizer-chosen final date(s) for events, set independently of participant availability.
+    /// </summary>
+    public DbSet<EventFinalDate> EventFinalDates => Set<EventFinalDate>();
 
     /// <summary>
     /// Bookmarks users have saved on events.
@@ -114,15 +119,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 "[DisplayName] = LTRIM(RTRIM([DisplayName]))");
         });
 
-        // Configure the one-to-one role record attached to a participant.
-        modelBuilder.Entity<EventRole>(entity =>
-        {
-            entity.HasOne(r => r.Participant)
-                .WithOne(p => p.Role)
-                .HasForeignKey<EventRole>(r => r.ParticipantId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
         // Configure the available dates for each event.
         modelBuilder.Entity<EventDate>(entity =>
         {
@@ -132,6 +128,40 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(d => new { d.EventId, d.Date }).IsUnique();
+        });
+
+        // Configure the participant-to-date availability join table. Composite key means a
+        // participant can only mark a given date available once. Deleting a candidate date
+        // cascades and cleans up its availability marks; deleting a participant does NOT
+        // cascade here (DeleteBehavior.NoAction) — Event -> EventDate -> ParticipantAvailability
+        // and Event -> Participant -> ParticipantAvailability would otherwise be two cascade
+        // paths to the same table, which SQL Server rejects (the same issue documented for
+        // EventMessage.ParticipantId). Deleting a Participant must first remove its
+        // ParticipantAvailability rows via ExecuteDeleteAsync (see MyEventsController.Delete).
+        modelBuilder.Entity<ParticipantAvailability>(entity =>
+        {
+            entity.HasKey(a => new { a.ParticipantId, a.EventDateId });
+
+            entity.HasOne(a => a.Participant)
+                .WithMany(p => p.Availabilities)
+                .HasForeignKey(a => a.ParticipantId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(a => a.EventDate)
+                .WithMany(d => d.Availabilities)
+                .HasForeignKey(a => a.EventDateId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure the organizer's final date entries, kept independent of EventDate/votes.
+        modelBuilder.Entity<EventFinalDate>(entity =>
+        {
+            entity.HasOne(f => f.Event)
+                .WithMany(e => e.FinalDates)
+                .HasForeignKey(f => f.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(f => f.EventId);
         });
 
         // Configure optional event settings stored separately from the main event row.

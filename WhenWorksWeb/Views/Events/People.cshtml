@@ -1,0 +1,129 @@
+@model WhenWorksWeb.Models.EventPeopleViewModel
+
+@{
+    ViewData["Title"] = Model.Header.Title;
+    ViewData["DisableTitleSuffix"] = true;
+}
+
+<!-- Event People tab: shared header/tab bar, then the participant roster + pagination, in a
+     wrapper the script below swaps the innerHTML of on a page change instead of navigating. -->
+<div class="container py-4" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    <div id="ww-people-roster" data-code="@Model.Header.Code">
+        @await Html.PartialAsync("_PeopleRoster", Model)
+    </div>
+</div>
+
+@* Pagination behaves like a single-page app for this tab only: clicking a page link or
+   submitting the jump-to-page box fetches just the roster partial and swaps it in, updating
+   the URL via history.pushState so the page is still bookmarkable/shareable and back/forward
+   still work. Falls back to a normal navigation if fetch/history APIs are unavailable, and the
+   markup itself is still plain links/a GET form, so nothing breaks with JS disabled. *@
+@section Scripts {
+    <script>
+        (function () {
+            "use strict";
+
+            var rosterEl = document.getElementById('ww-people-roster');
+            if (!rosterEl || !window.fetch || !window.history || !window.history.pushState) {
+                return;
+            }
+
+            var code = rosterEl.dataset.code;
+
+            // Reads the page number encoded in the current URL (e.g. /people?page=3), defaulting
+            // to 1 when there's no page query param at all (the plain page-1 URL).
+            function currentPageFromLocation() {
+                var page = parseInt(new URL(window.location.href).searchParams.get('page') || '1', 10);
+                return page > 0 ? page : 1;
+            }
+
+            // Seed the initial history entry with the page it actually represents, so a later
+            // popstate back to *this* entry (event.state is null for entries that predate any
+            // pushState call, including the page the user landed on directly) doesn't have to
+            // guess and fall back to page 1.
+            window.history.replaceState({ wwPeoplePage: currentPageFromLocation() }, '', window.location.href);
+
+            // Re-runs the jump-to-page input's clamping behavior against whatever roster HTML
+            // was just swapped in, since it's freshly parsed markup with no listener of its own.
+            function wireUpPageJumpForm() {
+                var pageJumpForm = document.getElementById('event-people-page-jump-form');
+                var pageJumpInput = document.getElementById('event-people-page-jump-input');
+                if (!pageJumpForm || !pageJumpInput) {
+                    return;
+                }
+
+                var maxPage = parseInt(pageJumpInput.getAttribute('max') || '1', 10);
+                var currentPage = parseInt(pageJumpInput.dataset.currentPage || '1', 10);
+
+                pageJumpForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+
+                    var requested = parseInt(pageJumpInput.value, 10);
+                    if (!requested || requested < 1) {
+                        requested = currentPage;
+                    }
+                    else if (requested > maxPage) {
+                        requested = maxPage;
+                    }
+                    pageJumpInput.value = requested.toString();
+
+                    loadPage(requested, true);
+                });
+            }
+
+            // Fetches just the roster partial for the given page and swaps it into the wrapper.
+            // pushHistory is false when responding to a browser back/forward navigation, since
+            // the history entry already exists in that case.
+            function loadPage(page, pushHistory) {
+                var basePath = '/event/' + encodeURIComponent(code) + '/people';
+                var fetchUrl = basePath + '?page=' + encodeURIComponent(page);
+                // Page 1's URL omits the query string entirely, matching the plain (non-JS) link.
+                var historyUrl = page === 1 ? basePath : fetchUrl;
+
+                fetch(fetchUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Failed to load page');
+                        }
+                        return response.text();
+                    })
+                    .then(function (html) {
+                        rosterEl.innerHTML = html;
+                        wireUpPageJumpForm();
+
+                        if (pushHistory) {
+                            window.history.pushState({ wwPeoplePage: page }, '', historyUrl);
+                        }
+
+                        rosterEl.scrollIntoView({ block: 'nearest' });
+                    })
+                    .catch(function () {
+                        // Fall back to a real navigation if the fetch/swap fails for any reason.
+                        window.location.href = fetchUrl;
+                    });
+            }
+
+            rosterEl.addEventListener('click', function (event) {
+                var link = event.target.closest('.ww-page-button');
+                if (!link || !rosterEl.contains(link) || link.classList.contains('disabled') || link.classList.contains('active')) {
+                    return;
+                }
+
+                var url = new URL(link.href, window.location.origin);
+                var page = parseInt(url.searchParams.get('page') || '1', 10);
+
+                event.preventDefault();
+                loadPage(page, true);
+            });
+
+            window.addEventListener('popstate', function (event) {
+                var page = (event.state && event.state.wwPeoplePage) || currentPageFromLocation();
+                loadPage(page, false);
+            });
+
+            wireUpPageJumpForm();
+        })();
+    </script>
+}

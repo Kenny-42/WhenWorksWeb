@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using WhenWorksWeb.Controllers;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
 
@@ -13,7 +14,7 @@ public class MyEventsControllerTests : SqliteDbContextFixture
 {
     private MyEventsController CreateController(ApplicationUser? user, out Microsoft.AspNetCore.Http.DefaultHttpContext httpContext)
     {
-        var controller = new MyEventsController(Db, TestUserManagerFactory.Create(Db));
+        var controller = new MyEventsController(Db, TestUserManagerFactory.Create(Db), new EventDateCleanupService(Db));
         httpContext = ControllerTestContext.AttachContext(controller, user);
         return controller;
     }
@@ -62,8 +63,10 @@ public class MyEventsControllerTests : SqliteDbContextFixture
         var result = await controller.Index(CancellationToken.None);
 
         var viewResult = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsAssignableFrom<IEnumerable<MyEventViewModel>>(viewResult.Model);
-        var titles = model.Select(m => m.Title).ToList();
+        // The actual view model is MyEventsPageViewModel (a pagination wrapper around the event list),
+        // not a bare IEnumerable<MyEventViewModel> — this test predates that wrapper being introduced.
+        var pageModel = Assert.IsType<MyEventsPageViewModel>(viewResult.Model);
+        var titles = pageModel.Events.Select(m => m.Title).ToList();
 
         Assert.Contains("Created By Me", titles);
         Assert.Contains("Joined Event", titles);
@@ -168,6 +171,76 @@ public class MyEventsControllerTests : SqliteDbContextFixture
 
         var survivingMessage = Assert.Single(Db.EventMessages);
         Assert.Null(survivingMessage.ParticipantId);
+    }
+
+    /// <summary>
+    /// If the leaving participant was the only one available on a candidate date, that now-empty
+    /// EventDate row must be deleted too — not left behind as dead data (see
+    /// <see cref="WhenWorksWeb.Services.EventDateCleanupService"/>, shared with the Availability
+    /// tab's toggle endpoint).
+    /// </summary>
+    [Fact]
+    public async Task Delete_Participant_ByOwner_RemovesEmptyEventDatesTheyWereSoleAvailabilityFor()
+    {
+        var currentUser = await AddUserAsync("alice");
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var participant = new ParticipantBuilder().ForEvent(evt).WithUserId(currentUser.Id).WithDisplayName("Alice").Build();
+        Db.Participants.Add(participant);
+        await Db.SaveChangesAsync();
+
+        var eventDate = new EventDateBuilder().ForEvent(evt).Build();
+        Db.EventDates.Add(eventDate);
+        await Db.SaveChangesAsync();
+
+        Db.ParticipantAvailabilities.Add(new ParticipantAvailability { ParticipantId = participant.Id, EventDateId = eventDate.Id });
+        await Db.SaveChangesAsync();
+
+        var controller = CreateController(currentUser, out _);
+
+        var result = await controller.Delete(evt.Id, participant.Id, deleteMode: "participant", CancellationToken.None);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Empty(Db.EventDates);
+    }
+
+    /// <summary>
+    /// If another participant is still available on the date, removing the leaving participant's own mark
+    /// must not delete the EventDate out from under them.
+    /// </summary>
+    [Fact]
+    public async Task Delete_Participant_ByOwner_KeepsEventDateStillMarkedByAnotherParticipant()
+    {
+        var currentUser = await AddUserAsync("alice");
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var alice = new ParticipantBuilder().ForEvent(evt).WithUserId(currentUser.Id).WithDisplayName("Alice").Build();
+        var bob = new ParticipantBuilder().ForEvent(evt).WithDisplayName("Bob").WithColor("111111").Build();
+        Db.Participants.AddRange(alice, bob);
+        await Db.SaveChangesAsync();
+
+        var eventDate = new EventDateBuilder().ForEvent(evt).Build();
+        Db.EventDates.Add(eventDate);
+        await Db.SaveChangesAsync();
+
+        Db.ParticipantAvailabilities.AddRange(
+            new ParticipantAvailability { ParticipantId = alice.Id, EventDateId = eventDate.Id },
+            new ParticipantAvailability { ParticipantId = bob.Id, EventDateId = eventDate.Id });
+        await Db.SaveChangesAsync();
+
+        var controller = CreateController(currentUser, out _);
+
+        var result = await controller.Delete(evt.Id, alice.Id, deleteMode: "participant", CancellationToken.None);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var survivingDate = Assert.Single(Db.EventDates);
+        var survivingMark = Assert.Single(Db.ParticipantAvailabilities);
+        Assert.Equal(bob.Id, survivingMark.ParticipantId);
+        Assert.Equal(survivingDate.Id, survivingMark.EventDateId);
     }
 
     /// <summary>

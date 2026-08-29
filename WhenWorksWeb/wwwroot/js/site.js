@@ -561,12 +561,79 @@
   "use strict";
 
   var MIN_FONT_SIZE_PX = 12;
-  var FONT_STEP_PX = 1;
-  var MAX_SHRINK_STEPS = 60;
+  // Binary search converges to within this many px of the largest fitting size in a fixed
+  // ~10-12 iterations regardless of how far the starting size is from the floor — unlike a
+  // fixed step count counting down 1px at a time, which (previously, at up to 60 steps) could
+  // run out before actually reaching a fitting size for a large enough starting size/floor gap
+  // (e.g. the Event Home title's 120px-down-to-32px range), leaving the element stuck too big
+  // and overflowing — the reported case where a long title briefly rendered three lines with
+  // the third sliced off by the two-line cap's overflow: hidden instead of shrinking to fit.
+  var SEARCH_TOLERANCE_PX = 0.5;
+  var MAX_SEARCH_STEPS = 30;
 
   var targets = document.querySelectorAll(".ww-autofit-title");
   if (targets.length === 0) {
     return;
+  }
+
+  // For an element capped at a maximum number of lines (data-max-lines, e.g. the Event Home
+  // title's two-line cap — most elements carrying this class have no such cap and skip this
+  // half of the check entirely), "does it fit" is decided by literally counting the text's
+  // actual rendered lines (via countLines below), not by estimating a height budget from
+  // line-height. Two earlier versions tried the height-budget route and both broke: an
+  // em-based max-height slack scaled with this element's own live-shrinking font-size, so at
+  // large sizes it was generous enough for a real third line to sneak through; moving that
+  // slack into padding instead grew clientHeight and scrollHeight in lockstep (both are
+  // padding-box measurements under this app's global border-box sizing) so it never actually
+  // bought any room, permanently rejecting an exactly-two-line title as "too tall" no matter
+  // how far it shrank; and even a from-scratch line-height x max-lines estimate is still only
+  // an estimate — .ww-hero-title's deliberately tight line-height (0.95, less than 1) means
+  // real glyph ascenders/descenders routinely render taller than that nominal box, so a height
+  // budget derived from it under-counts the room actually needed and forces the search to keep
+  // shrinking below where the text has already reached two lines. Counting real lines side-
+  // steps all of that: it's exactly the same signal the browser's own line-breaking used to
+  // lay the text out, so it can't drift out of sync with tight line-height, font metrics, or
+  // this element's own font-size changes across the search below. A separate, deliberately
+  // generous CSS max-height on the element still exists as a visual safety-net clip only (see
+  // .ww-event-title-row .ww-hero-title in site.css) — not what this function decides fit from.
+  function countLines(el) {
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var rects = range.getClientRects();
+
+    var lineTops = [];
+    for (var i = 0; i < rects.length; i++) {
+      var top = rects[i].top;
+      // A single visual line can still produce more than one DOMRect (rendering quirks, or a
+      // rect per inline fragment) — dedupe by vertical position rather than counting rects
+      // directly, with a small tolerance for the sub-pixel differences that can show up between
+      // fragments that are really on the same line.
+      var isNewLine = true;
+      for (var j = 0; j < lineTops.length; j++) {
+        if (Math.abs(lineTops[j] - top) <= 1) {
+          isNewLine = false;
+          break;
+        }
+      }
+      if (isNewLine) {
+        lineTops.push(top);
+      }
+    }
+
+    return lineTops.length;
+  }
+
+  function fits(el) {
+    if (el.scrollWidth > el.clientWidth) {
+      return false;
+    }
+
+    var maxLines = parseInt(el.dataset.maxLines, 10);
+    if (!maxLines) {
+      return el.scrollHeight <= el.clientHeight;
+    }
+
+    return countLines(el) <= maxLines;
   }
 
   function fit(el) {
@@ -574,18 +641,73 @@
     // resized wider) would only ever shrink further from wherever it last stopped, never
     // recover.
     el.style.fontSize = "";
-    var fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+    var maxFontSize = parseFloat(window.getComputedStyle(el).fontSize);
 
-    var steps = 0;
-    while (el.scrollWidth > el.clientWidth && fontSize > MIN_FONT_SIZE_PX && steps < MAX_SHRINK_STEPS) {
-      fontSize -= FONT_STEP_PX;
-      el.style.fontSize = fontSize + "px";
-      steps++;
+    if (fits(el)) {
+      return;
     }
+
+    // Per-element floor via data-min-font-size, e.g. the Event Home title (see
+    // _EventHeader.cshtml) — it should stay reading as a big heading even once shrunk,
+    // never all the way down to the shared 12px floor other (much smaller) titles use.
+    var minFontSize = parseFloat(el.dataset.minFontSize) || MIN_FONT_SIZE_PX;
+
+    // lo is the largest size confirmed to fit so far (starts at the floor, whether or not the
+    // floor itself actually fits — if it doesn't, that's the best this element can do and lo
+    // stays the correct answer to converge on). hi is always confirmed *not* to fit (starts at
+    // the CSS-authored size, already known not to fit from the check above).
+    var lo = minFontSize;
+    var hi = maxFontSize;
+
+    for (var i = 0; i < MAX_SEARCH_STEPS && hi - lo > SEARCH_TOLERANCE_PX; i++) {
+      var mid = (lo + hi) / 2;
+      el.style.fontSize = mid + "px";
+      if (fits(el)) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+
+    el.style.fontSize = lo + "px";
+  }
+
+  // Ratio of the title's own resolved font size an adjacent emoji (e.g. .ww-event-title-emoji)
+  // should render at, so it visibly scales with a title that can autofit anywhere from ~20px to
+  // 144px instead of sitting at one fixed size that reads as tiny next to a big title.
+  var EMOJI_SCALE_RATIO = 0.5;
+
+  // If `el` carries data-scale-emoji-selector, looks that selector up from el's own parent (not
+  // el itself — the emoji is a sibling, e.g. .ww-event-title-row > .ww-event-title-emoji + h1)
+  // and sets every match's font-size to a fixed ratio of el's just-settled resolved size. Matches
+  // *every* element the selector finds, not just the first — the Event Home title row carries
+  // two: the real, visible emoji to the title's left and an identical but invisible mirror-image
+  // copy after it, which keeps the title itself centered on the page (flexbox centers the
+  // [emoji, title, invisible-emoji] group as a whole, so the title lands in the middle only if
+  // the invisible copy matches the real one's rendered width exactly). No-op for targets without
+  // the attribute (every .ww-autofit-title use besides the Event Home title).
+  function scaleAdjacentEmoji(el) {
+    var selector = el.dataset.scaleEmojiSelector;
+    if (!selector || !el.parentElement) {
+      return;
+    }
+
+    var emojiEls = el.parentElement.querySelectorAll(selector);
+    if (emojiEls.length === 0) {
+      return;
+    }
+
+    var resolvedFontSize = parseFloat(window.getComputedStyle(el).fontSize);
+    emojiEls.forEach(function (emojiEl) {
+      emojiEl.style.fontSize = (resolvedFontSize * EMOJI_SCALE_RATIO) + "px";
+    });
   }
 
   function fitAll() {
-    targets.forEach(fit);
+    targets.forEach(function (el) {
+      fit(el);
+      scaleAdjacentEmoji(el);
+    });
   }
 
   fitAll();

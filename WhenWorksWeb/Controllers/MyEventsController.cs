@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Controllers;
 
@@ -13,8 +14,9 @@ namespace WhenWorksWeb.Controllers;
 /// </summary>
 /// <param name="db">The database context used to read and persist events and participants.</param>
 /// <param name="userManager">Resolves the currently signed-in application user.</param>
+/// <param name="eventDateCleanup">Removes now-empty candidate dates after a participant's availability marks are deleted.</param>
 [Authorize]
-public class MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager) : Controller
+public class MyEventsController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, EventDateCleanupService eventDateCleanup) : Controller
 {
     /// <summary>The number of events displayed per page on the My Events list.</summary>
     private const int PageSize = 6;
@@ -44,32 +46,21 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
 
         var currentUserId = currentUser.Id;
 
-        // Base query for events the current user created or has joined, shared between the total count below and
-        // the paged slice further down so both agree on exactly the same set of events.
-        var baseQuery = db.Events
+        // The WHERE filter (events this user created or joined) still runs in the database — only the
+        // ordering and paging below happen client-side, and only over this already-small, per-user set (see
+        // CODING_CONVENTIONS.md's Performance section, which calls this list out by name as the case that
+        // doesn't need unbounded-growth-style query pagination). The participant details are pulled with
+        // correlated subqueries so this doesn't need a second merge step.
+        var matchingEvents = await db.Events
             .AsNoTracking()
-            .Where(e => e.CreatedByUserId == currentUserId || e.Participants.Any(p => p.UserId == currentUserId));
-
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)PageSize));
-
-        // Clamp the requested page into the valid range instead of erroring on an out-of-range value (e.g. a stale
-        // bookmark to a page that no longer exists after events were deleted).
-        var currentPage = Math.Clamp(page, 1, totalPages);
-
-        // Load one page of events. The participant details are pulled with correlated subqueries so the page does
-        // not need a second merge step.
-        var events = await baseQuery
-            .OrderByDescending(e => e.LastActiveAt)
-            .ThenBy(e => e.Code)
-            .Skip((currentPage - 1) * PageSize)
-            .Take(PageSize)
+            .Where(e => e.CreatedByUserId == currentUserId || e.Participants.Any(p => p.UserId == currentUserId))
             .Select(e => new
             {
                 e.Id,
                 e.Code,
                 e.Title,
                 e.CreatedByUserId,
+                e.LastActiveAt,
                 Emoji = e.Settings != null ? e.Settings.Emoji : ModelConstants.DefaultEventEmoji,
                 Description = e.Settings != null ? e.Settings.Description : null,
                 TotalParticipantCount = e.Participants.Count(),
@@ -79,6 +70,26 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                     .ToList()
             })
             .ToListAsync(cancellationToken);
+
+        // Ordered client-side rather than via the database (SQLite's provider refuses to translate ORDER BY
+        // on a DateTimeOffset expression at all — works fine on SQL Server, but the test suite runs against
+        // real SQLite per CODING_CONVENTIONS.md, and no translatable derived expression, e.g. .Ticks, was
+        // found either). Ordered by most recently updated, then by code to break ties.
+        var orderedEvents = matchingEvents
+            .OrderByDescending(e => e.LastActiveAt)
+            .ThenBy(e => e.Code, StringComparer.Ordinal)
+            .ToList();
+
+        var totalCount = orderedEvents.Count;
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)PageSize));
+
+        // Clamp the requested page into the valid range instead of erroring on an out-of-range value (e.g. a stale
+        // bookmark to a page that no longer exists after events were deleted).
+        var currentPage = Math.Clamp(page, 1, totalPages);
+
+        var events = orderedEvents
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize);
 
         // Map the events to the view model for display on the My Events page.
         var viewModel = events
@@ -192,6 +203,32 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                     .ExecuteUpdateAsync(
                         setters => setters.SetProperty(m => m.ParticipantId, (int?)null),
                         cancellationToken);
+
+                // Remove this participant's availability marks first — that FK is NoAction (not
+                // cascade) to avoid a multiple-cascade-paths conflict with EventDate's own
+                // cascade into the same table (see ApplicationDbContext), so it isn't cleaned up
+                // automatically the way EventMessages is above.
+                await db.ParticipantAvailabilities
+                    .Where(a => a.ParticipantId == participantEntity.Id)
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                // ExecuteDeleteAsync writes straight to the database and never touches the change
+                // tracker, so any ParticipantAvailability rows for this participant that happened
+                // to already be tracked (e.g. loaded earlier in the same request) still look
+                // intact to EF — removing the participant below would then trip "severed required
+                // relationship" the moment EF notices their FK now points at nothing. Detach them
+                // explicitly rather than relying on nothing having tracked them.
+                foreach (var trackedMark in db.ChangeTracker.Entries<ParticipantAvailability>()
+                             .Where(e => e.Entity.ParticipantId == participantEntity.Id)
+                             .ToList())
+                {
+                    trackedMark.State = EntityState.Detached;
+                }
+
+                // The marks just removed above may have been the last ones on some of this
+                // event's candidate dates — clean those up too rather than leaving empty
+                // EventDate rows behind.
+                await eventDateCleanup.RemoveEmptyDatesAsync(eventId, cancellationToken);
 
                 db.Participants.Remove(participantEntity);
                 await db.SaveChangesAsync(cancellationToken);

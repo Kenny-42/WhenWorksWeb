@@ -1,0 +1,157 @@
+@model WhenWorksWeb.Models.EventSettingsViewModel
+
+@{
+    ViewData["Title"] = Model.Header.Title;
+    ViewData["DisableTitleSuffix"] = true;
+}
+
+<!-- Event Settings tab: shared header/tab bar, then "Shape the plan" and the standalone Delete
+     Event button + its confirmation modal. Single-column layout (48rem), matching
+     People.cshtml's convention — final-date management moved to its own Finalize tab, so this
+     page no longer needs a second "sidebar" card to sit beside "Shape the plan". -->
+<div class="container py-4 ww-settings-page" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    @if (!Model.CanManageEvent)
+    {
+        <div class="ww-event-card text-center mb-4">
+            <p class="mb-0">Only this event's organizer can manage its details and deletion.</p>
+        </div>
+    }
+
+    <!-- "Shape the plan" card: title/description/emoji, organizer-only. -->
+    <div class="ww-event-card ww-settings-shape-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+            <h2 class="font-display mb-0">Shape the plan</h2>
+            <i class="bi bi-sliders" aria-hidden="true"></i>
+        </div>
+        <p class="ww-people-subtitle mb-3">Only the organizer can edit these details.</p>
+
+        <form asp-route="EventUpdateDetails" asp-route-code="@Model.Header.Code" method="post">
+            @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+                <label for="ww-settings-title" class="ww-settings-label">Event title</label>
+                <input type="text"
+                       id="ww-settings-title"
+                       name="title"
+                       class="form-control input-pill input-pill-yellow ww-settings-input w-100"
+                       maxlength="@WhenWorksWeb.Common.ModelConstants.EventTitleMaxLength"
+                       value="@Model.Title"
+                       disabled="@(!Model.CanManageEvent)"
+                       required />
+            </div>
+
+            <div class="mb-3">
+                <label for="ww-settings-description" class="ww-settings-label">Description</label>
+                <textarea id="ww-settings-description"
+                          name="description"
+                          class="form-control ww-settings-textarea"
+                          maxlength="@WhenWorksWeb.Common.ModelConstants.EventDescriptionMaxLength"
+                          rows="4"
+                          placeholder="A new plan is taking shape."
+                          disabled="@(!Model.CanManageEvent)">@Model.Description</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="ww-settings-label d-block">Event emoji</label>
+                <input type="hidden" id="ww-settings-emoji-input" name="emoji" value="@Model.Emoji" />
+                <button type="button"
+                        id="ww-settings-emoji-button"
+                        class="ww-settings-emoji-button"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        disabled="@(!Model.CanManageEvent)">
+                    <span id="ww-settings-emoji-preview">@Model.Emoji</span>
+                </button>
+                <div id="ww-settings-emoji-popup" class="ww-settings-emoji-popup d-none">
+                    <emoji-picker id="ww-settings-emoji-picker"></emoji-picker>
+                </div>
+            </div>
+
+            @if (Model.CanManageEvent)
+            {
+                <button type="submit" class="btn go-button">Save changes <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+            }
+        </form>
+    </div>
+
+    @if (Model.CanManageEvent)
+    {
+        <div class="d-flex justify-content-center">
+            <button type="button" class="ww-delete-event-button" data-bs-toggle="modal" data-bs-target="#delete-event-modal">
+                <i class="bi bi-trash" aria-hidden="true"></i> Delete Event
+            </button>
+        </div>
+
+        <!-- Delete confirmation modal — same visual pattern as MyEvents/Index.cshtml's, adapted to
+             a single whole-event confirmation (no participant-vs-event choice needed here). -->
+        <div class="modal fade" id="delete-event-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content delete-modal-content">
+                    <form asp-route="EventDelete" asp-route-code="@Model.Header.Code" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="modal-header">
+                            <h5 class="modal-title font-display">Delete Confirmation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-0">Delete "@Model.Header.Title"? This removes the event and everyone's picks — this can't be undone.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn modal-cancel-button" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn modal-delete-button">Delete</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            "use strict";
+
+            // Emoji picker popup, wired the same way anywhere else this custom element gets used
+            // later: toggle a popup containing <emoji-picker>, write the pick into the hidden
+            // field the form actually submits, and update the trigger button's preview.
+            var emojiButton = document.getElementById('ww-settings-emoji-button');
+            var emojiPopup = document.getElementById('ww-settings-emoji-popup');
+            var emojiPicker = document.getElementById('ww-settings-emoji-picker');
+            var emojiInput = document.getElementById('ww-settings-emoji-input');
+            var emojiPreview = document.getElementById('ww-settings-emoji-preview');
+
+            if (emojiButton && emojiPopup && emojiPicker) {
+                emojiButton.addEventListener('click', function () {
+                    var isOpen = !emojiPopup.classList.contains('d-none');
+                    emojiPopup.classList.toggle('d-none', isOpen);
+                    emojiButton.setAttribute('aria-expanded', String(!isOpen));
+                });
+
+                emojiPicker.addEventListener('emoji-click', function (event) {
+                    var unicode = event.detail.unicode;
+                    emojiInput.value = unicode;
+                    emojiPreview.textContent = unicode;
+                    emojiPopup.classList.add('d-none');
+                    emojiButton.setAttribute('aria-expanded', 'false');
+                });
+
+                document.addEventListener('click', function (event) {
+                    // emojiButton.contains(...), not a strict !== check — a click on the emoji
+                    // preview span or (previously) the pencil icon inside the button is its own
+                    // event.target, which is a descendant of the button, not the button itself,
+                    // so a strict comparison treated it as an outside click and closed the popup
+                    // the instant it opened.
+                    if (!emojiPopup.classList.contains('d-none') &&
+                        !emojiPopup.contains(event.target) &&
+                        !emojiButton.contains(event.target)) {
+                        emojiPopup.classList.add('d-none');
+                        emojiButton.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            }
+        })();
+    </script>
+}

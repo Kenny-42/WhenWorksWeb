@@ -12,6 +12,10 @@
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WhenWorksWeb.styles.css" asp-append-version="true" />
+    @* Loaded globally (not scoped to the Settings tab's own Scripts block) since it's meant to be
+       reusable wherever else an emoji picker is needed later. Zero runtime dependencies, Shadow
+       DOM custom element — see Spec/Features/FEATURES-event-home-page.ospec's Libraries section. *@
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@@^1/index.js"></script>
 </head>
 <body>
     <!-- Fixed full-viewport canvas the animated background blobs are drawn onto in JS

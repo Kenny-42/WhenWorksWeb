@@ -1,0 +1,98 @@
+@model WhenWorksWeb.Models.EventHeaderViewModel
+
+@* Shared page chrome for all three event-page tabs (Availability/People/Settings): the "EVENT"
+   badge, title/emoji, a copyable event-code pill, a shortcut to Settings, and the tab bar itself.
+   Rendered identically at the top of Home.cshtml/People.cshtml/Settings.cshtml so their markup
+   isn't duplicated three times. *@
+<div class="ww-event-header">
+    <div class="ww-event-header-top">
+        <div class="ww-event-header-badge-row">
+            <span class="ww-hero-badge mb-2">
+                <span class="ww-hero-badge-dot" aria-hidden="true"></span>
+                <span class="ww-shiny-text">EVENT</span>
+            </span>
+
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="ww-event-code-button" data-code="@Model.Code" aria-label="Copy event code" title="Copy event code">
+                    <span>@Model.Code</span>
+                    <i class="bi bi-clipboard" aria-hidden="true"></i>
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                </button>
+
+                <a asp-route="EventSettings" asp-route-code="@Model.Code" class="ww-event-settings-button" aria-label="Event settings" title="Event settings">
+                    <i class="bi bi-gear" aria-hidden="true"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="ww-event-title-row">
+            <span class="ww-event-title-emoji" aria-hidden="true">@Model.Emoji</span>
+            <h1 class="ww-hero-title font-display ww-autofit-title mb-0" data-min-font-size="20" data-max-lines="2" data-scale-emoji-selector=".ww-event-title-emoji">@Model.Title</h1>
+            @* Invisible mirror of the emoji above — same width, so the flex row's centering keeps
+               the title itself centered on the page instead of centering the [emoji, title] pair
+               as a whole (which would visually push the title right). See site.js's
+               scaleAdjacentEmoji, which sizes both this and the real emoji identically. *@
+            <span class="ww-event-title-emoji ww-event-title-emoji-spacer" aria-hidden="true">@Model.Emoji</span>
+        </div>
+    </div>
+
+    <nav class="ww-event-tabs" aria-label="Event sections">
+        <a asp-route="EventHome" asp-route-code="@Model.Code"
+           class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Availability ? "active" : "")"
+           aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Availability ? "page" : null)">
+            Availability
+        </a>
+        <a asp-route="EventPeople" asp-route-code="@Model.Code"
+           class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.People ? "active" : "")"
+           aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.People ? "page" : null)">
+            People
+        </a>
+        <a asp-route="EventFinalize" asp-route-code="@Model.Code"
+           class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Finalize ? "active" : "")"
+           aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Finalize ? "page" : null)">
+            Finalize
+        </a>
+        <a asp-route="EventSettings" asp-route-code="@Model.Code"
+           class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Settings ? "active" : "")"
+           aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Settings ? "page" : null)">
+            Settings
+        </a>
+    </nav>
+
+    <hr class="ww-event-divider" />
+</div>
+
+@* Copy-to-clipboard behavior for the event-code pill above — shared by every page that renders
+   this partial. Guarded so it's safe to include this partial more than once (not needed today,
+   but avoids double-binding if that ever changes) by only wiring listeners once per page. *@
+<script>
+    (function () {
+        if (window.__wwEventCodeCopyWired) {
+            return;
+        }
+        window.__wwEventCodeCopyWired = true;
+
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('.ww-event-code-button');
+            if (!button) {
+                return;
+            }
+
+            const code = button.dataset.code || '';
+            if (!code || !navigator.clipboard) {
+                return;
+            }
+
+            navigator.clipboard.writeText(code).then(function () {
+                button.classList.add('copied');
+                window.clearTimeout(button._copiedTimeout);
+                button._copiedTimeout = window.setTimeout(function () {
+                    button.classList.remove('copied');
+                }, 1500);
+            }).catch(function () {
+                // Clipboard access can be denied by the browser/OS — silently no-op rather than
+                // surfacing a broken-looking error for a purely convenience feature.
+            });
+        });
+    })();
+</script>

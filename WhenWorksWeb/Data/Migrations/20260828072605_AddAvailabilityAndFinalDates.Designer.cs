@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WhenWorksWeb.Data;
 
@@ -11,9 +12,11 @@ using WhenWorksWeb.Data;
 namespace WhenWorksWeb.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828072605_AddAvailabilityAndFinalDates")]
+    partial class AddAvailabilityAndFinalDates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -375,6 +378,21 @@ namespace WhenWorksWeb.Data.Migrations
                     b.ToTable("EventMessages");
                 });
 
+            modelBuilder.Entity("WhenWorksWeb.Models.EventRole", b =>
+                {
+                    b.Property<int>("ParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("ParticipantId");
+
+                    b.ToTable("EventRoles");
+                });
+
             modelBuilder.Entity("WhenWorksWeb.Models.EventSettings", b =>
                 {
                     b.Property<int>("EventId")
@@ -415,12 +433,6 @@ namespace WhenWorksWeb.Data.Migrations
 
                     b.Property<int>("EventId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsCreator")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsOrganizer")
-                        .HasColumnType("bit");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
@@ -576,6 +588,17 @@ namespace WhenWorksWeb.Data.Migrations
                     b.Navigation("Participant");
                 });
 
+            modelBuilder.Entity("WhenWorksWeb.Models.EventRole", b =>
+                {
+                    b.HasOne("WhenWorksWeb.Models.Participant", "Participant")
+                        .WithOne("Role")
+                        .HasForeignKey("WhenWorksWeb.Models.EventRole", "ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+                });
+
             modelBuilder.Entity("WhenWorksWeb.Models.EventSettings", b =>
                 {
                     b.HasOne("WhenWorksWeb.Models.Event", "Event")
@@ -677,6 +700,8 @@ namespace WhenWorksWeb.Data.Migrations
                     b.Navigation("Availabilities");
 
                     b.Navigation("Messages");
+
+                    b.Navigation("Role");
                 });
 #pragma warning restore 612, 618
         }
