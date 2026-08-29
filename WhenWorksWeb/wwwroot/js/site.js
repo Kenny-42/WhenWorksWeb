@@ -672,8 +672,42 @@
     el.style.fontSize = lo + "px";
   }
 
+  // Ratio of the title's own resolved font size an adjacent emoji (e.g. .ww-event-title-emoji)
+  // should render at, so it visibly scales with a title that can autofit anywhere from ~20px to
+  // 144px instead of sitting at one fixed size that reads as tiny next to a big title.
+  var EMOJI_SCALE_RATIO = 0.5;
+
+  // If `el` carries data-scale-emoji-selector, looks that selector up from el's own parent (not
+  // el itself — the emoji is a sibling, e.g. .ww-event-title-row > .ww-event-title-emoji + h1)
+  // and sets every match's font-size to a fixed ratio of el's just-settled resolved size. Matches
+  // *every* element the selector finds, not just the first — the Event Home title row carries
+  // two: the real, visible emoji to the title's left and an identical but invisible mirror-image
+  // copy after it, which keeps the title itself centered on the page (flexbox centers the
+  // [emoji, title, invisible-emoji] group as a whole, so the title lands in the middle only if
+  // the invisible copy matches the real one's rendered width exactly). No-op for targets without
+  // the attribute (every .ww-autofit-title use besides the Event Home title).
+  function scaleAdjacentEmoji(el) {
+    var selector = el.dataset.scaleEmojiSelector;
+    if (!selector || !el.parentElement) {
+      return;
+    }
+
+    var emojiEls = el.parentElement.querySelectorAll(selector);
+    if (emojiEls.length === 0) {
+      return;
+    }
+
+    var resolvedFontSize = parseFloat(window.getComputedStyle(el).fontSize);
+    emojiEls.forEach(function (emojiEl) {
+      emojiEl.style.fontSize = (resolvedFontSize * EMOJI_SCALE_RATIO) + "px";
+    });
+  }
+
   function fitAll() {
-    targets.forEach(fit);
+    targets.forEach(function (el) {
+      fit(el);
+      scaleAdjacentEmoji(el);
+    });
   }
 
   fitAll();

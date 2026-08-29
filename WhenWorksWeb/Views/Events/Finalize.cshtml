@@ -1,0 +1,203 @@
+@using System.Text.Json
+@model WhenWorksWeb.Models.EventFinalizeViewModel
+
+@{
+    ViewData["Title"] = Model.Header.Title;
+    ViewData["DisableTitleSuffix"] = true;
+
+    var calendarJsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    var calendarJson = JsonSerializer.Serialize(Model.Calendar, calendarJsonOptions);
+}
+
+<!-- Event Finalize tab: shared header/tab bar, then "Call the date" (suggestions + add-date form)
+     and "Final dates". Single-column layout (48rem), matching People.cshtml's convention, since
+     there's no longer a second "main" card to sit beside these two (moved off Settings). -->
+<div class="container py-4 ww-finalize-page" style="max-width: 48rem;">
+    @await Html.PartialAsync("_EventHeader", Model.Header)
+
+    @if (!Model.CanManageEvent)
+    {
+        <div class="ww-event-card text-center mb-4">
+            <p class="mb-0">Only this event's organizer can manage final dates.</p>
+        </div>
+    }
+
+    <div class="ww-event-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h3 class="font-display mb-0">Call the date</h3>
+            <i class="bi bi-calendar-check" aria-hidden="true"></i>
+        </div>
+        <p class="ww-people-subtitle mb-3">Select a final date independently of availability.</p>
+        @* "Suggestions" sub-list below. *@
+
+        <h4 class="ww-settings-sublabel">Suggestions</h4>
+        <div id="ww-final-date-suggestions"
+             data-calendar="@calendarJson"
+             data-code="@Model.Header.Code"
+             class="mb-3">
+        </div>
+
+        @if (Model.CanManageEvent)
+        {
+            <form asp-route="EventAddFinalDate" asp-route-code="@Model.Header.Code" method="post" class="ww-settings-add-date-form mb-3">
+                @Html.AntiForgeryToken()
+                <div class="mb-2">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label for="ww-final-date-start" class="ww-settings-label mb-0">Start date</label>
+                        <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-start">Clear</button>
+                    </div>
+                    <input type="date" id="ww-final-date-start" name="startDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" required />
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label for="ww-final-date-end" class="ww-settings-label mb-0">End date <span class="ww-settings-optional-tag">(optional)</span></label>
+                        <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-end">Clear</button>
+                    </div>
+                    <input type="date" id="ww-final-date-end" name="endDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" />
+                </div>
+                <button type="submit" class="btn go-button w-100">Add a date <i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+            </form>
+        }
+    </div>
+
+    <!-- Final dates: its own card (not a sub-section of "Call the date") so a confirmed date
+         reads as a bigger, more settled result than a suggestion, with a full h3 heading (not
+         .ww-settings-sublabel's smaller sub-heading size) to match. Rows themselves are rendered
+         client-side by the same WWBestBets.renderFinalDatesList the Availability tab's live
+         "Final dates" card uses (same #ww-final-dates-list id, so it picks up that card's own
+         blue-tint styling for free) — the per-date "N of M available" counts it shows only exist
+         as a client-side computation over the calendar JSON already loaded for Suggestions above,
+         with no server-side equivalent to render this from directly. options.renderRemoveControl
+         (organizer-only) adds the "x" button a plain Availability-tab row doesn't have. -->
+    <div class="ww-event-card">
+        <h3 class="font-display mb-3">Final dates</h3>
+        @if (Model.FinalDates.Count == 0)
+        {
+            <p class="ww-people-subtitle mb-0">No final date set yet.</p>
+        }
+        else
+        {
+            <div id="ww-final-dates-list"></div>
+            @if (Model.CanManageEvent)
+            {
+                <form id="ww-final-date-remove-antiforgery-form" class="visually-hidden">
+                    @Html.AntiForgeryToken()
+                </form>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/event-best-bets.js"></script>
+    <script>
+        (function () {
+            "use strict";
+
+            // "Suggestions" sub-list — the same best-bets ranking as the Availability tab's
+            // sidebar, rendered by the shared script. Clicking a suggestion prefills the add-date
+            // form's start field rather than adding it directly, so the organizer still confirms.
+            //
+            // The same parsed calendar also feeds "Final dates" further down (see below) — the
+            // per-date "N of M available" counts it shows only exist as a client-side computation
+            // over this JSON, with no server-side equivalent to render them from directly.
+            var suggestionsEl = document.getElementById('ww-final-date-suggestions');
+            if (suggestionsEl) {
+                var calendar = JSON.parse(suggestionsEl.dataset.calendar);
+                var code = suggestionsEl.dataset.code;
+                var participantsById = {};
+                calendar.participants.forEach(function (p) {
+                    participantsById[p.id] = p;
+                });
+
+                var datesByKey = {};
+                calendar.dates.forEach(function (d) {
+                    datesByKey[d.date] = d.participantIds.slice();
+                });
+
+                var startInput = document.getElementById('ww-final-date-start');
+
+                WWBestBets.renderBestBetsList(suggestionsEl, datesByKey, participantsById, calendar.participants.length, {
+                    emptyText: 'Suggestions will appear once your group starts picking.',
+                    onSelect: startInput
+                        ? function (date) {
+                            startInput.value = date;
+                            startInput.dispatchEvent(new Event('change'));
+                        }
+                        : undefined
+                });
+
+                // "Final dates" card below — same look as the Availability tab's live card (same
+                // #ww-final-dates-list id, so it picks up that card's blue-tint row styling for
+                // free), plus an organizer-only "x" remove control that card doesn't have. Each
+                // remove control is a real <form> POSTing to EventRemoveFinalDate's route (built
+                // by hand — asp-route is a server-side tag helper, unavailable to this client-side
+                // render), reusing the antiforgery token off the dedicated hidden form the markup
+                // above renders only when Model.CanManageEvent.
+                var finalDatesEl = document.getElementById('ww-final-dates-list');
+                if (finalDatesEl) {
+                    var removeAntiforgeryInput = document.querySelector('#ww-final-date-remove-antiforgery-form input[name="__RequestVerificationToken"]');
+
+                    WWBestBets.renderFinalDatesList(finalDatesEl, calendar.finalDates, datesByKey, participantsById, calendar.participants.length, {
+                        renderRemoveControl: removeAntiforgeryInput
+                            ? function (finalDate) {
+                                var form = document.createElement('form');
+                                form.method = 'post';
+                                form.action = '/event/' + code + '/finalize/final-dates/' + finalDate.id + '/remove';
+
+                                var tokenInput = document.createElement('input');
+                                tokenInput.type = 'hidden';
+                                tokenInput.name = '__RequestVerificationToken';
+                                tokenInput.value = removeAntiforgeryInput.value;
+                                form.appendChild(tokenInput);
+
+                                var button = document.createElement('button');
+                                button.type = 'submit';
+                                button.className = 'ww-final-date-remove-button';
+                                button.setAttribute('aria-label', 'Remove this final date');
+                                var icon = document.createElement('i');
+                                icon.className = 'bi bi-x-lg';
+                                icon.setAttribute('aria-hidden', 'true');
+                                button.appendChild(icon);
+                                form.appendChild(button);
+
+                                return form;
+                            }
+                            : undefined
+                    });
+                }
+            }
+
+            // Cross-constrain the add-date range so the native picker itself grays out/blocks an
+            // invalid end date, rather than only catching it after submit: the end field can never
+            // be set before whatever start date is currently chosen, and the start field can never
+            // be moved past whatever end date is currently chosen.
+            var rangeStartInput = document.getElementById('ww-final-date-start');
+            var rangeEndInput = document.getElementById('ww-final-date-end');
+            if (rangeStartInput && rangeEndInput) {
+                rangeStartInput.addEventListener('change', function () {
+                    rangeEndInput.min = rangeStartInput.value || '';
+                });
+                rangeEndInput.addEventListener('change', function () {
+                    rangeStartInput.max = rangeEndInput.value || '';
+                });
+            }
+
+            // "Clear" buttons beside each date field — lets the organizer start over (fully or
+            // partially) instead of being stuck once a date is picked, since a native date input
+            // has no built-in way to blank itself back out once set. Clearing dispatches the same
+            // 'change' event the cross-constraint listeners above already react to, so clearing
+            // the start date also lifts the end field's min (and vice versa).
+            document.querySelectorAll('.ww-settings-clear-date-button').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var target = document.getElementById(button.dataset.clearTarget);
+                    if (!target) {
+                        return;
+                    }
+                    target.value = '';
+                    target.dispatchEvent(new Event('change'));
+                });
+            });
+        })();
+    </script>
+}

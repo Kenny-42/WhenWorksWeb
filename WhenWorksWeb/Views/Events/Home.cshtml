@@ -49,8 +49,32 @@
             <div class="ww-calendar-legend" id="ww-calendar-legend" aria-label="Participant color key"></div>
         </div>
 
-        <!-- Best-bets/status sidebar. -->
+        <!-- Sidebar: once a final date exists, "Final dates" sits above Best Bets (still useful
+             for spotting a second date the group could switch to) in place of the status card,
+             which no longer has anything left to prompt once a date's already been chosen —
+             decided here, server-side, since it's already known at render time. Where the status
+             card *does* show (no final date yet), it sits above Best Bets too — it's the more
+             actionable of the two. "Final dates" is a live, non-interactive card with the same
+             recolored-outline treatment as the status card below (pink instead of the sitewide
+             yellow) — deliberately opted out of the .ww-feature-card proximity-glow/spotlight-
+             tint/hover-confetti system Home's marketing cards use. -->
         <div class="ww-availability-sidebar">
+            @if (Model.Calendar.FinalDates.Count > 0)
+            {
+                <div class="ww-event-card ww-final-dates-card" id="ww-final-dates-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="font-display mb-0">Final dates</h3>
+                        <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                    </div>
+                    <div id="ww-final-dates-list"></div>
+                    <a asp-route="EventFinalize" asp-route-code="@Model.Header.Code" class="btn ww-status-button mt-2">Choose another date</a>
+                </div>
+            }
+            else
+            {
+                <div class="ww-event-card" id="ww-status-card"></div>
+            }
+
             <div class="ww-event-card">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <h3 class="font-display mb-0">Best bets</h3>
@@ -58,8 +82,6 @@
                 </div>
                 <div id="ww-best-bets-list"></div>
             </div>
-
-            <div class="ww-event-card" id="ww-status-card"></div>
         </div>
     </div>
 
@@ -89,6 +111,7 @@
             var legendEl = document.getElementById('ww-calendar-legend');
             var bestBetsEl = document.getElementById('ww-best-bets-list');
             var statusEl = document.getElementById('ww-status-card');
+            var finalDatesEl = document.getElementById('ww-final-dates-list');
             var prevButton = document.querySelector('.ww-calendar-nav-button[data-direction="-1"]');
             var nextButton = document.querySelector('.ww-calendar-nav-button[data-direction="1"]');
 
@@ -393,6 +416,7 @@
 
                         renderBestBets();
                         renderStatus();
+                        renderFinalDates();
                     })
                     .catch(function () {
                         // No dedicated error UI for this pass — the cell simply stays in its
@@ -423,10 +447,24 @@
             }
 
             function renderBestBets() {
+                if (!bestBetsEl) {
+                    return;
+                }
                 WWBestBets.renderBestBetsList(bestBetsEl, datesByKey, participantsById, calendar.participants.length);
             }
 
+            function renderFinalDates() {
+                if (!finalDatesEl) {
+                    return;
+                }
+                WWBestBets.renderFinalDatesList(finalDatesEl, calendar.finalDates, datesByKey, participantsById, calendar.participants.length);
+            }
+
             function renderStatus() {
+                if (!statusEl) {
+                    return;
+                }
+
                 var pickedParticipantIds = {};
                 Object.keys(datesByKey).forEach(function (key) {
                     datesByKey[key].forEach(function (id) {
@@ -454,7 +492,7 @@
 
                 var button = document.createElement('a');
                 button.className = 'btn ww-status-button';
-                button.href = '/event/' + code + '/settings';
+                button.href = '/event/' + code + '/finalize';
                 button.textContent = 'Choose the final date';
                 statusEl.appendChild(button);
             }
@@ -479,6 +517,7 @@
             renderLegend();
             renderBestBets();
             renderStatus();
+            renderFinalDates();
         })();
     </script>
 }

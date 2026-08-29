@@ -27,7 +27,12 @@
 
         <div class="ww-event-title-row">
             <span class="ww-event-title-emoji" aria-hidden="true">@Model.Emoji</span>
-            <h1 class="ww-hero-title font-display ww-autofit-title mb-0" data-min-font-size="20" data-max-lines="2">@Model.Title</h1>
+            <h1 class="ww-hero-title font-display ww-autofit-title mb-0" data-min-font-size="20" data-max-lines="2" data-scale-emoji-selector=".ww-event-title-emoji">@Model.Title</h1>
+            @* Invisible mirror of the emoji above — same width, so the flex row's centering keeps
+               the title itself centered on the page instead of centering the [emoji, title] pair
+               as a whole (which would visually push the title right). See site.js's
+               scaleAdjacentEmoji, which sizes both this and the real emoji identically. *@
+            <span class="ww-event-title-emoji ww-event-title-emoji-spacer" aria-hidden="true">@Model.Emoji</span>
         </div>
     </div>
 
@@ -41,6 +46,11 @@
            class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.People ? "active" : "")"
            aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.People ? "page" : null)">
             People
+        </a>
+        <a asp-route="EventFinalize" asp-route-code="@Model.Code"
+           class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Finalize ? "active" : "")"
+           aria-current="@(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Finalize ? "page" : null)">
+            Finalize
         </a>
         <a asp-route="EventSettings" asp-route-code="@Model.Code"
            class="ww-event-tab @(Model.ActiveTab == WhenWorksWeb.Models.EventTab.Settings ? "active" : "")"

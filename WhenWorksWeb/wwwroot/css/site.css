@@ -3108,6 +3108,7 @@ label:has(+ .input-pill:disabled) {
 .ww-event-title-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   width: 100%;
   /* Breathing room from the badge/buttons row above — without it the (potentially large,
@@ -3145,11 +3146,19 @@ label:has(+ .input-pill:disabled) {
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: clamp(2.5rem, 12vw, 9rem);
+  text-align: center;
 }
 
 .ww-event-title-emoji {
-  font-size: 1.6rem;
   line-height: 1;
+}
+
+/* The invisible mirror copy after the title (see _EventHeader.cshtml) — same rendered size as
+   the real emoji (site.js sizes both identically) so it balances the flex row and keeps the
+   title itself centered, but never actually shown. visibility: hidden, not display: none, so it
+   still takes up layout space. */
+.ww-event-title-emoji-spacer {
+  visibility: hidden;
 }
 
 /* The event code, rendered as a single pill button that copies itself to the clipboard —
@@ -3157,15 +3166,15 @@ label:has(+ .input-pill:disabled) {
 .ww-event-code-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   border: 2px solid var(--color-accent-yellow-border);
   border-radius: var(--radius-pill);
   background-color: rgba(255, 255, 255, 0.82);
   color: var(--color-text-strong);
-  padding: 0.35rem 0.9rem;
+  padding: 0.25rem 0.7rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   box-shadow: var(--shadow-hard);
   cursor: pointer;
@@ -3207,14 +3216,14 @@ label:has(+ .input-pill:disabled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2rem;
+  height: 2rem;
   flex: none;
   border: 2px solid var(--color-accent-yellow-border);
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.82);
   color: var(--color-text-strong);
-  font-size: 1rem;
+  font-size: 0.85rem;
   text-decoration: none;
   box-shadow: var(--shadow-hard);
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
@@ -3241,6 +3250,7 @@ label:has(+ .input-pill:disabled) {
    divider below them." */
 .ww-event-tabs {
   display: flex;
+  justify-content: center;
   gap: 0.5rem;
   margin-top: 1.5rem;
   flex-wrap: wrap;
@@ -3298,6 +3308,9 @@ label:has(+ .input-pill:disabled) {
    Same rounded-capsule technique as .account-divider (a filled, border-radius bar) rather
    than a plain border-top — the site's usual divider treatment. */
 .ww-event-header .ww-event-divider {
+  /* Tighter than the shared .ww-event-divider's 1.5rem default — the tab bar reads better
+     sitting close to the divider beneath it rather than floating a full section-gap above it. */
+  margin-top: 0.75rem;
   height: 2px;
   border: none;
   border-radius: var(--radius-pill);
@@ -3569,6 +3582,8 @@ label:has(+ .input-pill:disabled) {
   opacity: 0.5;
 }
 
+/* Soft translucent chip behind the day number — without it the number was hard to read once
+   the cell's own background turned into a solid or multi-wedge participant color. */
 .ww-calendar-cell-number {
   position: absolute;
   top: 0.35rem;
@@ -3576,6 +3591,10 @@ label:has(+ .input-pill:disabled) {
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--color-text-strong);
+  background-color: rgba(255, 255, 255, 0.6);
+  border-radius: 0.35rem;
+  padding: 0 0.3rem;
+  line-height: 1.3;
 }
 
 /* The small "this is mine" marker — shown only on the current participant's own picks,
@@ -3811,6 +3830,18 @@ label:has(+ .input-pill:disabled) {
   border: 2px solid rgba(255, 255, 255, 0.85);
 }
 
+/* Groups a final-date row's dots with its remove control (Finalize tab only — see
+   WWBestBets.renderFinalDatesList's options.renderRemoveControl) as one trailing flex item, so
+   the row's own space-between still only ever sees two children (info, this group) instead of
+   stranding the dots between two independently-spaced trailing items. */
+.ww-final-date-row-trailing {
+  display: flex;
+  align-items: center;
+  /* Wider than the row's other internal gaps — the remove button reads as tucked in too close
+     to the dots at the shared 0.5rem, per feedback. */
+  gap: 1rem;
+}
+
 /* Empty state ("The best date will appear once...", "Suggestions will appear once...") — still a
    .ww-best-bet-row card, just centered since there's no date/dots content to space apart. */
 .ww-best-bet-empty {
@@ -3855,6 +3886,9 @@ label:has(+ .input-pill:disabled) {
   border: 2px solid var(--color-brand-badge-fill);
   background-color: var(--color-accent-pink-fill);
   color: var(--color-text-on-gradient);
+  /* Bubblier (Fredoka) rather than the body font, same treatment as .ww-status-subheading
+     and the calendar's own "Click a date..." subheading. */
+  font-family: var(--font-display);
   font-weight: 700;
   padding: 0.6rem 1rem;
   box-shadow: var(--shadow-hard);
@@ -3876,9 +3910,28 @@ label:has(+ .input-pill:disabled) {
   box-shadow: var(--shadow-hard-hover);
 }
 
+/* !important on every property here, same reasoning as .go-button:active — Bootstrap's own
+   ":not(.btn-check)+.btn:active" rule outranks a plain ".ww-status-button:active" (this
+   button also carries .btn), pointing color/background/border/box-shadow at its own
+   --bs-btn-active-* properties (which this button never defines) and producing the reported
+   white fill/black border/lost shadow on click. */
 .ww-status-button:active {
+  background-color: var(--color-brand-badge-fill) !important;
+  border-color: var(--color-brand-badge-fill) !important;
+  color: var(--color-text-on-gradient) !important;
   transform: translateY(2px);
-  box-shadow: var(--shadow-hard-active);
+  box-shadow: var(--shadow-hard-active) !important;
+}
+
+/* Overrides the sitewide `.btn:focus` pink-ring rule (site.css's :root-adjacent block up top)
+   with this button's own resting shadow, then layers a visible keyboard-focus indicator back
+   in via :focus-visible only — same split as .go-button:focus/:focus-visible. */
+.ww-status-button:focus {
+  box-shadow: var(--shadow-hard);
+}
+
+.ww-status-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
 /* ==========================================================================
@@ -4068,6 +4121,17 @@ label:has(+ .input-pill:disabled) {
   left: 0;
 }
 
+/* "Call the date"/"Final dates" card headings — no weight override previously, so they fell
+   back to Bootstrap's default heading weight instead of the site's dark-gray/bold treatment.
+   Already bold via .font-display's class on the element; .font-display's own regular weight
+   doesn't read noticeably rounder/bubblier next to the body font beside it — its bold weight
+   does (same "bubblier" fix as .ww-people-roster-card h2/.ww-availability-sidebar h3/
+   .ww-settings-shape-card h2 elsewhere). */
+.ww-finalize-page h3.font-display {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
 /* Add-a-date form beneath the Suggestions list — no card of its own, sits directly on the
    "Call the date" card's surface. */
 .ww-settings-add-date-form {
@@ -4075,56 +4139,8 @@ label:has(+ .input-pill:disabled) {
   padding-top: 1rem;
 }
 
-/* One confirmed EventFinalDate row — a solid blue pill/button (.input-pill-blue's own fill/
-   border pairing), not the yellow-tinted-card treatment .ww-best-bet-row uses for suggestions,
-   so the two sub-lists read as visually distinct and a confirmed date reads as more "settled"
-   than a suggestion. */
-.ww-final-date-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-accent-blue-fill);
-  border: 2px solid var(--color-accent-blue-border);
-  padding: 0.5rem 0.5rem 0.5rem 1rem;
-  box-shadow: var(--shadow-hard);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-/* Same hover-lift/press-down bounce as the rest of this page's pills — even though the row
-   itself has no click handler of its own (only the small remove button inside it does), it
-   still gets the same hover/press feedback as a matter of visual consistency with every other
-   pill on this page, per feedback. */
-.ww-final-date-row:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-hard-hover);
-}
-
-.ww-final-date-row:active {
-  transform: translateY(2px);
-  box-shadow: var(--shadow-hard-active);
-}
-
-.ww-final-date-row + .ww-final-date-row {
-  margin-top: 0.5rem;
-}
-
-/* Shrinks toward data-min-font-size (via .ww-autofit-title, site.js) rather than wrapping or
-   overflowing — a "MMM d – MMM d" range is long enough to threaten the remove button's space in
-   a narrow sidebar. min-width: 0 lets this flex item actually shrink below its content's natural
-   width (a flex item's default min-width is auto, i.e. its content size, which would otherwise
-   stop the row from ever measuring as overflowing); white-space/overflow give the autofit script
-   a single-line box with a measurable scrollWidth to shrink against. */
-.ww-final-date-label {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  white-space: nowrap;
-  font-weight: 700;
-  color: var(--color-text-strong);
-}
-
+/* Remove control appended to a "Final dates" row by WWBestBets.renderFinalDatesList's
+   options.renderRemoveControl (Finalize tab only — see Finalize.cshtml's own script). */
 .ww-final-date-remove-button {
   display: inline-flex;
   align-items: center;
@@ -4149,16 +4165,17 @@ label:has(+ .input-pill:disabled) {
 }
 
 /* Delete Event button — stands alone (no .ww-event-card wrapper) rather than sitting inside its
-   own card the way the mockup had it, so it reads as a plain full-width action in the sidebar.
-   Solid red fill (.input-pill-red's own fill/border/text pairing — text-strong reads correctly
-   on this fill, same as every other red-fill control on the site), with the same hover-lift/
-   press-down "3D pop" + darker-fill-on-press language as .go-button elsewhere on this page. */
+   own card the way the mockup had it. Sized to its content (not full-width) and centered by its
+   caller (Settings.cshtml wraps it in a centering row) so it doesn't visually compete with the
+   full-width "Shape the plan" card above it. Solid red fill (.input-pill-red's own fill/border/
+   text pairing — text-strong reads correctly on this fill, same as every other red-fill control
+   on the site), with the same hover-lift/press-down "3D pop" + darker-fill-on-press language as
+   .go-button elsewhere on this page. */
 .ww-delete-event-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  width: 100%;
   border-radius: var(--radius-pill);
   background-color: var(--color-accent-red);
   border: 2px solid var(--color-accent-red-border);
@@ -4209,4 +4226,23 @@ label:has(+ .input-pill:disabled) {
 .ww-settings-clear-date-button:focus-visible {
   opacity: 1;
   color: var(--color-accent-red-border);
+}
+
+/* Availability tab: the live "Final dates" card that sits above Best Bets once a final date
+   exists. Same "recolor the outline only" pattern as #ww-status-card's pink border and
+   .ww-people-roster-card's blue one — a regular white-glass .ww-event-card, not
+   .ww-feature-card (no proximity border-glow, no page-wide spotlight tint from this card —
+   that system stayed reserved for Home's marketing cards, and this card opts out of its
+   hover-confetti too). */
+.ww-final-dates-card {
+  border-color: var(--color-brand-badge-fill);
+}
+
+/* The individual date rows inside the "Final dates" card (rendered by WWBestBets.
+   renderFinalDatesList into #ww-final-dates-list) — blue instead of the shared
+   .ww-best-bet-row's default yellow tint, matching this card's own blue final-date-pill theme
+   from the Finalize tab, and distinguishing a confirmed date from a plain Best Bets suggestion. */
+#ww-final-dates-list .ww-best-bet-row {
+  border-color: var(--color-accent-blue-border);
+  background-color: rgba(79, 184, 196, 0.1);
 }
