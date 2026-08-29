@@ -9,7 +9,7 @@ public partial class EventsController
 {
     /// <summary>
     /// Displays the Settings tab for the event associated with the specified code: the "Shape the
-    /// plan" edit form, the "Call the date" suggestions/final-dates card, and Delete Event.
+    /// plan" edit form and Delete Event.
     /// </summary>
     /// <remarks>The page is only accessible after a successful sign-in flow has issued a valid access cookie.</remarks>
     [HttpGet("/event/{code}/settings", Name = "EventSettings")]
@@ -122,10 +122,9 @@ public partial class EventsController
     }
 
     /// <summary>
-    /// Builds the full Settings tab view model: shared chrome, current title/description/emoji,
-    /// the Availability tab's calendar data (reused so the "Suggestions" sub-list is ranked by the
-    /// same shared best-bets script, no second query shape needed), and the organizer's current
-    /// final date entries.
+    /// Builds the Settings tab view model: shared chrome plus the current title/description/
+    /// emoji. Final-date management lives on its own Finalize tab now — see
+    /// <see cref="BuildEventFinalizeViewModelAsync"/> in <c>EventsController.Finalize.cs</c>.
     /// </summary>
     private async Task<EventSettingsViewModel> BuildEventSettingsViewModelAsync(Event eventEntity, Participant participant, CancellationToken cancellationToken)
     {
@@ -135,19 +134,6 @@ public partial class EventsController
 
         var emoji = settings?.Emoji ?? ModelConstants.DefaultEventEmoji;
         var canManageEvent = await CanManageEventAsync(eventEntity, participant, cancellationToken);
-        var calendar = await BuildEventCalendarAsync(eventEntity, participant, cancellationToken);
-
-        var finalDates = await _db.EventFinalDates
-            .AsNoTracking()
-            .Where(f => f.EventId == eventEntity.Id)
-            .OrderBy(f => f.StartDate)
-            .Select(f => new EventFinalDateViewModel
-            {
-                Id = f.Id,
-                StartDate = f.StartDate,
-                EndDate = f.EndDate
-            })
-            .ToListAsync(cancellationToken);
 
         return new EventSettingsViewModel
         {
@@ -155,9 +141,7 @@ public partial class EventsController
             CanManageEvent = canManageEvent,
             Title = eventEntity.Title,
             Description = string.IsNullOrWhiteSpace(settings?.Description) ? null : settings.Description,
-            Emoji = emoji,
-            Calendar = calendar,
-            FinalDates = finalDates
+            Emoji = emoji
         };
     }
 }

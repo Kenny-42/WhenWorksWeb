@@ -94,6 +94,18 @@ public partial class EventsController
             })
             .ToList();
 
+        var finalDates = await _db.EventFinalDates
+            .AsNoTracking()
+            .Where(f => f.EventId == eventEntity.Id)
+            .OrderBy(f => f.StartDate)
+            .Select(f => new EventFinalDateViewModel
+            {
+                Id = f.Id,
+                StartDate = f.StartDate,
+                EndDate = f.EndDate
+            })
+            .ToListAsync(cancellationToken);
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
         var initialMonth = new DateOnly(today.Year, today.Month, 1);
 
@@ -104,7 +116,8 @@ public partial class EventsController
             WindowEndMonth = initialMonth.AddMonths(CalendarMonthsAfterToday),
             CurrentParticipantId = currentParticipant.Id,
             Participants = participants,
-            Dates = dates
+            Dates = dates,
+            FinalDates = finalDates
         };
     }
 }

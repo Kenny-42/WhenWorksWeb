@@ -12,7 +12,7 @@ public partial class EventsController
     /// entirely independent of <see cref="EventDate"/>/<see cref="ParticipantAvailability"/> — see
     /// the Schema Changes section of the feature spec for why the two are deliberately decoupled.
     /// </summary>
-    [HttpPost("/event/{code}/settings/final-dates", Name = "EventAddFinalDate")]
+    [HttpPost("/event/{code}/finalize/final-dates", Name = "EventAddFinalDate")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddFinalDate(string code, [FromForm] string startDate, [FromForm] string? endDate, CancellationToken cancellationToken)
     {
@@ -49,7 +49,7 @@ public partial class EventsController
             if (parsedEnd < start)
             {
                 ModelState.AddModelError(nameof(endDate), "End date must be on or after the start date.");
-                return View("Settings", await BuildEventSettingsViewModelAsync(eventEntity, participant, cancellationToken));
+                return View("Finalize", await BuildEventFinalizeViewModelAsync(eventEntity, participant, cancellationToken));
             }
 
             end = parsedEnd;
@@ -63,14 +63,14 @@ public partial class EventsController
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        return RedirectToRoute("EventSettings", new { code = eventEntity.Code });
+        return RedirectToRoute("EventFinalize", new { code = eventEntity.Code });
     }
 
     /// <summary>
     /// Removes an organizer-chosen final date entry from the event. Organizer-only; scoped to the
     /// requested event so one event's organizer can't remove another event's row by guessing an id.
     /// </summary>
-    [HttpPost("/event/{code}/settings/final-dates/{finalDateId:int}/remove", Name = "EventRemoveFinalDate")]
+    [HttpPost("/event/{code}/finalize/final-dates/{finalDateId:int}/remove", Name = "EventRemoveFinalDate")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveFinalDate(string code, int finalDateId, CancellationToken cancellationToken)
     {
@@ -100,6 +100,6 @@ public partial class EventsController
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        return RedirectToRoute("EventSettings", new { code = eventEntity.Code });
+        return RedirectToRoute("EventFinalize", new { code = eventEntity.Code });
     }
 }
