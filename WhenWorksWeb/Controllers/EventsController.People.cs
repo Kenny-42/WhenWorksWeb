@@ -56,11 +56,12 @@ public partial class EventsController
                 DisplayName = p.DisplayName,
                 Color = p.Color,
                 IsOrganizer = p.IsOrganizer,
-                IsCurrentParticipant = p.Id == currentParticipantId
+                IsCurrentParticipant = p.Id == currentParticipantId,
+                DatesPickedCount = p.Availabilities.Count
             })
             .ToListAsync(cancellationToken);
 
-        return View(new EventPeopleViewModel
+        var model = new EventPeopleViewModel
         {
             Header = BuildEventHeader(eventEntity, emoji, EventTab.People),
             Participants = participants,
@@ -68,6 +69,15 @@ public partial class EventsController
             TotalPages = totalPages,
             TotalCount = totalCount,
             PageSize = PeoplePageSize
-        });
+        };
+
+        // A page change fetched by People.cshtml's own script (see that view's Scripts section)
+        // only needs the roster partial re-rendered, not the whole page (header/tab bar/layout).
+        if (string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.Ordinal))
+        {
+            return PartialView("_PeopleRoster", model);
+        }
+
+        return View(model);
     }
 }

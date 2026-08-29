@@ -24,6 +24,11 @@ public sealed class EventPersonViewModel
     /// Whether this row is the currently signed-in participant, for the "You" suffix.
     /// </summary>
     public required bool IsCurrentParticipant { get; init; }
+
+    /// <summary>
+    /// The number of candidate dates this participant has marked themselves available on.
+    /// </summary>
+    public required int DatesPickedCount { get; init; }
 }
 
 /// <summary>

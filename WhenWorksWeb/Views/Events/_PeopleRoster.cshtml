@@ -1,0 +1,124 @@
+@model WhenWorksWeb.Models.EventPeopleViewModel
+
+@* The People tab's participant roster card + pagination — split into its own partial so a page
+   change can re-fetch and swap just this markup (see People.cshtml's script) instead of
+   reloading the whole page. Kept in sync with the full page on first load: People.cshtml
+   renders this same partial for the initial GET. *@
+
+<!-- "The crew" card: every participant, organizers first then alphabetically, 8/page -->
+<div class="ww-event-card ww-people-roster-card">
+    <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+        <div>
+            <h2 class="font-display mb-1">The crew</h2>
+            <p class="font-display ww-people-subtitle mb-0">Everyone choosing a day for @Model.Header.Title.</p>
+        </div>
+        <span class="ww-people-count-badge">
+            @Model.TotalCount @(Model.TotalCount == 1 ? "PERSON" : "PEOPLE")
+        </span>
+    </div>
+
+    <ul class="list-unstyled d-flex flex-column gap-3 mb-0">
+        @foreach (var person in Model.Participants)
+        {
+            <li class="ww-people-card d-flex align-items-center gap-3">
+                <span class="ww-people-avatar" style="--avatar-color:#@person.Color">
+                    @person.DisplayName.Substring(0, 1).ToUpperInvariant()
+                </span>
+                <div class="ww-people-info flex-grow-1">
+                    <p class="ww-people-name mb-0">
+                        @person.DisplayName
+                        @if (person.IsCurrentParticipant)
+                        {
+                            <span class="ww-people-you">(you)</span>
+                        }
+                    </p>
+                    <p class="ww-people-meta mb-0">
+                        @if (person.IsOrganizer)
+                        {
+                            <text>Organizer &middot; </text>
+                        }
+                        @person.DatesPickedCount @(person.DatesPickedCount == 1 ? "date" : "dates") picked
+                    </p>
+                </div>
+                @if (person.IsOrganizer)
+                {
+                    <span class="ww-people-organizer-crown" aria-label="Organizer" title="Organizer">👑</span>
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+<!-- Page navigation: previous/next, a window of nearby page numbers, a jump-to-page box, and
+     a link to the last page — same markup/behavior as Views/MyEvents/Index.cshtml's own
+     pagination. The links/form below are still plain GETs (real URLs, real page reload) so the
+     roster works with JS disabled; People.cshtml's script progressively enhances them into
+     fetch-and-swap requests instead. -->
+@if (Model.TotalPages > 1)
+{
+    var windowStart = Math.Max(1, Model.CurrentPage - 2);
+    var windowEnd = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+
+    <nav class="ww-myevents-pagination ww-people-pagination mt-4" aria-label="People pages">
+        <a asp-route="EventPeople"
+           asp-route-code="@Model.Header.Code"
+           asp-route-page="@(Model.CurrentPage - 1)"
+           class="ww-page-button ww-page-nav-button @(Model.CurrentPage <= 1 ? "disabled" : "")"
+           aria-label="Previous page"
+           aria-disabled="@(Model.CurrentPage <= 1 ? "true" : "false")">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </a>
+
+        @if (windowStart > 1)
+        {
+            <a asp-route="EventPeople" asp-route-code="@Model.Header.Code" asp-route-page="1" class="ww-page-button">1</a>
+            @if (windowStart > 2)
+            {
+                <span class="ww-page-ellipsis">&hellip;</span>
+            }
+        }
+
+        @for (var pageNumber = windowStart; pageNumber <= windowEnd; pageNumber++)
+        {
+            <a asp-route="EventPeople"
+               asp-route-code="@Model.Header.Code"
+               asp-route-page="@pageNumber"
+               class="ww-page-button @(pageNumber == Model.CurrentPage ? "active" : "")"
+               aria-current="@(pageNumber == Model.CurrentPage ? "page" : null)">
+                @pageNumber
+            </a>
+        }
+
+        @if (windowEnd < Model.TotalPages)
+        {
+            @if (windowEnd < Model.TotalPages - 1)
+            {
+                <span class="ww-page-ellipsis">&hellip;</span>
+            }
+            <a asp-route="EventPeople" asp-route-code="@Model.Header.Code" asp-route-page="@Model.TotalPages" class="ww-page-button">@Model.TotalPages</a>
+        }
+
+        <a asp-route="EventPeople"
+           asp-route-code="@Model.Header.Code"
+           asp-route-page="@(Model.CurrentPage + 1)"
+           class="ww-page-button ww-page-nav-button @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")"
+           aria-label="Next page"
+           aria-disabled="@(Model.CurrentPage >= Model.TotalPages ? "true" : "false")">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </a>
+
+        <form asp-route="EventPeople" asp-route-code="@Model.Header.Code" method="get" class="ww-page-jump-form" id="event-people-page-jump-form">
+            <label for="event-people-page-jump-input" class="visually-hidden">Go to page</label>
+            <input type="number"
+                   inputmode="numeric"
+                   name="page"
+                   id="event-people-page-jump-input"
+                   class="input-pill ww-page-jump-input"
+                   min="1"
+                   max="@Model.TotalPages"
+                   value="@Model.CurrentPage"
+                   data-current-page="@Model.CurrentPage"
+                   aria-label="Go to page (1 to @Model.TotalPages)" />
+        </form>
+    </nav>
+}

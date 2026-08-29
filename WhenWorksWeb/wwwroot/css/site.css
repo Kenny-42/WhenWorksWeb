@@ -3311,16 +3311,96 @@ label:has(+ .input-pill:disabled) {
   padding: 1.25rem;
 }
 
-/* People tab: crown/"Organizer" label shown next to every participant with IsOrganizer = true. */
-.ww-event-organizer-badge {
+/* People tab: "The crew" card header — the h2 itself, styled to match .ww-myevent-title's
+   dark-gray (not default black) heading color, plus the subtitle under it and the pink
+   "N PEOPLE" count badge opposite it, echoing .ww-myevent-people's small-caps treatment on
+   My Events' own cards. */
+.ww-people-roster-card h2 {
+  color: var(--color-text-strong);
+  /* Fredoka's regular weight (.font-display's own default) doesn't read noticeably rounder/
+     "bubblier" than the body font next to it; its bold weight does — same fix as
+     #ww-calendar-month-label's own weight-700 override elsewhere in this file. */
+  font-weight: 700;
+}
+
+.ww-people-subtitle {
+  color: var(--color-text-strong);
+  opacity: 0.7;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ww-people-count-badge {
+  flex: none;
+  color: var(--color-brand-badge-fill);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* People tab: outer "The crew" card, recolored blue instead of .ww-event-card's sitewide
+   yellow border — outline only, fill/shadow stay the shared .ww-event-card treatment. Scoped
+   to .ww-people-roster-card so the other tabs' .ww-event-card uses are untouched. */
+.ww-people-roster-card {
+  border-color: var(--color-accent-blue-border);
+}
+
+/* People tab: one card per participant row — yellow-tinted surface/border so the roster
+   reads as a set of distinct crew cards rather than a plain list. */
+.ww-people-card {
+  border: 2px solid var(--color-accent-yellow-border);
+  border-radius: 1rem;
+  background-color: rgba(232, 147, 90, 0.1);
+  padding: 0.85rem 1.1rem;
+}
+
+.ww-people-avatar {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  color: var(--color-accent-yellow-border);
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 50%;
+  background-color: var(--avatar-color, var(--color-accent-pink-fill));
+  color: var(--color-text-on-gradient);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-people-name {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 1.05rem;
+}
+
+.ww-people-you {
+  margin-left: 0.3rem;
+  color: var(--color-text-strong);
+  opacity: 0.6;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ww-people-meta {
+  color: var(--color-text-strong);
+  opacity: 0.65;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+/* Crown marker for organizers — an emoji (Bootstrap Icons has no crown glyph) matching
+   this app's existing use of emoji for playful, at-a-glance markers elsewhere. */
+.ww-people-organizer-crown {
+  flex: none;
+  font-size: 1.3rem;
+  line-height: 1;
 }
 
 /* Availability tab: two-column layout — calendar card on the left, best-bets/status cards
@@ -3368,14 +3448,14 @@ label:has(+ .input-pill:disabled) {
   text-align: center;
 }
 
-/* Month name in black, year in the site's hot-pink text accent (same token/technique as
-   .text-link's hover color) — the rest of #ww-calendar-month-label inherits its default
-   (near-black) heading color already, so only the year needs its own rule. font-weight bumped
-   past .font-display's own default — Fredoka's regular weight didn't read noticeably rounder/
-   "bubblier" than the body font next to it; its bold weight does (same reasoning as
+/* Month name in the site's dark-gray heading color (--color-text-strong, matching
+   .ww-myevent-title/.ww-people-roster-card h2 elsewhere rather than pure black), year in the
+   site's hot-pink text accent (same token/technique as .text-link's hover color). font-weight
+   bumped past .font-display's own default — Fredoka's regular weight didn't read noticeably
+   rounder/"bubblier" than the body font next to it; its bold weight does (same reasoning as
    .ww-hero-title's own weight-700 override elsewhere in this file). */
 #ww-calendar-month-label {
-  color: #000;
+  color: var(--color-text-strong);
   font-weight: 700;
 }
 
@@ -3622,6 +3702,15 @@ label:has(+ .input-pill:disabled) {
   box-shadow: 0 0 0 1px rgba(73, 18, 50, 0.15);
 }
 
+/* "Best bets" card heading — no color rule previously, so it fell back to default black
+   instead of the site's dark-gray heading color (same fix as .ww-people-roster-card h2 and
+   .ww-myevent-title elsewhere). Bold weight for the same "bubblier" reason as
+   #ww-calendar-month-label/.ww-people-roster-card h2's own weight-700 overrides. */
+.ww-availability-sidebar h3 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
 /* Best bets: each date is its own yellow pill/card — date + "N of M available" stacked on the
    left, per-participant color dots on the right. Cards stack with a gap between them instead of
    the old flat divided-list rows. */
@@ -3632,7 +3721,9 @@ label:has(+ .input-pill:disabled) {
   gap: 0.75rem;
   border: 2px solid var(--color-accent-yellow-border);
   border-radius: 1rem;
-  background-color: var(--color-accent-yellow-fill);
+  /* Same pale yellow tint as .ww-people-card on the People tab, not the solid
+     --color-accent-yellow-fill this used before. */
+  background-color: rgba(232, 147, 90, 0.1);
   padding: 0.6rem 0.9rem;
 }
 
@@ -3681,6 +3772,15 @@ label:has(+ .input-pill:disabled) {
   border: 2px solid rgba(255, 255, 255, 0.85);
 }
 
+/* Status card: regular white-glass .ww-event-card fill, just with a pink outline instead of
+   the shared .ww-event-card's sitewide yellow border — same "recolor the outline only" pattern
+   as .ww-people-roster-card's blue border on the People tab. --color-brand-badge-fill, not
+   --color-accent-pink-fill, is the darker "border" shade of pink (same one used for
+   .ww-status-button's own border/press state above). */
+#ww-status-card {
+  border-color: var(--color-brand-badge-fill);
+}
+
 /* Status card: "X/Y have picked"/"Everyone's in." heading + subheading + a button to Settings. */
 .ww-status-heading {
   font-family: var(--font-display);
@@ -3703,23 +3803,26 @@ label:has(+ .input-pill:disabled) {
   justify-content: center;
   width: 100%;
   border-radius: var(--radius-pill);
-  border: 2px solid var(--color-accent-yellow-border);
-  background-color: var(--color-accent-yellow-fill);
-  color: var(--color-text-strong);
+  /* The site's default hot-pink accent (--color-accent-pink-fill), same pink family as
+     --color-brand-badge-fill used here for the border/press state — same lighter-fill/
+     darker-border-and-hover pairing as the yellow/blue button variants elsewhere. */
+  border: 2px solid var(--color-brand-badge-fill);
+  background-color: var(--color-accent-pink-fill);
+  color: var(--color-text-on-gradient);
   font-weight: 700;
   padding: 0.6rem 1rem;
   box-shadow: var(--shadow-hard);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Dark-yellow fill on press, same token/technique as the navbar's account toggle
+/* Dark-pink fill on press, same token/technique as the navbar's account toggle
    (.nav-link-account-toggle:hover/:active) — Bootstrap's own .btn base rule (this button
    also carries the "btn" class) would otherwise turn the background white on hover, which
    is what this overrides. */
 .ww-status-button:hover,
 .ww-status-button:active {
-  background-color: var(--color-accent-yellow-border);
-  color: var(--color-text-strong);
+  background-color: var(--color-brand-badge-fill);
+  color: var(--color-text-on-gradient);
 }
 
 .ww-status-button:hover {
