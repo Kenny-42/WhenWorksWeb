@@ -32,7 +32,9 @@ public partial class EventsController
     /// <summary>
     /// Builds the Finalize tab view model: shared chrome, the Availability tab's calendar data
     /// (reused so the "Suggestions" sub-list is ranked by the same shared best-bets script, no
-    /// second query shape needed), and the organizer's current final date entries.
+    /// second query shape needed), and the organizer's current final date entries (also reused
+    /// from the calendar's own <see cref="EventCalendarViewModel.FinalDates"/> rather than
+    /// queried again here, so the two can't diverge).
     /// </summary>
     private async Task<EventFinalizeViewModel> BuildEventFinalizeViewModelAsync(Event eventEntity, Participant participant, CancellationToken cancellationToken)
     {
@@ -40,24 +42,12 @@ public partial class EventsController
         var canManageEvent = await CanManageEventAsync(eventEntity, participant, cancellationToken);
         var calendar = await BuildEventCalendarAsync(eventEntity, participant, cancellationToken);
 
-        var finalDates = await _db.EventFinalDates
-            .AsNoTracking()
-            .Where(f => f.EventId == eventEntity.Id)
-            .OrderBy(f => f.StartDate)
-            .Select(f => new EventFinalDateViewModel
-            {
-                Id = f.Id,
-                StartDate = f.StartDate,
-                EndDate = f.EndDate
-            })
-            .ToListAsync(cancellationToken);
-
         return new EventFinalizeViewModel
         {
             Header = BuildEventHeader(eventEntity, emoji, EventTab.Finalize),
             CanManageEvent = canManageEvent,
             Calendar = calendar,
-            FinalDates = finalDates
+            FinalDates = calendar.FinalDates
         };
     }
 }

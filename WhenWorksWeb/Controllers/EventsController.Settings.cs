@@ -66,6 +66,21 @@ public partial class EventsController
         var trimmedDescription = description?.Trim();
         var trimmedEmoji = emoji?.Trim();
 
+        if (trimmedDescription?.Length > ModelConstants.EventDescriptionMaxLength)
+        {
+            ModelState.AddModelError(nameof(description), $"Description must be {ModelConstants.EventDescriptionMaxLength} characters or fewer.");
+        }
+
+        if (trimmedEmoji?.Length > ModelConstants.EventEmojiMaxLength)
+        {
+            ModelState.AddModelError(nameof(emoji), $"Emoji must be {ModelConstants.EventEmojiMaxLength} characters or fewer.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View("Settings", await BuildEventSettingsViewModelAsync(eventEntity, participant, cancellationToken));
+        }
+
         eventEntity.Title = trimmedTitle;
         eventEntity.LastActiveAt = DateTimeOffset.UtcNow;
 

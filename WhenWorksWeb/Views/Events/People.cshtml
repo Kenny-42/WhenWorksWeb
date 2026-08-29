@@ -32,6 +32,19 @@
 
             var code = rosterEl.dataset.code;
 
+            // Reads the page number encoded in the current URL (e.g. /people?page=3), defaulting
+            // to 1 when there's no page query param at all (the plain page-1 URL).
+            function currentPageFromLocation() {
+                var page = parseInt(new URL(window.location.href).searchParams.get('page') || '1', 10);
+                return page > 0 ? page : 1;
+            }
+
+            // Seed the initial history entry with the page it actually represents, so a later
+            // popstate back to *this* entry (event.state is null for entries that predate any
+            // pushState call, including the page the user landed on directly) doesn't have to
+            // guess and fall back to page 1.
+            window.history.replaceState({ wwPeoplePage: currentPageFromLocation() }, '', window.location.href);
+
             // Re-runs the jump-to-page input's clamping behavior against whatever roster HTML
             // was just swapped in, since it's freshly parsed markup with no listener of its own.
             function wireUpPageJumpForm() {
@@ -106,7 +119,7 @@
             });
 
             window.addEventListener('popstate', function (event) {
-                var page = (event.state && event.state.wwPeoplePage) || 1;
+                var page = (event.state && event.state.wwPeoplePage) || currentPageFromLocation();
                 loadPage(page, false);
             });
 
