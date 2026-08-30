@@ -1,20 +1,13 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Controllers;
 
 public partial class EventsController
 {
-    /// <summary>
-    /// How far from today (in either direction) a date posted to <see cref="ToggleAvailability"/>
-    /// is allowed to be. The calendar's own UI caps how far a participant can page, but that's a
-    /// client-side convenience only — this is the actual, server-enforced boundary, since nothing
-    /// stops a request from being sent directly with an arbitrary date.
-    /// </summary>
-    private const int ToggleAvailabilityDateBoundYears = 50;
-
     /// <summary>
     /// Toggles the current participant's own availability on a single calendar date: finds or
     /// creates the <see cref="EventDate"/> row for that day on the fly (no separate "propose a
@@ -52,8 +45,12 @@ public partial class EventsController
             return BadRequest();
         }
 
+        // The calendar's own UI caps how far a participant can page, but that's a client-side
+        // convenience only — this is the actual, server-enforced boundary, since nothing stops a
+        // request from being sent directly with an arbitrary date. Shared with AddFinalDate in
+        // EventsController.FinalDate.cs via ModelConstants.UserSuppliedDateBoundYears.
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        if (day < today.AddYears(-ToggleAvailabilityDateBoundYears) || day > today.AddYears(ToggleAvailabilityDateBoundYears))
+        if (day < today.AddYears(-ModelConstants.UserSuppliedDateBoundYears) || day > today.AddYears(ModelConstants.UserSuppliedDateBoundYears))
         {
             return BadRequest();
         }

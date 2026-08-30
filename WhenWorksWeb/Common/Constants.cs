@@ -81,6 +81,17 @@ public static class ModelConstants
     // parentheses, or letters).
     public const string PhoneNumberPattern = @"^\+?[0-9]{7,15}$";
 
+    // How far from today (in either direction) a user-supplied date is allowed to be, shared by
+    // every date a participant/organizer can post directly (calendar availability toggles, final
+    // dates). A generous bound (nobody is planning 50 years out) that still catches an
+    // obviously-wrong or tampered value; a client-side date picker's own range is a UX convenience
+    // only, this is the actual server-enforced boundary.
+    public const int UserSuppliedDateBoundYears = 50;
+
+    // The maximum number of EventFinalDate rows a single event can accumulate. A sanity cap, not a
+    // real-world limit anyone should hit organizing an actual event.
+    public const int EventFinalDateMaxCount = 40;
+
     // Blocks C0/C1 control characters and common zero-width/invisible Unicode characters, while
     // still requiring at least one non-whitespace character somewhere in the value (closing the
     // gap where [Required] alone accepts an all-whitespace value -- see CODING_CONVENTIONS.md's

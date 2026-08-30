@@ -1,0 +1,139 @@
+## Tighten input validation site-wide
+
+### Status
+In progress — working section by section (see Implementation Plan below). Section 1 landed; next
+up is Section 2.
+
+### Implementation Plan
+Broken into sections so work can span multiple sessions. Check off as each section lands.
+- [x] **Section 1 — Bug fixes: rebind to view models.** Rebound `UpdateDetails`/`AddFinalDate` to
+      new `EventUpdateDetailsViewModel`/`EventAddFinalDateViewModel`; added `asp-validation-for`/
+      summary markup + `_ValidationScriptsPartial` to `Settings.cshtml`/`Finalize.cshtml`/
+      `_FinalizeCallTheDateCard.cshtml`. Folded in the emoji single-grapheme-cluster check (new
+      `SingleGraphemeAttribute` in `Common/`, with a matching client-side jQuery Validate rule in
+      `site.js`) and final-date bounds (±50yr via shared `ModelConstants.UserSuppliedDateBoundYears`,
+      reused by `EventsController.Availability.cs`'s existing bound too; 40-row cap via
+      `ModelConstants.EventFinalDateMaxCount`; malformed dates now render a friendly `ModelState`
+      error instead of a bare 400). Added/updated tests in
+      `EventsControllerSettingsTests`/`EventsControllerFinalDateTests`/new
+      `EventUpdateDetailsViewModelTests`/`EventAddFinalDateViewModelTests`/
+      `SingleGraphemeAttributeTests`.
+- [ ] **Section 2 — Site-wide consistency.** Home's missing `_ValidationScriptsPartial`;
+      `DisplayNameContentPattern` on `EventSignInViewModel.DisplayName`/`Participant.DisplayName`/
+      `Event.Title`/`IndexViewModel.CreateEventName`; new multiline pattern for
+      `EventSettings.Description`; trimming; max-length audit against `ModelConstants`.
+- [ ] **Section 3 — NFC normalization.** Normalize `Participant.DisplayName` (and other
+      identity-bearing free-text fields) before persisting so `ValidateParticipantUniquenessAsync`
+      can't be defeated by codepoint-composition differences; check whether Identity pages should
+      adopt the same pattern/helper.
+- [ ] **Section 4 — Admin area.** Validation attributes on `ManageUsersModel.Email` +
+      corresponding view markup.
+
+### GitHub Issue
+#88
+
+### Summary
+Extend the validation standard established for the account settings pages (#81/#87) to the rest
+of the site: Home (create/join), Events (sign-in, settings, finalize, organizers), MyEvents, and
+the Admin area. Also fixes two bugs found while auditing — validation errors that are currently
+silently swallowed on two forms.
+
+### Motivation
+An audit of every non-Identity form turned up real gaps: two forms where `ModelState` errors can
+never reach the user, several fields missing the control-character/zero-width-character rejection
+and trimming that Identity pages already got, an event emoji field that accepts arbitrary text,
+final dates with no bound on range or count, and an Admin email field with no validation at all.
+
+---
+
+### Proposed Changes
+
+#### Bug fixes — validation errors currently invisible to the user
+- `EventsController.Settings.cs`'s `UpdateDetails` takes loose `[FromForm] string title, string?
+  description, string? emoji` params and hand-rolls checks with `ModelState.AddModelError(nameof(title), ...)`
+  — but `Views/Events/Settings.cshtml` has no `asp-validation-for` spans or validation summary at
+  all on the "Shape the plan" form, so every error is silently swallowed.
+- `EventsController.FinalDate.cs`'s `AddFinalDate` takes loose `[FromForm] string startDate, string?
+  endDate` and has the same problem: the end-before-start `ModelState` error has nowhere to render
+  in `Views/Events/Finalize.cshtml` / `_FinalizeFinalDatesCard.cshtml`.
+- Fix: rebind both actions to proper view models — `EventUpdateDetailsViewModel` (Title,
+  Description, Emoji) and `EventAddFinalDateViewModel` (StartDate, EndDate) — with DataAnnotations,
+  matching the `IndexViewModel`/`EventSignInViewModel` pattern used elsewhere. This also fixes the
+  ModelState-key mismatch (`nameof(title)` vs. a bound property name) and gets unobtrusive
+  client-side validation for free. Add the corresponding `asp-validation-for`/summary markup to
+  both views.
+
+#### Consistency with the account-settings standard
+- `Views/Home/Index.cshtml` has validation spans but never renders `_ValidationScriptsPartial`
+  (unlike `Events/SignIn.cshtml`) — add it so Create/Join get live client-side feedback.
+- Apply `ModelConstants.DisplayNameContentPattern` (rejects C0/C1 control chars and zero-width/
+  invisible Unicode characters) to `EventSignInViewModel.DisplayName`, `Participant.DisplayName`,
+  `Event.Title`, and `IndexViewModel.CreateEventName`.
+- Add a new `ModelConstants` pattern for multi-line text — same control-character/zero-width
+  rejection as `DisplayNameContentPattern`, but permits `\n`/`\r` — and apply it to
+  `EventSettings.Description`.
+- Trim all of the above before persisting, matching the account-settings pages' approach.
+- Normalize `Participant.DisplayName` (and any other identity-bearing free-text field) to Unicode
+  NFC before persisting, so codepoint-composition differences can't defeat
+  `EventsController.SignIn.cs`'s `ValidateParticipantUniquenessAsync` per-event uniqueness check.
+- Audit every site-wide text field for an explicit max length sourced from `ModelConstants` (no
+  ad-hoc magic numbers) and `[Required]`/a minimum length where the field shouldn't be empty.
+- Re-check the Identity pages: if this pass introduces a reusable pattern constant or an
+  NFC-normalization helper, confirm whether any Identity field should adopt it too.
+
+#### Event emoji field (`EventSettings.Emoji`)
+- Replace the current bare `[StringLength(ModelConstants.EventEmojiMaxLength)]` with a check that
+  the value is exactly one extended grapheme cluster (via `System.Globalization.StringInfo`) and
+  free of control/zero-width characters.
+- Deliberately not a "real emoji" codepoint allowlist: .NET regex has no
+  `\p{Extended_Pictographic}`-equivalent derived-property support, so an allowlist would mean
+  hand-maintaining codepoint ranges that go stale as Unicode adds new emoji each year. The
+  grapheme-cluster check closes the actual gap (no arbitrary multi-character text as the icon)
+  without that maintenance burden — it doesn't recognize *which* character was picked, only that
+  it's a single visible glyph. The field is only ever populated by the `emoji-picker-element`
+  web component's `emoji-click` handler, so this is a defense-in-depth check against a
+  bypassed/tampered request, not a constraint normal users will hit.
+
+#### Final-date bounds (`EventsController.FinalDate.cs`'s `AddFinalDate`)
+- Add a ±50-year date-range bound, extracted into a shared constant/helper reused by
+  `EventsController.Availability.cs`'s existing `ToggleAvailabilityDateBoundYears` (currently
+  duplicated intent, not duplicated code, between the two files).
+- Cap the number of `EventFinalDate` rows per event at 40.
+- Make the malformed-date error path consistent: a bare `BadRequest()` today for an unparseable
+  `startDate`/`endDate`, vs. a friendly `ModelState` error for end-before-start — both should
+  behave the same way once the action is rebound to `EventAddFinalDateViewModel` above.
+
+#### Admin area (`Areas/Admin/Pages/Users/ManageUsers.cshtml(.cs)`)
+- Add `[Required]`, `[EmailAddress]`, and `[StringLength(ModelConstants.UserIdMaxLength)]` (or an
+  appropriate email-length bound) to `ManageUsersModel.Email`, currently unvalidated beyond a
+  manual `IsNullOrWhiteSpace` check in the page handlers.
+- Add matching `asp-validation-for`/summary markup to the view.
+
+---
+
+### Acceptance Criteria
+- Posting an invalid title/description/emoji to `EventUpdateDetails`, or an invalid final-date
+  range to `EventAddFinalDate`, shows a visible, field-specific error instead of silently
+  re-rendering the form unchanged.
+- Home's Create/Join forms get live client-side validation feedback before submit.
+- Event title, participant display name, and event description all reject control characters and
+  zero-width/invisible Unicode characters, and reject empty-after-trim values where required.
+- A participant/event whose display name differs from an existing one only by Unicode
+  normalization form is treated as a duplicate by the uniqueness check.
+- The event emoji field rejects any value that isn't a single extended grapheme cluster free of
+  control/zero-width characters, both client- and server-side.
+- `AddFinalDate` rejects a date more than 50 years from today, rejects an event's 41st final-date
+  entry, and returns a friendly, view-rendered error for a malformed date instead of a bare 400.
+- The Admin "add admin" form rejects an empty or non-email-shaped value with a visible message.
+- Every text field touched by this pass sources its max length from `ModelConstants` rather than
+  an inline literal.
+
+### Out of Scope
+- Rate limiting/throttling on event or participant creation — a DoS-shaped infrastructure concern
+  (middleware, counters, thresholds) separate from field-level validation; would need its own spec.
+- Collapsing internal whitespace in display names (e.g. `"Bob    Smith"` vs. `"Bob Smith"`) — raised
+  during scoping as a nice-to-have but not confirmed as required.
+- `EventDate` availability voting and the `EventMessage` chat system — neither has a controller or
+  UI built yet, so their input validation is future feature work, not a retrofit here.
+- The hardcoded root-admin address (`kenny@mail.com`) appearing in three places in
+  `ManageUsers.cshtml.cs` — unrelated to input validation.
