@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account
@@ -50,7 +51,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
             [Required]
-            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+            [StringLength(ModelConstants.PasswordMaxLength, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = ModelConstants.PasswordMinLength)]
+            [RegularExpression(ModelConstants.PasswordComplexityPattern, ErrorMessage = "The {0} must include an uppercase letter, a lowercase letter, a digit, and a symbol.")]
             [DataType(DataType.Password)]
             public string Password { get; set; }
 
