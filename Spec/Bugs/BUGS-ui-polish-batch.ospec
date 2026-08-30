@@ -188,7 +188,8 @@ width before shrinking themselves.
 ## Step 5: Nickname input on Event Sign-In turns white after autofill
 
 ### Status
-Proposed.
+Confirmed — known browser limitation, no CSS fix available. Closing as documented, not a code
+change.
 
 ### GitHub Issue
 #90
@@ -206,25 +207,35 @@ The field should keep its normal `.input-pill-yellow` styling in every state, ma
 looks when filled in manually.
 
 ### Root Cause
-Needs live-browser confirmation before a fix is written — this may be a known, hard Chromium
-autofill limitation rather than a straightforward CSS bug. `SignIn.cshtml:45-48` already uses
-`.input-pill-yellow`, and `site.css:832-840` already applies the standard inset
-`box-shadow`/`-webkit-text-fill-color` autofill override for that exact class. Since that
-override exists and targets `:-webkit-autofill` (all pseudo-states) plus the standards-track
-`:autofill`, the reported "still turns white after blur" behavior suggests either: (a) some
-other rule with higher specificity/later source order is overriding the fix specifically after
-blur, or (b) the field's browser/version combination doesn't match `:-webkit-autofill`
-reliably after blur (a known Chromium quirk in some versions), or (c) validation-state styling
-(`is-invalid`/similar) is involved. Confirm exact browser/version and whether devtools shows
-`:-webkit-autofill` still matching after blur before deciding whether this is fixable.
+Confirmed via live-browser devtools: the white background comes from Chromium's internal UA
+rule `input:-internal-autofill-selected` (`background-color: light-dark(...) !important`),
+inspected directly on the field in its white state. This is a **different mechanism** from the
+standard Autofill feature (saved passwords/addresses/payment info), which is what `:-webkit-autofill`
+/ `:autofill` — the only autofill pseudo-classes exposed to author CSS — actually target.
+`SignIn.cshtml:44-48` uses `autocomplete="nickname"`, which isn't a recognized Autofill Editing
+token, so the browser doesn't run this field through its real Autofill feature at all. What's
+populating it is Chrome's separate, older "remembered form values" suggestion feature (past
+values typed into similarly-named fields), which is styled purely by the internal
+`-internal-autofill-selected` UA rule and does **not** set `:-webkit-autofill`/`:autofill`.
+
+`site.css:867-875` already has a correctly-built override for `.input-pill-yellow:-webkit-autofill`
+(the standard inset `box-shadow` + `-webkit-text-fill-color` trick, covering every relevant
+pseudo-state) — it would work fine for a real Autofill-triggered fill. It simply never
+activates here because this field isn't going through that browser feature. Selectors
+prefixed `-internal-` are Chromium-internal only and are not selectable from author
+stylesheets by design (a deliberate engine restriction, not a bug in this codebase) — there is
+no legal CSS override for `-internal-autofill-selected`.
 
 ### Proposed Fix
-TBD pending investigation above — may be a small CSS specificity fix, or may need to be
-documented as a known browser limitation with no full fix available.
+None available at the CSS level — this is a genuine Chromium engine limitation, not a
+site bug. No further code change is planned for this step.
 
 ### Acceptance Criteria
-- Nickname field either keeps its yellow styling after autofill + blur, or — if confirmed
-  unfixable — this is documented as a known limitation rather than left as an open bug.
+- Documented here as a confirmed, unfixable browser limitation (this section), closing the
+  step without a code change.
 
 ### Out of Scope
 - Autofill behavior on any other input/page not reported here.
+- Switching the field to a recognized Autofill Editing `autocomplete` token (e.g. `name`) to
+  route it through the real Autofill feature — that would change the field's semantics/behavior
+  beyond styling and hasn't been requested; revisit separately if desired.
