@@ -1970,38 +1970,36 @@ body {
   border-radius: var(--radius-pill);
 }
 
-/* Avatar grid sits fixed-width and to the left of the floated actions box — see
-   .ww-myevent-avatars below for why it's a fixed grid rather than a wrapping row. */
 .ww-myevent-footer {
   overflow: hidden; /* contains the float so this element's height grows around it */
-  /* Top/bottom breathing room: without it, overflow: hidden clips the buttons' hover
-     bounce at the top and the last avatar row's resting box-shadow at the bottom. */
+  /* Top/bottom breathing room: without it, overflow: hidden clips the buttons' own
+     hover/focus bounce and the last avatar row's resting box-shadow. */
   padding-top: 0.75rem;
   padding-bottom: 0.3rem;
 }
 
 .ww-myevent-actions {
   float: right;
+  align-items: center;
   margin: 0 0 0.5rem 0.75rem;
 }
 
-/* Fixed 2-column grid, not a wrapping row — a variable-width row sharing space with the
-   buttons was tried and kept breaking (leftover width is unpredictable across real
-   fonts/cards). grid-auto-flow: column fills the left column top-to-bottom first, so an
-   odd count puts the extra avatar on the left. */
+/* display: flex makes this a block box that must avoid the float rather than wrap
+   around it (a plain inline-flow block tried that instead and kept breaking — how much
+   a *line* narrows beside a float depends on the float's exact height, which real
+   buttons/icons made unpredictable). Avoiding a float still uses a real, spec-defined
+   width: shrink-to-fit within whatever space is actually left over beside it — not the
+   fixed 2-column width an earlier version hardcoded. flex-wrap then packs as many
+   avatars as that width holds per row, wrapping the rest onto more rows below — sizing
+   in both directions off the real leftover space instead of a guessed column count. */
 .ww-myevent-avatars {
-  display: grid;
-  /* Without this, avoiding the float sizes the box to the full leftover width instead of
-     its actual 2-column content width. */
-  width: fit-content;
-  grid-template-columns: repeat(2, 1.7rem);
-  grid-template-rows: repeat(var(--ww-avatar-rows, 1), 1.7rem);
-  grid-auto-flow: column;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
 }
 
 /* Organizer avatar stack — one circle per current-user participant record. No margin of
-   its own — .ww-myevent-avatars' own `gap` spaces the grid cells now. */
+   its own — .ww-myevent-avatars' own `gap` spaces the flex items now. */
 .ww-myevent-avatar {
   display: inline-flex;
   align-items: center;

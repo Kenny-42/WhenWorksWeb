@@ -85,11 +85,10 @@
                         <div class="ww-myevent-divider"></div>
 
                         <!-- Bottom row: organizer avatars, delete trigger, and the direct Enter action.
-                             Actions float right, so avatars (a fixed 2-column grid — see site.css) sit in the
-                             space to its left. --ww-avatar-rows tells that grid how many rows it needs for
-                             this card's participant count. -->
+                             Actions float right; avatars (site.css: display: flex; flex-wrap: wrap) sit in
+                             whatever space is left over beside it, wrapping onto more rows as needed. -->
                         <div class="ww-myevent-footer">
-                            <div class="ww-myevent-actions d-flex align-items-center gap-2">
+                            <div class="ww-myevent-actions d-flex gap-2">
                                 <button type="button" class="ww-myevent-delete-button" aria-label="Delete event" title="Delete event">
                                     <i class="bi bi-trash3" aria-hidden="true"></i>
                                 </button>
@@ -98,7 +97,7 @@
                                 </a>
                             </div>
 
-                            <div class="ww-myevent-avatars" style="--ww-avatar-rows: @(Math.Max(1, (int)Math.Ceiling(myEvent.Participants.Count / 2.0)))">
+                            <div class="ww-myevent-avatars">
                                 @foreach (var participant in myEvent.Participants)
                                 {
                                     <span class="ww-myevent-avatar" style="--avatar-color:#@participant.Color" title="@participant.DisplayName">
