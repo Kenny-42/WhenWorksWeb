@@ -1970,31 +1970,44 @@ body {
   border-radius: var(--radius-pill);
 }
 
+/* Avatar grid sits fixed-width and to the left of the floated actions box — see
+   .ww-myevent-avatars below for why it's a fixed grid rather than a wrapping row. */
 .ww-myevent-footer {
-  /* No margin-top: auto — that bottom-anchored the row, leaving a gap above it on cards
-     with fewer avatars instead of sitting right under the divider. */
-  /* Contains the floated .ww-myevent-actions below so the footer's height still grows
-     around it instead of collapsing to zero. */
-  overflow: hidden;
+  overflow: hidden; /* contains the float so this element's height grows around it */
+  /* Top/bottom breathing room: without it, overflow: hidden clips the buttons' hover
+     bounce at the top and the last avatar row's resting box-shadow at the bottom. */
+  padding-top: 0.75rem;
+  padding-bottom: 0.3rem;
 }
 
-/* Delete/enter buttons — floated right and placed first in the markup so the avatar
-   stack after it wraps around it like text around a floated image, using the full row
-   width once it cascades below the buttons instead of losing a fixed width to them. */
 .ww-myevent-actions {
   float: right;
   margin: 0 0 0.5rem 0.75rem;
 }
 
-/* Organizer avatar stack — one circle per current-user participant record. Plain inline
-   flow (not flex) so circles wrap around the floated .ww-myevent-actions above. */
+/* Fixed 2-column grid, not a wrapping row — a variable-width row sharing space with the
+   buttons was tried and kept breaking (leftover width is unpredictable across real
+   fonts/cards). grid-auto-flow: column fills the left column top-to-bottom first, so an
+   odd count puts the extra avatar on the left. */
+.ww-myevent-avatars {
+  display: grid;
+  /* Without this, avoiding the float sizes the box to the full leftover width instead of
+     its actual 2-column content width. */
+  width: fit-content;
+  grid-template-columns: repeat(2, 1.7rem);
+  grid-template-rows: repeat(var(--ww-avatar-rows, 1), 1.7rem);
+  grid-auto-flow: column;
+  gap: 0.35rem;
+}
+
+/* Organizer avatar stack — one circle per current-user participant record. No margin of
+   its own — .ww-myevent-avatars' own `gap` spaces the grid cells now. */
 .ww-myevent-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.7rem;
   height: 1.7rem;
-  margin: 0 0.3rem 0.3rem 0;
   vertical-align: middle;
   border-radius: 50%;
   border: 2px solid #fff;
