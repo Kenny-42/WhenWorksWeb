@@ -35,6 +35,7 @@
     {
         <form asp-route="EventAddFinalDate" asp-route-code="@Model.Header.Code" method="post" class="ww-settings-add-date-form mb-3">
             @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="mb-2">
                 <div class="d-flex align-items-center justify-content-between">
                     <label for="ww-final-date-start" class="ww-settings-label mb-0">Start date</label>

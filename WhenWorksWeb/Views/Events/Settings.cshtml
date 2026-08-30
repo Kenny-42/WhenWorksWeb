@@ -34,6 +34,8 @@
             <form asp-route="EventUpdateDetails" asp-route-code="@Model.Header.Code" method="post">
                 @Html.AntiForgeryToken()
 
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
                 <div class="mb-3">
                     <label for="ww-settings-title" class="ww-settings-label">Event title</label>
                     <input type="text"
@@ -43,6 +45,7 @@
                            maxlength="@WhenWorksWeb.Common.ModelConstants.EventTitleMaxLength"
                            value="@Model.Title"
                            required />
+                    <span asp-validation-for="Title" class="text-danger d-block mt-1"></span>
                 </div>
 
                 <div class="mb-3">
@@ -53,11 +56,13 @@
                               maxlength="@WhenWorksWeb.Common.ModelConstants.EventDescriptionMaxLength"
                               rows="4"
                               placeholder="A new plan is taking shape.">@Model.Description</textarea>
+                    <span asp-validation-for="Description" class="text-danger d-block mt-1"></span>
                 </div>
 
                 <div class="mb-3">
                     <label class="ww-settings-label d-block">Event emoji</label>
                     <input type="hidden" id="ww-settings-emoji-input" name="emoji" value="@Model.Emoji" />
+                    <span asp-validation-for="Emoji" class="text-danger d-block mt-1"></span>
                     <button type="button"
                             id="ww-settings-emoji-button"
                             class="ww-settings-emoji-button"
@@ -202,6 +207,7 @@
 </div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
     <script>
         (function () {
             "use strict";
