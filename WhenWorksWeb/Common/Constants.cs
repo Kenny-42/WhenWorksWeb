@@ -100,4 +100,12 @@ public static class ModelConstants
     // outright. Written with \x/\u escapes rather than \p{Cc} for the same client/server
     // regex-engine-compatibility reason as PasswordComplexityPattern above.
     public const string DisplayNameContentPattern = @"^(?!.*[\x00-\x1F\x7F-\x9F\u200B\u200C\u200D\u200E\u200F\uFEFF]).*\S.*$";
+
+    // Same control-character/zero-width rejection as DisplayNameContentPattern, but for
+    // multi-line fields (e.g. EventSettings.Description): \n and \r are allowed through rather
+    // than blocked. Written with [\s\S] instead of . throughout -- .NET/JS regex's "." does not
+    // match a line break without an explicit Singleline/"s" flag (which the jQuery Validate
+    // unobtrusive adapter doesn't set), so a plain ".*[bad chars]" lookahead would silently stop
+    // scanning at the first newline and miss a bad character placed on a later line.
+    public const string DescriptionContentPattern = @"^(?![\s\S]*[\x00-\x09\x0B\x0C\x0E-\x1F\x7F-\x9F\u200B\u200C\u200D\u200E\u200F\uFEFF])[\s\S]*\S[\s\S]*$";
 }

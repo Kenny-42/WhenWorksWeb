@@ -17,6 +17,7 @@ public sealed class EventUpdateDetailsViewModel
     [Required(ErrorMessage = "Title is required.")]
     [StringLength(ModelConstants.EventTitleMaxLength, MinimumLength = 1,
         ErrorMessage = "Title must be between {2} and {1} characters.")]
+    [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Title contains invalid characters.")]
     public string Title { get; set; } = string.Empty;
 
     /// <summary>
@@ -24,6 +25,7 @@ public sealed class EventUpdateDetailsViewModel
     /// </summary>
     [StringLength(ModelConstants.EventDescriptionMaxLength,
         ErrorMessage = "Description must be {1} characters or fewer.")]
+    [RegularExpression(ModelConstants.DescriptionContentPattern, ErrorMessage = "Description contains invalid characters.")]
     public string? Description { get; set; }
 
     /// <summary>

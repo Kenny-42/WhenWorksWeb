@@ -1,8 +1,8 @@
 ## Tighten input validation site-wide
 
 ### Status
-In progress — working section by section (see Implementation Plan below). Section 1 landed; next
-up is Section 2.
+In progress — working section by section (see Implementation Plan below). Sections 1-2 landed;
+next up is Section 3.
 
 ### Implementation Plan
 Broken into sections so work can span multiple sessions. Check off as each section lands.
@@ -18,10 +18,26 @@ Broken into sections so work can span multiple sessions. Check off as each secti
       `EventsControllerSettingsTests`/`EventsControllerFinalDateTests`/new
       `EventUpdateDetailsViewModelTests`/`EventAddFinalDateViewModelTests`/
       `SingleGraphemeAttributeTests`.
-- [ ] **Section 2 — Site-wide consistency.** Home's missing `_ValidationScriptsPartial`;
-      `DisplayNameContentPattern` on `EventSignInViewModel.DisplayName`/`Participant.DisplayName`/
-      `Event.Title`/`IndexViewModel.CreateEventName`; new multiline pattern for
-      `EventSettings.Description`; trimming; max-length audit against `ModelConstants`.
+- [x] **Section 2 — Site-wide consistency.** Added `_ValidationScriptsPartial` to
+      `Views/Home/Index.cshtml`. Applied `ModelConstants.DisplayNameContentPattern` to
+      `EventSignInViewModel.DisplayName`, `Participant.DisplayName`, `Event.Title`,
+      `IndexViewModel.CreateEventName`, and `EventUpdateDetailsViewModel.Title` (the last one is
+      the actual POST-bound target for title edits, so it needed the pattern directly rather than
+      relying on the `Event` entity's copy). Added a new `ModelConstants.DescriptionContentPattern`
+      (same control-character/zero-width rejection as `DisplayNameContentPattern`, written with
+      `[\s\S]` instead of `.` so it still scans past embedded newlines, and permitting `\n`/`\r`
+      themselves) applied to `EventSettings.Description` and `EventUpdateDetailsViewModel.Description`.
+      Trimming for all of the above was already in place from Section 1's rebind
+      (`UpdateDetails`/`Create`/`Join`/`SignIn` all trim before validating). Audited
+      Models/Controllers/Views for ad-hoc length literals — found none; every `[StringLength]`/
+      `maxlength` already sources from `ModelConstants`. Added matching test coverage: control-
+      character/zero-width/non-Latin/whitespace-only edge cases for every property that gained
+      `DisplayNameContentPattern` (`IndexViewModelTests`, `EventSignInViewModelTests`,
+      `ParticipantTests`, `EventTests`, `EventUpdateDetailsViewModelTests`), the same plus
+      multiline-specific cases (embedded `\n`/`\r` accepted, a bad character *after* an embedded
+      newline still rejected, embedded raw tab still rejected) for `DescriptionContentPattern`
+      (`EventUpdateDetailsViewModelTests`, new `EventSettingsTests`), and `DescriptionContentPattern`
+      added to `ModelConstantsTests`' pattern-coherence checks.
 - [ ] **Section 3 — NFC normalization.** Normalize `Participant.DisplayName` (and other
       identity-bearing free-text fields) before persisting so `ValidateParticipantUniquenessAsync`
       can't be defeated by codepoint-composition differences; check whether Identity pages should

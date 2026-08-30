@@ -13,6 +13,7 @@ public sealed class IndexViewModel
     /// </summary>
     [Required(ErrorMessage = "Event name is required.")]
     [StringLength(ModelConstants.EventTitleMaxLength, MinimumLength = 1, ErrorMessage = "Event name must be 30 characters or fewer.")]
+    [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Event name contains invalid characters.")]
     public string? CreateEventName { get; set; }
 
     /// <summary>
