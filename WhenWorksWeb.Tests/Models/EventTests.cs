@@ -96,18 +96,14 @@ public class EventTests
         Assert.False(IsTitleValid(title));
     }
 
+    // A representative sample, not the full character class -- DisplayNameContentPattern's
+    // complete C0/C1/zero-width coverage is exhaustively proven once, against
+    // Participant.DisplayName, in ParticipantTests.DisplayName_RejectsControlAndInvisibleCharacters.
+    // These exist only to confirm the attribute is actually wired up on this property.
     [Theory]
-    [InlineData("Trivia\u0000Night")] // embedded NUL control character
-    [InlineData("Trivia\u0007Night")] // embedded BEL control character (within C0 range)
-    [InlineData("Trivia\u001FNight")] // embedded C0 control character (upper boundary)
-    [InlineData("Trivia\u007FNight")] // embedded DEL control character
-    [InlineData("Trivia\u009FNight")] // embedded C1 control character (upper boundary)
+    [InlineData("Trivia\u0000Night")] // embedded NUL control character (C0)
+    [InlineData("Trivia\u007FNight")] // embedded DEL control character (C1 boundary)
     [InlineData("Trivia\u200BNight")] // embedded zero-width space
-    [InlineData("Trivia\u200CNight")] // embedded zero-width non-joiner
-    [InlineData("Trivia\u200DNight")] // embedded zero-width joiner
-    [InlineData("Trivia\u200ENight")] // embedded left-to-right mark
-    [InlineData("Trivia\u200FNight")] // embedded right-to-left mark
-    [InlineData("Trivia\uFEFFNight")] // embedded byte-order mark
     public void Title_RejectsControlAndInvisibleCharacters(string title)
     {
         Assert.False(IsTitleValid(title));

@@ -64,18 +64,14 @@ public class EventSignInViewModelTests
         Assert.False(IsDisplayNameValid(displayName));
     }
 
+    // A representative sample, not the full character class -- DisplayNameContentPattern's
+    // complete C0/C1/zero-width coverage is exhaustively proven once, against
+    // Participant.DisplayName, in ParticipantTests.DisplayName_RejectsControlAndInvisibleCharacters.
+    // These exist only to confirm the attribute is actually wired up on this property.
     [Theory]
-    [InlineData("Jordan\u0000")] // embedded NUL control character
-    [InlineData("Jordan\u0007")] // embedded BEL control character (within C0 range)
-    [InlineData("Jordan\u001F")] // embedded C0 control character (upper boundary)
-    [InlineData("Jordan\u007F")] // embedded DEL control character
-    [InlineData("Jordan\u009F")] // embedded C1 control character (upper boundary)
+    [InlineData("Jordan\u0000")] // embedded NUL control character (C0)
+    [InlineData("Jordan\u007F")] // embedded DEL control character (C1 boundary)
     [InlineData("Jordan\u200B")] // embedded zero-width space
-    [InlineData("Jordan\u200C")] // embedded zero-width non-joiner
-    [InlineData("Jordan\u200D")] // embedded zero-width joiner
-    [InlineData("Jordan\u200E")] // embedded left-to-right mark
-    [InlineData("Jordan\u200F")] // embedded right-to-left mark
-    [InlineData("Jordan\uFEFF")] // embedded byte-order mark
     public void DisplayName_RejectsControlAndInvisibleCharacters(string displayName)
     {
         Assert.False(IsDisplayNameValid(displayName));

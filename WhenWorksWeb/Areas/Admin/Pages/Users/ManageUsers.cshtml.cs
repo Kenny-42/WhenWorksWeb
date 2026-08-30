@@ -77,6 +77,14 @@ public class ManageUsersModel(UserManager<ApplicationUser> userManager) : PageMo
         // validated at all.
         Email = Email?.Trim();
 
+        // Razor Pages' own model-binding validation already ran once, against the raw untrimmed
+        // Email, before this handler started -- e.g. a value with incidental leading/trailing
+        // whitespace that pushes it past UserEmailMaxLength fails that automatic pass and leaves
+        // a stale error under the "Email" ModelState key even though the trimmed value below is
+        // perfectly valid. Clear it before re-validating, or a legitimate trimmed email would
+        // still render with a (stale, incorrect) validation error next to the success message.
+        ModelState.ClearValidationState(nameof(Email));
+
         var validationContext = new ValidationContext(this) { MemberName = nameof(Email) };
         var validationResults = new List<ValidationResult>();
         if (!Validator.TryValidateProperty(Email, validationContext, validationResults))

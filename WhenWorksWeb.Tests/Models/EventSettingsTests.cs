@@ -65,16 +65,15 @@ public class EventSettingsTests
         Assert.False(IsDescriptionValid(description));
     }
 
+    // A representative sample, not the full multiline matrix -- DescriptionContentPattern's
+    // full across-lines/tab-vs-newline coverage is exhaustively proven once, against
+    // EventUpdateDetailsViewModel.Description, in
+    // EventUpdateDetailsViewModelTests.Description_RejectsControlAndInvisibleCharactersAcrossLines.
+    // This confirms the attribute is actually wired up on this property, using the one case that
+    // most exercises the [\s\S]-vs-"." rewrite this pattern exists for (a bad character after an
+    // embedded newline).
     [Theory]
-    [InlineData("Line one\nLine\u0000two")] // control character on the second line -- the exact case
-                                             // DescriptionContentPattern's [\s\S] rewrite exists to
-                                             // still catch, since a plain ".*[bad chars]" lookahead
-                                             // stops scanning at the first newline
-    [InlineData("Line\u0000one\nLine two")] // control character on the first line (would already be
-                                             // caught by a naive pattern too, kept as a baseline)
-    [InlineData("Line one\nLine\u200Btwo")] // zero-width space on the second line
-    [InlineData("Line one\nLine\tTabbed")] // an embedded raw tab is still blocked even in the
-                                            // multiline pattern -- only \n/\r are exempted
+    [InlineData("Line one\nLine\u0000two")] // control character on the second line
     public void Description_RejectsControlAndInvisibleCharactersAcrossLines(string description)
     {
         Assert.False(IsDescriptionValid(description));

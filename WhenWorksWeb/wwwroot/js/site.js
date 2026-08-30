@@ -773,8 +773,17 @@
     // Built from a RegExp constructor (rather than a /.../ literal containing the raw
     // characters) so the zero-width codepoints stay as visible, greppable \u escapes in
     // source instead of invisible bytes an editor could silently mangle.
+    //
+    // Run against the ZWJ-stripped value, not the raw one -- matching SingleGraphemeAttribute
+    // server-side: U+200D (zero-width joiner) is blocked as invisible junk everywhere else,
+    // but it's also the actual joiner a compound emoji sequence (e.g. the family emoji:
+    // man+ZWJ+woman+ZWJ+girl+ZWJ+boy) is built from, so a legitimate ZWJ emoji must not fail
+    // this check just because the raw string contains ZWJ. Stripping first still catches a
+    // value that's ZWJ characters and nothing else (the stripped text is then empty, failing
+    // \S) while still allowing ZWJ as an interior joiner between real content.
     var controlOrZeroWidthPattern = new RegExp("[\\x00-\\x1F\\x7F-\\x9F\\u200B\\u200C\\u200D\\u200E\\u200F\\uFEFF]");
-    if (controlOrZeroWidthPattern.test(value) || !/\S/.test(value)) {
+    var withoutJoiners = value.split(String.fromCharCode(0x200d)).join("");
+    if (controlOrZeroWidthPattern.test(withoutJoiners) || !/\S/.test(withoutJoiners)) {
       return false;
     }
 

@@ -54,6 +54,17 @@ public partial class EventsController
         model.Description = model.Description?.Trim();
         model.Emoji = model.Emoji?.Trim();
 
+        // Model binding already ran validation once, against the raw untrimmed values, before
+        // this action even started -- e.g. a title with incidental leading/trailing whitespace
+        // that pushes its raw length past EventTitleMaxLength fails that automatic pass and
+        // leaves a stale error sitting in ModelState even though the trimmed value above is
+        // perfectly valid. Clear that stale state before re-validating the trimmed model, or
+        // TryValidateModel below can never succeed for a value it would otherwise accept.
+        // ModelState.Clear() (not ClearValidationState, which is keyed by ModelState key --
+        // "Title"/"Description"/"Emoji" here, not the "model" parameter name) is safe since
+        // nothing else in this action reads or depends on prior ModelState entries.
+        ModelState.Clear();
+
         if (!TryValidateModel(model))
         {
             return View("Settings", await BuildEventSettingsViewModelAsync(eventEntity, participant, cancellationToken));

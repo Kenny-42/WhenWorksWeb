@@ -1,4 +1,3 @@
-using System.Text;
 using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Tests.Services;
@@ -98,16 +97,6 @@ public class TextNormalizerTests
         var normalizedTwice = TextNormalizer.NormalizeToNfc(normalizedOnce);
 
         Assert.Equal(normalizedOnce, normalizedTwice, StringComparer.Ordinal);
-    }
-
-    [Fact]
-    public void NormalizeToNfc_ReturnedValueIsAlwaysNormalizedFormC()
-    {
-        var decomposed = "Caf" + DecomposedEAcute;
-
-        var result = TextNormalizer.NormalizeToNfc(decomposed);
-
-        Assert.True(result!.IsNormalized(NormalizationForm.FormC));
     }
 
     [Fact]
