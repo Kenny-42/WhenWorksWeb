@@ -65,6 +65,21 @@ public class ModelConstantsTests
     }
 
     [Fact]
+    public void DefaultEventDescription_DoesNotExceedEventDescriptionMaxLength()
+    {
+        Assert.True(ModelConstants.DefaultEventDescription.Length <= ModelConstants.EventDescriptionMaxLength);
+    }
+
+    /// <summary>The default description is also rendered as user-facing content (the Event Home
+    /// description card, the Settings textarea placeholder), so it must itself satisfy the same
+    /// content pattern real user-entered descriptions are validated against.</summary>
+    [Fact]
+    public void DefaultEventDescription_MatchesDescriptionContentPattern()
+    {
+        Assert.Matches(ModelConstants.DescriptionContentPattern, ModelConstants.DefaultEventDescription);
+    }
+
+    [Fact]
     public void PasswordMinLength_IsNotGreaterThanPasswordMaxLength()
     {
         Assert.True(ModelConstants.PasswordMinLength <= ModelConstants.PasswordMaxLength);
