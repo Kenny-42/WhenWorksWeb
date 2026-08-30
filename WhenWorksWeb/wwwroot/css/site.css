@@ -1487,6 +1487,36 @@ body {
   background-repeat: no-repeat, no-repeat;
   background-position: center right 0.75rem, right center;
   background-size: 1rem 1rem, 2.5rem 100%;
+  /* Long display names (up to 16 chars, plus a possible " (you)" suffix on the Settings
+     demote picker) can outrun the pill's available width once the arrow well's fixed
+     3.25rem is subtracted — ellipsis this instead of letting the browser hard-clip
+     mid-character. The narrow-viewport font-size step below is the real fix (it keeps
+     names from needing to truncate at all in the common case); this is the fallback for
+     whatever still doesn't fit. */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Below the md breakpoint (html's own root font-size is still 17.5px here, not the 20px
+   it jumps to at 768px — see html's font-size rule near the top of this file) these
+   selects are often squeezed into a half-width column (.col-sm-6 on the Settings
+   promote/demote pair) or a card no wider than a phone screen. A step down in font-size
+   buys enough room for a full 16-char display name (plus " (you)") to fit next to the
+   arrow well without ellipsizing, on every .select-arrow-inset use sitewide (Settings'
+   organizer pickers, My Events' delete-participant picker, Sign-In's existing-participant
+   picker). */
+@media (max-width: 767.98px) {
+  .select-arrow-inset {
+    font-size: 0.85rem;
+  }
+
+  /* Restates .ww-signin-select-compact's own 0.8rem (site.css, "Shorter and smaller-text
+     than the other pills" above) so the step-down above doesn't nudge it back up —
+     same specificity, later in the cascade would otherwise win. */
+  .select-arrow-inset.ww-signin-select-compact {
+    font-size: 0.8rem;
+  }
 }
 
 .select-arrow-inset.input-pill-blue {
