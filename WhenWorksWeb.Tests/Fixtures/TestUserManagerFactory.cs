@@ -42,6 +42,10 @@ public static class TestUserManagerFactory
         services.AddLogging();
 
         services.AddIdentityCore<ApplicationUser>(IdentityConfiguration.Configure)
+            .AddRoles<IdentityRole>() // mirrors Program.cs -- without this, the resulting UserManager's
+                                       // store doesn't implement IUserRoleStore<TUser>, and any
+                                       // role-membership call (GetUsersInRoleAsync/AddToRoleAsync/
+                                       // IsInRoleAsync) throws NotSupportedException.
             .AddEntityFrameworkStores<ApplicationDbContext>();
 
         return services.BuildServiceProvider().GetRequiredService<UserManager<ApplicationUser>>();
