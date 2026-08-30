@@ -585,7 +585,11 @@ body {
 
   .navbar .nav-link.nav-link-account-toggle {
     display: flex;
-    width: 100%;
+    /* Same overshoot as the other stacked pills (see .navbar-collapse .nav-link further
+       down) and the same fix — subtracting both horizontal margins instead of a bare
+       "width: 100%" — needed here too since this rule's extra ".nav-link-account-toggle"
+       specificity otherwise wins over that shared rule for this property. */
+    width: calc(100% - 0.5rem);
     height: auto;
     justify-content: center;
     gap: 0.5rem;
@@ -674,7 +678,25 @@ body {
 
   .navbar-collapse .nav-link {
     display: block;
-    width: 100%;
+    /* "100% minus both horizontal margins" (0.25rem each, set on the base .navbar .nav-link
+       rule below), not a plain "width: 100%". A block box's "width: 100%" is measured
+       against the parent's content box and then has its own horizontal margins added on
+       *top* of that, so it overshoots the parent by one margin's width on the right (CSS
+       box-model basics: width and margin are independent unless width is auto). That
+       overshoot was invisible once the menu was fully open (nothing to clip it against —
+       .collapse.show is "overflow: visible"), but Bootstrap's .collapsing class (applied
+       only for the ~0.35s the menu is actually opening/closing) sets "overflow: hidden" for
+       the height animation, and clipping at the parent's edge sliced right through the
+       overshooting pill's rounded corner, squaring it off for that duration. Explicitly
+       subtracting the margins removes the overshoot outright, so there's nothing left to
+       clip regardless of the container's overflow state. Deliberately not left as implicit
+       "width: auto" instead (which arrives at the same number for a plain <a>) — a <button>
+       (the "New Event" pill's element, see the form.d-flex rule below) is a form control,
+       and Chromium still sizes it to fit its own content under "width: auto" even once
+       "display: block" is set, ignoring the parent's available width the way a plain <a>
+       or <div> would honor. Stating the width explicitly sidesteps that quirk uniformly for
+       every pill, rather than special-casing the one that's a <button>. */
+    width: calc(100% - 0.5rem);
     text-align: center;
     /* Roomier than the 0.15rem the pills carry in the horizontal desktop row — stacked
        full-width pills are only their margins apart, and the proximity glow reaches
@@ -682,6 +704,19 @@ body {
        landing on the labels above/below. */
     margin-top: 0.4rem;
     margin-bottom: 0.4rem;
+  }
+
+  /* "New Event" is the one pill that's a <button> inside its own <form class="d-flex">
+     rather than a bare <a>, so it's a flex item here, not a plain block. That matters:
+     a flex item with no explicit width sizes to fit its own content (here, just the
+     "+ New Event" label) rather than filling the available space the way an ordinary
+     block box with "width: auto" does — leaving it visibly narrower than the sibling
+     <a> pills. Forcing the form back to a plain block here removes it from flex layout
+     so the button follows the same block-sizing rules as its siblings and lines up with
+     them exactly. Needs !important to beat Bootstrap's own
+     ".d-flex { display: flex !important; }" utility. */
+  .navbar-collapse form.d-flex {
+    display: block !important;
   }
 }
 
