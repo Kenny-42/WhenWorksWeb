@@ -39,22 +39,13 @@ public partial class EventsController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateDetails(string code, [FromForm] string title, [FromForm] string? description, [FromForm] string? emoji, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageEventAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageEventAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, participant) = context!.Value;
 
         var trimmedTitle = title?.Trim();
         if (string.IsNullOrEmpty(trimmedTitle) || trimmedTitle.Length > ModelConstants.EventTitleMaxLength)
@@ -115,22 +106,13 @@ public partial class EventsController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteEvent(string code, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageOrganizersAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageOrganizersAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, _) = context!.Value;
 
         _db.Events.Remove(eventEntity);
         await _db.SaveChangesAsync(cancellationToken);

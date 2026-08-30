@@ -28,6 +28,7 @@
         <span class="ww-organizer-toggle-label" tabindex="0">Full access</span>
         <form asp-route="EventToggleCanManageOrganizers" asp-route-code="@Model.EventCode" asp-route-participantId="@Model.Id" method="post" class="ww-organizer-toggle-form">
             @Html.AntiForgeryToken()
+            <input type="hidden" name="desiredValue" value="@(!Model.CanManageOrganizers ? "true" : "false")" />
             <button type="submit"
                     class="ww-organizer-toggle-button @(Model.CanManageOrganizers ? "is-active" : "")"
                     role="switch"

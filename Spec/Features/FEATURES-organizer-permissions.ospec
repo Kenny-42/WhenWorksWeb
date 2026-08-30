@@ -45,17 +45,22 @@ actions today:
 - Promoting a participant to organizer, demoting an organizer back to a regular participant,
   toggling another organizer's `CanManageOrganizers` flag, or deleting the event: requires
   `CanManageOrganizers`.
-- Self-service: a participant can demote themselves out of either flag at any time, including the
-  creator — `IsCreator` is a permanent historical marker independent of both permission flags (per
-  the existing model) and is never affected by any of this.
+- Self-service: demoting yourself goes through the same `DemoteOrganizer` action, and the same
+  `CanManageOrganizers` check, as demoting anyone else — there is no separate self-service bypass.
+  A participant without `CanManageOrganizers` cannot step themselves down until someone who holds
+  it grants it to them or demotes them. `IsCreator` is a permanent historical marker independent
+  of both permission flags (per the existing model) and is never affected by any of this.
 
 **Fallback rules** (extends today's single zero-organizer fallback with an equivalent one for the
 new flag):
-- If an event currently has zero participants with `IsOrganizer = true`, organizer-gated actions
-  (detail edits, final dates) are open to every participant — unchanged from today.
-- If an event currently has zero participants with `CanManageOrganizers = true` (e.g. the sole
-  holder demoted themselves), `CanManageOrganizers`-gated actions (promote/demote, toggle the
-  flag, delete event) fall open to every current organizer (`IsOrganizer = true`), not to every
+- If an event currently has zero participants with `IsOrganizer = true`, both `IsOrganizer`-gated
+  actions (detail edits, final dates) and `CanManageOrganizers`-gated actions (promote/demote,
+  toggle the flag, delete event) fall open to every participant. An organizer-less event must
+  always have some way for someone to promote a new organizer or delete it, not just edit its
+  details — so this widens today's single fallback to cover both tiers, not just the first.
+- If an event has at least one organizer but currently has zero participants with
+  `CanManageOrganizers = true` (e.g. the sole holder demoted themselves), `CanManageOrganizers`-gated
+  actions fall open to every current organizer (`IsOrganizer = true`) instead of every
   participant — until one of them reclaims the flag for themselves or grants it to someone else.
 
 ---
@@ -117,12 +122,14 @@ disabled) for everyone else, including other organizers who lack the flag.
   `CanManageOrganizers = false` by default; demoting via the dropdown clears both flags.
 - Toggling a pill's "Full access" control flips that organizer's `CanManageOrganizers` and takes
   effect immediately (next load of the Settings tab reflects it, at minimum).
-- A participant can demote themselves out of either flag, including the creator; `IsCreator`
-  never changes as a result.
+- Demoting yourself requires `CanManageOrganizers`, exactly like demoting anyone else — there is
+  no separate self-service bypass. `IsCreator` never changes as a result of any demotion.
 - Deleting the event now requires `CanManageOrganizers`, not plain `IsOrganizer`.
-- If an event has zero `IsOrganizer` participants, detail edits and final-date management remain
-  open to everyone (unchanged). If an event has zero `CanManageOrganizers` participants,
-  promote/demote/toggle/delete become available to every current organizer instead of locking up.
+- If an event has zero `IsOrganizer` participants, every organizer-gated and
+  manage-organizers-gated action (detail edits, final dates, promote/demote/toggle/delete) is open
+  to everyone — an organizer-less event is never permanently stuck. If an event has at least one
+  organizer but zero `CanManageOrganizers` participants, promote/demote/toggle/delete become
+  available to every current organizer instead of locking up.
 - All new server actions re-check `CanManageOrganizers` against the database; a request from a
   participant who doesn't hold it is rejected (`Forbid()`), not just hidden client-side.
 

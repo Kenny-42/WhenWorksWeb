@@ -108,6 +108,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.HasIndex(p => new { p.EventId, p.UserId });
 
+            entity.HasIndex(p => new { p.EventId, p.CanManageOrganizers });
+
             entity.HasIndex(p => new { p.EventId, p.DisplayName })
                 .IsUnique();
 

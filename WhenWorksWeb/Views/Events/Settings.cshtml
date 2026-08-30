@@ -113,15 +113,14 @@
 
                 <!-- Demote dropdown + inline confirm — selecting your own name here is how a
                      CanManageOrganizers holder steps themselves down; there's no separate
-                     self-service control. data-organizer-count backs the last-organizer
-                     confirmation modal below (see this page's script): with exactly one organizer
-                     left, whoever can reach this form is that organizer themselves (only an
-                     organizer — or the sole remaining one, via the zero-organizer fallback — can
-                     hold CanManageOrganizers), so demoting is always "demote myself, and the
-                     event loses its last organizer" in that case. -->
+                     self-service control. data-organizer-count-url backs the last-organizer
+                     confirmation modal below (see this page's script): it's checked live at
+                     submit time rather than off this render's organizer count, since another
+                     tab/organizer promoting or demoting someone in the meantime could otherwise
+                     make a stale count wrongly show (or wrongly skip) the warning. -->
                 <div class="col-12 col-sm-6">
                     <label for="ww-organizer-demote-select" class="ww-settings-label">Demote to participant</label>
-                    <form asp-route="EventDemoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-demote-form" data-organizer-count="@Model.Organizers.Count">
+                    <form asp-route="EventDemoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-demote-form" data-organizer-count-url="@Url.RouteUrl("EventOrganizerCount", new { code = Model.Header.Code })">
                         @Html.AntiForgeryToken()
                         <select name="participantId" id="ww-organizer-demote-select" class="form-select input-pill input-pill-red select-arrow-inset w-100 mb-2" required>
                             <option value="" selected>Select an organizer</option>
@@ -144,12 +143,12 @@
             </ul>
         </div>
 
-        <!-- Confirmation shown only when the Demote form is submitted with exactly one organizer
-             left (see that form's data-organizer-count and this page's script) — demoting them
-             leaves the event with none at all, and CanManageOrganizersAsync's zero-organizer
-             fallback only ever opens to a current organizer, so with none left nobody can ever
-             promote a new one back in either: this is a one-way door, not "until someone is
-             promoted again" — worth a real pause before it happens. -->
+        <!-- Confirmation shown only when a live check (see this page's script) confirms the event
+             currently has exactly one organizer — demoting them leaves the event with none at
+             all, and while CanManageOrganizersAsync's zero-organizer fallback means someone can
+             always promote a new one back in (or delete the event) in the meantime, it does mean
+             every one of those actions is temporarily open to every participant, not just
+             organizers — worth a real pause before it happens. -->
         <div class="modal fade" id="demote-last-organizer-modal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content delete-modal-content">
@@ -158,7 +157,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-0">This event will have no organizers left, and since only an organizer can promote someone new, none can ever be added back. Its settings and final dates will be permanently editable by everyone instead.</p>
+                        <p class="mb-0">This event will have no organizers left. Until someone new is promoted, its settings, final dates, and organizer permissions — including deleting the event — will be open to every participant.</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn modal-cancel-button" data-bs-dismiss="modal">Cancel</button>
@@ -266,34 +265,59 @@
 
             // Demoting the sole remaining organizer leaves the event with none at all — pause on
             // a confirmation modal (rather than submitting immediately) explaining what that
-            // means, same pattern as the Delete Event button's own modal below. Only the demote
-            // form carries data-organizer-count, so a stale/multi-organizer submit here is a
-            // normal, un-intercepted post.
+            // means, same pattern as the Delete Event button's own modal below. The organizer
+            // count is checked live against the server on every submit attempt (rather than off
+            // this page's render-time count) so a concurrent change in another tab or by another
+            // organizer can't make this warning wrongly fire or wrongly stay silent.
             var demoteForm = document.getElementById('ww-organizer-demote-form');
             var lastOrganizerModalEl = document.getElementById('demote-last-organizer-modal');
             var lastOrganizerConfirmButton = document.getElementById('ww-demote-last-organizer-confirm');
-            if (demoteForm && lastOrganizerModalEl && lastOrganizerConfirmButton && window.bootstrap) {
+            var organizerCountUrl = demoteForm ? demoteForm.dataset.organizerCountUrl : null;
+            if (demoteForm && lastOrganizerModalEl && lastOrganizerConfirmButton && organizerCountUrl && window.bootstrap && window.fetch) {
                 var lastOrganizerModal = new bootstrap.Modal(lastOrganizerModalEl);
                 var demoteConfirmed = false;
 
-                demoteForm.addEventListener('submit', function (event) {
-                    if (demoteConfirmed) {
-                        return;
-                    }
-                    if (parseInt(demoteForm.dataset.organizerCount, 10) === 1) {
-                        event.preventDefault();
-                        lastOrganizerModal.show();
-                    }
-                });
-
-                lastOrganizerConfirmButton.addEventListener('click', function () {
+                function submitDemoteForm() {
                     demoteConfirmed = true;
-                    lastOrganizerModal.hide();
                     if (demoteForm.requestSubmit) {
                         demoteForm.requestSubmit();
                     } else {
                         demoteForm.submit();
                     }
+                }
+
+                demoteForm.addEventListener('submit', function (event) {
+                    if (demoteConfirmed) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    fetch(organizerCountUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to check the current organizer count');
+                            }
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (data.count === 1) {
+                                lastOrganizerModal.show();
+                            } else {
+                                submitDemoteForm();
+                            }
+                        })
+                        .catch(function () {
+                            // Couldn't confirm the live count — show the warning rather than
+                            // silently skipping it, since submitting straight through is the
+                            // riskier failure mode of the two.
+                            lastOrganizerModal.show();
+                        });
+                });
+
+                lastOrganizerConfirmButton.addEventListener('click', function () {
+                    lastOrganizerModal.hide();
+                    submitDemoteForm();
                 });
             }
 

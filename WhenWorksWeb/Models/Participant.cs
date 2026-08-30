@@ -87,9 +87,11 @@ public class Participant
     /// participant out of <see cref="IsOrganizer"/> clears this flag too, and it can never be set
     /// independently of it. Defaults to true for the event's creator at signup (alongside
     /// <see cref="IsOrganizer"/>) so the event is never unmanageable at creation, and false for
-    /// every other participant promoted to organizer afterward. If no participant in an event
-    /// currently has this set, the actions it gates fall open to every current organizer instead
-    /// of every participant — narrower than <see cref="IsOrganizer"/>'s own zero-holder fallback.
+    /// every other participant promoted to organizer afterward. If the event has no
+    /// <see cref="IsOrganizer"/> participant at all, the actions this flag gates fall open to
+    /// every participant, same breadth as <see cref="IsOrganizer"/>'s own zero-holder fallback —
+    /// only when at least one organizer exists but none of them currently has this set does the
+    /// fallback narrow to every current organizer instead of every participant.
     /// </summary>
     public bool CanManageOrganizers { get; set; }
 

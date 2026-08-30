@@ -6,9 +6,10 @@ namespace WhenWorksWeb.Controllers;
 
 /// <summary>
 /// The Settings tab's "Organizer permissions" card actions: promoting a participant to organizer,
-/// demoting an organizer back to a regular participant, and toggling another organizer's
-/// <see cref="Participant.CanManageOrganizers"/> flag. Split out from
-/// <c>EventsController.Settings.cs</c> since that file was already sizeable before these three
+/// demoting an organizer back to a regular participant, toggling another organizer's
+/// <see cref="Participant.CanManageOrganizers"/> flag, and reporting the live organizer count the
+/// "demote the last organizer" confirmation modal checks before showing itself. Split out from
+/// <c>EventsController.Settings.cs</c> since that file was already sizeable before these
 /// actions — see the Controller section of the organizer-permissions feature spec.
 /// </summary>
 public partial class EventsController
@@ -23,22 +24,13 @@ public partial class EventsController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PromoteOrganizer(string code, [FromForm] int participantId, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageOrganizersAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageOrganizersAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, _) = context!.Value;
 
         var target = await _db.Participants
             .SingleOrDefaultAsync(p => p.Id == participantId && p.EventId == eventEntity.Id, cancellationToken);
@@ -66,22 +58,13 @@ public partial class EventsController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DemoteOrganizer(string code, [FromForm] int participantId, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageOrganizersAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageOrganizersAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, _) = context!.Value;
 
         var target = await _db.Participants
             .SingleOrDefaultAsync(p => p.Id == participantId && p.EventId == eventEntity.Id, cancellationToken);
@@ -101,28 +84,23 @@ public partial class EventsController
     /// access" in the UI). Requires <see cref="Participant.CanManageOrganizers"/> itself. Returns
     /// just the affected pill (<c>_OrganizerPill</c>) for the Settings page's fetch-and-swap
     /// enhancement, same <c>X-Requested-With</c> convention as <see cref="People"/>; falls back to
-    /// a full redirect for a plain form post with JS unavailable.
+    /// a full redirect for a plain form post with JS unavailable. Takes the intended end state as
+    /// <paramref name="desiredValue"/> rather than blindly negating the current value server-side,
+    /// so the action is idempotent: if the client's fetch fails after this already succeeded (e.g.
+    /// the response never arrives) and it falls back to resubmitting the same form, the second
+    /// request sets the same value again instead of flipping the flag back to its original state.
     /// </summary>
     [HttpPost("/event/{code}/settings/organizers/{participantId:int}/toggle", Name = "EventToggleCanManageOrganizers")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ToggleCanManageOrganizers(string code, int participantId, CancellationToken cancellationToken)
+    public async Task<IActionResult> ToggleCanManageOrganizers(string code, int participantId, [FromForm] bool desiredValue, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageOrganizersAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageOrganizersAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, participant) = context!.Value;
 
         var target = await _db.Participants
             .SingleOrDefaultAsync(p => p.Id == participantId && p.EventId == eventEntity.Id, cancellationToken);
@@ -135,7 +113,7 @@ public partial class EventsController
             return NotFound();
         }
 
-        target.CanManageOrganizers = !target.CanManageOrganizers;
+        target.CanManageOrganizers = desiredValue;
         await _db.SaveChangesAsync(cancellationToken);
 
         if (string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.Ordinal))
@@ -154,6 +132,39 @@ public partial class EventsController
         }
 
         return RedirectToRoute("EventSettings", new { code = eventEntity.Code });
+    }
+
+    /// <summary>
+    /// Reports the event's current organizer count as JSON. Settings.cshtml's demote form calls
+    /// this immediately before submitting to decide, off a live number rather than the page's
+    /// load-time snapshot, whether demoting would leave the event with zero organizers and the
+    /// "last organizer" confirmation modal should show — a page left open in one tab while another
+    /// organizer is demoted (or promoted) elsewhere would otherwise warn (or fail to warn) based on
+    /// a stale count. Read-only, so unlike this file's other actions it doesn't need
+    /// <see cref="AuthorizeEventActionAsync"/>'s tracked-event/mutation setup, but still requires a
+    /// signed-in participant with <see cref="Participant.CanManageOrganizers"/> — the same
+    /// audience who can see the demote form that calls it.
+    /// </summary>
+    [HttpGet("/event/{code}/settings/organizers/count", Name = "EventOrganizerCount")]
+    public async Task<IActionResult> GetOrganizerCount(string code, CancellationToken cancellationToken)
+    {
+        var eventEntity = await GetEventAsync(code, cancellationToken);
+        if (eventEntity is null)
+        {
+            return NotFound();
+        }
+
+        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
+        if (participant is null || !await CanManageOrganizersAsync(eventEntity, participant, cancellationToken))
+        {
+            return Forbid();
+        }
+
+        var organizerCount = await _db.Participants
+            .AsNoTracking()
+            .CountAsync(p => p.EventId == eventEntity.Id && p.IsOrganizer, cancellationToken);
+
+        return Json(new { count = organizerCount });
     }
 
     /// <summary>
