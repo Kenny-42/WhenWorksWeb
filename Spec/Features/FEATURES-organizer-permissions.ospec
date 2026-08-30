@@ -1,0 +1,141 @@
+## Organizer permissions
+
+### Status
+Not started.
+
+### GitHub Issue
+#85
+
+### Summary
+Replace today's single flat `IsOrganizer` bool with a two-tier organizer permission model, and
+add an "Organizer permissions" section to the event home page's Settings tab so an authorized
+organizer can promote/demote other participants and control who else can do the same — the piece
+the original event-home-page spec (`FEATURES-event-home-page.ospec`) deliberately deferred.
+
+### Motivation
+`Participant.IsOrganizer` currently only gets set automatically via the creator cookie at
+sign-in, with no UI to grant or revoke it afterward (see "Organizer Permission Model" and "Out of
+Scope" in `FEATURES-event-home-page.ospec`). Events created by guests, or joined from a different
+browser than the one that created them, can end up with no organizer at all (falling back to
+"everyone can manage"), and there's no way for a group to add a second organizer, hand off
+ownership, or step down. This closes that gap.
+
+---
+
+### Permission Model
+Two bools on `Participant`, replacing the single `IsOrganizer` check used for all organizer
+actions today:
+
+- **`IsOrganizer`** (existing, unchanged in meaning) — can edit event details (title,
+  description, emoji, final dates, and any future settings of the same kind).
+- **`CanManageOrganizers`** (new) — can promote/demote other participants' `IsOrganizer` status,
+  toggle other organizers' `CanManageOrganizers` flag, and delete the event. Only ever meaningful
+  when `IsOrganizer` is also `true`: demoting a participant out of `IsOrganizer` clears this flag
+  too, and it can never be set independently of `IsOrganizer`.
+
+**Defaults:**
+- The creator's own participant record gets `CanManageOrganizers = true` at the same time it's
+  auto-flagged `IsOrganizer = true` via the existing creator-cookie flow (`FEATURES-event-home-page.ospec`)
+  — has to default on, or the event would start unmanageable.
+- Any participant promoted to organizer afterward defaults `CanManageOrganizers = false`, until
+  a participant who already holds the flag turns it on for them.
+
+**Who can do what:**
+- Editing event details / managing final dates / (unchanged from today): requires `IsOrganizer`.
+- Promoting a participant to organizer, demoting an organizer back to a regular participant,
+  toggling another organizer's `CanManageOrganizers` flag, or deleting the event: requires
+  `CanManageOrganizers`.
+- Self-service: a participant can demote themselves out of either flag at any time, including the
+  creator — `IsCreator` is a permanent historical marker independent of both permission flags (per
+  the existing model) and is never affected by any of this.
+
+**Fallback rules** (extends today's single zero-organizer fallback with an equivalent one for the
+new flag):
+- If an event currently has zero participants with `IsOrganizer = true`, organizer-gated actions
+  (detail edits, final dates) are open to every participant — unchanged from today.
+- If an event currently has zero participants with `CanManageOrganizers = true` (e.g. the sole
+  holder demoted themselves), `CanManageOrganizers`-gated actions (promote/demote, toggle the
+  flag, delete event) fall open to every current organizer (`IsOrganizer = true`), not to every
+  participant — until one of them reclaims the flag for themselves or grants it to someone else.
+
+---
+
+### Proposed Changes
+
+#### Schema
+- `Participant` gains `public bool CanManageOrganizers { get; set; }`, defaulting `false` for new
+  rows generally; the creator-cookie sign-in path sets it `true` alongside `IsOrganizer` the same
+  way it does today, per the defaults above.
+- Migration via `dotnet ef migrations add AddCanManageOrganizersToParticipant` — CLI only, per
+  CODING_CONVENTIONS.md. **Not run until this spec is approved.**
+
+#### Settings tab — "Organizer permissions" card
+Visible only to participants with `CanManageOrganizers = true`; hidden entirely (not just
+disabled) for everyone else, including other organizers who lack the flag.
+
+- **Promote dropdown**: lists current non-organizer participants; selecting one and confirming
+  sets their `IsOrganizer = true` (with `CanManageOrganizers` defaulting `false`, per the defaults
+  above).
+- **Demote dropdown**: lists current organizers; selecting one and confirming fully revokes their
+  organizer status — clears both `IsOrganizer` and `CanManageOrganizers`, returning them to a
+  regular participant.
+- **Current-organizers pill list**: one pill per participant with `IsOrganizer = true`, each with
+  a toggle button controlling that participant's own `CanManageOrganizers` flag, labeled
+  **"Full access"** in the UI.
+- All actions in this card call server endpoints that re-check `CanManageOrganizers` against the
+  database (never trusting a client-side flag), matching the existing pattern in
+  `EventsController.Settings.cs`'s `UpdateDetails`/`DeleteEvent` actions.
+
+#### Controller
+- New actions added to `EventsController.Settings.cs` (or a further partial split if the file
+  grows unwieldy — implementation detail to settle while building):
+  - Promote a participant to organizer.
+  - Demote an organizer back to a regular participant.
+  - Toggle another organizer's `CanManageOrganizers` flag.
+- A new `CanManageOrganizersAsync(Event, Participant, CancellationToken)` check, alongside the
+  existing `CanManageEventAsync`, implementing the fallback rule above.
+- `DeleteEvent` (existing action) switches from `CanManageEventAsync` to the new
+  `CanManageOrganizersAsync` check, since deleting the event is now gated by the manage-organizers
+  permission, not plain `IsOrganizer`.
+
+#### View Models
+- `EventSettingsViewModel` gains a `CanManageOrganizers` flag (for the current participant, to
+  show/hide the new card) and an `IReadOnlyList<EventOrganizerViewModel>` for the pill list —
+  each entry carrying participant id, display name, color, and its own `CanManageOrganizers`
+  value — plus whatever's needed to populate the promote/demote dropdowns (id + display name of
+  eligible participants).
+
+---
+
+### Acceptance Criteria
+- `Participant.CanManageOrganizers` exists via an EF Core CLI migration; the creator's
+  participant record gets it set `true` at creation alongside `IsOrganizer`, same as today's
+  creator-cookie flow.
+- Settings tab shows an "Organizer permissions" card only to participants with
+  `CanManageOrganizers = true`; it is entirely absent (not just disabled) for everyone else.
+- Promoting a participant via the dropdown sets `IsOrganizer = true` and leaves
+  `CanManageOrganizers = false` by default; demoting via the dropdown clears both flags.
+- Toggling a pill's "Full access" control flips that organizer's `CanManageOrganizers` and takes
+  effect immediately (next load of the Settings tab reflects it, at minimum).
+- A participant can demote themselves out of either flag, including the creator; `IsCreator`
+  never changes as a result.
+- Deleting the event now requires `CanManageOrganizers`, not plain `IsOrganizer`.
+- If an event has zero `IsOrganizer` participants, detail edits and final-date management remain
+  open to everyone (unchanged). If an event has zero `CanManageOrganizers` participants,
+  promote/demote/toggle/delete become available to every current organizer instead of locking up.
+- All new server actions re-check `CanManageOrganizers` against the database; a request from a
+  participant who doesn't hold it is rejected (`Forbid()`), not just hidden client-side.
+
+### Out of Scope
+- Any further split of `CanManageOrganizers` into finer-grained capabilities (e.g. separating
+  "can delete the event" from "can manage other organizers") — this pass keeps them bundled as
+  one flag, per the design discussion.
+- Any change to the existing creator-cookie auto-flagging mechanism itself, or to `IsCreator`'s
+  meaning.
+- Notifications to a participant when their organizer status or permissions change.
+- Tests — per CLAUDE.md, added only on separate explicit request.
+
+### Dependencies
+Builds on the organizer flags and creator-cookie flow already landed for
+`FEATURES-event-home-page.ospec` (migration `RemoveEventRoleAddOrganizerFlags`), and on that
+spec's Settings tab (`EventSettingsViewModel`, `EventsController.Settings.cs`).

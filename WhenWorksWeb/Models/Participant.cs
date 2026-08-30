@@ -81,6 +81,19 @@ public class Participant
     public bool IsOrganizer { get; set; }
 
     /// <summary>
+    /// Whether this participant can promote/demote other participants' <see cref="IsOrganizer"/>
+    /// status, toggle other organizers' <see cref="CanManageOrganizers"/> flag, and delete the
+    /// event. Only ever meaningful when <see cref="IsOrganizer"/> is also true: demoting a
+    /// participant out of <see cref="IsOrganizer"/> clears this flag too, and it can never be set
+    /// independently of it. Defaults to true for the event's creator at signup (alongside
+    /// <see cref="IsOrganizer"/>) so the event is never unmanageable at creation, and false for
+    /// every other participant promoted to organizer afterward. If no participant in an event
+    /// currently has this set, the actions it gates fall open to every current organizer instead
+    /// of every participant — narrower than <see cref="IsOrganizer"/>'s own zero-holder fallback.
+    /// </summary>
+    public bool CanManageOrganizers { get; set; }
+
+    /// <summary>
     /// The chat messages sent by this participant.
     /// </summary>
     public ICollection<EventMessage> Messages { get; set; } = new List<EventMessage>();

@@ -103,7 +103,8 @@ public sealed class DevelopmentDataSeeder(
             DisplayName = "Alice Dev",
             Color = ModelConstants.DefaultParticipantColor,
             IsCreator = true,
-            IsOrganizer = true
+            IsOrganizer = true,
+            CanManageOrganizers = true
         };
 
         var lunchBen = new Participant
@@ -129,7 +130,8 @@ public sealed class DevelopmentDataSeeder(
             DisplayName = "Ben Carter",
             Color = "4d96ff",
             IsCreator = true,
-            IsOrganizer = true
+            IsOrganizer = true,
+            CanManageOrganizers = true
         };
 
         var tripChloe = new Participant
