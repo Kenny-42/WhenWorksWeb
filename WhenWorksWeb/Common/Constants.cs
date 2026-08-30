@@ -26,6 +26,12 @@ public static class ModelConstants
     // The maximum length for an application user's unique identifier (username).
     public const int UserIdMaxLength = 450;
 
+    // The maximum length for an application user's email address. Mirrors Identity's own
+    // AspNetUsers.Email/NormalizedEmail column bound (see CreateIdentitySchema migration) rather
+    // than reusing UserIdMaxLength above, which is a separate, much larger bound for the row's
+    // primary key/username, not its email.
+    public const int UserEmailMaxLength = 256;
+
     // The length of a hexadecimal color code (without the leading '#').
     public const int HexColorLength = 6;
 
@@ -81,6 +87,17 @@ public static class ModelConstants
     // parentheses, or letters).
     public const string PhoneNumberPattern = @"^\+?[0-9]{7,15}$";
 
+    // How far from today (in either direction) a user-supplied date is allowed to be, shared by
+    // every date a participant/organizer can post directly (calendar availability toggles, final
+    // dates). A generous bound (nobody is planning 50 years out) that still catches an
+    // obviously-wrong or tampered value; a client-side date picker's own range is a UX convenience
+    // only, this is the actual server-enforced boundary.
+    public const int UserSuppliedDateBoundYears = 50;
+
+    // The maximum number of EventFinalDate rows a single event can accumulate. A sanity cap, not a
+    // real-world limit anyone should hit organizing an actual event.
+    public const int EventFinalDateMaxCount = 40;
+
     // Blocks C0/C1 control characters and common zero-width/invisible Unicode characters, while
     // still requiring at least one non-whitespace character somewhere in the value (closing the
     // gap where [Required] alone accepts an all-whitespace value -- see CODING_CONVENTIONS.md's
@@ -89,4 +106,12 @@ public static class ModelConstants
     // outright. Written with \x/\u escapes rather than \p{Cc} for the same client/server
     // regex-engine-compatibility reason as PasswordComplexityPattern above.
     public const string DisplayNameContentPattern = @"^(?!.*[\x00-\x1F\x7F-\x9F\u200B\u200C\u200D\u200E\u200F\uFEFF]).*\S.*$";
+
+    // Same control-character/zero-width rejection as DisplayNameContentPattern, but for
+    // multi-line fields (e.g. EventSettings.Description): \n and \r are allowed through rather
+    // than blocked. Written with [\s\S] instead of . throughout -- .NET/JS regex's "." does not
+    // match a line break without an explicit Singleline/"s" flag (which the jQuery Validate
+    // unobtrusive adapter doesn't set), so a plain ".*[bad chars]" lookahead would silently stop
+    // scanning at the first newline and miss a bad character placed on a later line.
+    public const string DescriptionContentPattern = @"^(?![\s\S]*[\x00-\x09\x0B\x0C\x0E-\x1F\x7F-\x9F\u200B\u200C\u200D\u200E\u200F\uFEFF])[\s\S]*\S[\s\S]*$";
 }

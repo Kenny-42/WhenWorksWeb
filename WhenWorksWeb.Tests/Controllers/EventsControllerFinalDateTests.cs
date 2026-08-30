@@ -52,12 +52,15 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
 
     // ---- AddFinalDate ----
 
+    private static Task<IActionResult> AddFinalDateAsync(EventsController controller, string code, string startDate, string? endDate)
+        => controller.AddFinalDate(code, new EventAddFinalDateViewModel { StartDate = startDate, EndDate = endDate }, CancellationToken.None);
+
     [Fact]
     public async Task AddFinalDate_WithNonExistentEventCode_ReturnsEventNotFoundView()
     {
         var (controller, _) = CreateController();
 
-        var result = await controller.AddFinalDate("ZZZZZZ", "2026-08-28", null, CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "ZZZZZZ", "2026-08-28", null);
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("~/Views/Shared/Error.cshtml", viewResult.ViewName);
@@ -69,7 +72,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         await CreateEventAsync();
         var (controller, _) = CreateController();
 
-        var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", null, CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("EventSignIn", redirect.RouteName);
@@ -85,7 +88,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
 
         var (_, controller) = await SignInParticipantAsync(evt, "Alice", "ff66c4");
 
-        var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", null, CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
 
         Assert.IsType<ForbidResult>(result);
         Assert.Empty(Db.EventFinalDates);
@@ -93,28 +96,90 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
 
     [Theory]
     [InlineData("not-a-date")]
-    [InlineData("")]
     [InlineData("2026/08/28")]
     [InlineData("2026-8-28")]
-    public async Task AddFinalDate_WithMalformedStartDate_ReturnsBadRequest(string malformedDate)
+    public async Task AddFinalDate_WithMalformedStartDate_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd(string malformedDate)
     {
         var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.AddFinalDate("BCDFGH", malformedDate, null, CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", malformedDate, null);
 
-        Assert.IsType<BadRequestResult>(result);
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
         Assert.Empty(Db.EventFinalDates);
     }
 
     [Fact]
-    public async Task AddFinalDate_WithMalformedEndDate_ReturnsBadRequest()
+    public async Task AddFinalDate_WithEmptyStartDate_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
     {
         var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", "not-a-date", CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "", null);
 
-        Assert.IsType<BadRequestResult>(result);
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
         Assert.Empty(Db.EventFinalDates);
+    }
+
+    [Fact]
+    public async Task AddFinalDate_WithMalformedEndDate_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
+    {
+        var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", "not-a-date");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(Db.EventFinalDates);
+    }
+
+    [Theory]
+    [InlineData("1970-01-01")]
+    [InlineData("2200-01-01")]
+    public async Task AddFinalDate_WithStartDateOutsideFiftyYearBound_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd(string outOfBoundDate)
+    {
+        var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await AddFinalDateAsync(controller, "BCDFGH", outOfBoundDate, null);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(Db.EventFinalDates);
+    }
+
+    [Fact]
+    public async Task AddFinalDate_WithEndDateOutsideFiftyYearBound_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
+    {
+        var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", "2200-01-01");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(Db.EventFinalDates);
+    }
+
+    [Fact]
+    public async Task AddFinalDate_WhenEventAlreadyHasMaximumFinalDates_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        for (var i = 0; i < WhenWorksWeb.Common.ModelConstants.EventFinalDateMaxCount; i++)
+        {
+            Db.EventFinalDates.Add(new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 1, 1).AddDays(i) });
+        }
+        await Db.SaveChangesAsync();
+
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(WhenWorksWeb.Common.ModelConstants.EventFinalDateMaxCount, Db.EventFinalDates.Count(f => f.EventId == evt.Id));
     }
 
     [Fact]
@@ -122,7 +187,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", null, CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("EventFinalize", redirect.RouteName);
@@ -137,7 +202,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        await controller.AddFinalDate("BCDFGH", "2026-09-03", "2026-09-05", CancellationToken.None);
+        await AddFinalDateAsync(controller, "BCDFGH", "2026-09-03", "2026-09-05");
 
         var finalDate = Assert.Single(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
         Assert.Equal(new DateOnly(2026, 9, 3), finalDate.StartDate);
@@ -150,7 +215,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        await controller.AddFinalDate("BCDFGH", "2026-08-28", "2026-08-28", CancellationToken.None);
+        await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", "2026-08-28");
 
         var finalDate = Assert.Single(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
         Assert.Equal(new DateOnly(2026, 8, 28), finalDate.EndDate);
@@ -161,7 +226,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.AddFinalDate("BCDFGH", "2026-08-28", "2026-08-20", CancellationToken.None);
+        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", "2026-08-20");
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("Finalize", viewResult.ViewName);
@@ -175,8 +240,8 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        await controller.AddFinalDate("BCDFGH", "2026-08-20", null, CancellationToken.None);
-        await controller.AddFinalDate("BCDFGH", "2026-09-03", "2026-09-05", CancellationToken.None);
+        await AddFinalDateAsync(controller, "BCDFGH", "2026-08-20", null);
+        await AddFinalDateAsync(controller, "BCDFGH", "2026-09-03", "2026-09-05");
 
         Assert.Equal(2, Db.EventFinalDates.Count(f => f.EventId == evt.Id));
     }

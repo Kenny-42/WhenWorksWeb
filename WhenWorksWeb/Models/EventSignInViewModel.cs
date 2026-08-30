@@ -36,6 +36,7 @@ public sealed class EventSignInViewModel
     [Required]
     [StringLength(ModelConstants.ParticipantDisplayNameMaxLength, MinimumLength = 1,
         ErrorMessage = "Display name must be between 1 and 16 characters.")]
+    [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Display name contains invalid characters.")]
     [Display(Name = "Display Name")]
     public string DisplayName { get; set; } = string.Empty;
 

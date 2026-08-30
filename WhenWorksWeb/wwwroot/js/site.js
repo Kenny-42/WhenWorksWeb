@@ -742,3 +742,66 @@
     picker.addEventListener("input", updateBorderColor);
   });
 })();
+
+// Registers the "grapheme" jQuery Validate rule backing SingleGraphemeAttribute
+// (Common/SingleGraphemeAttribute.cs) — the event emoji field. Grapheme-cluster counting
+// has no built-in jQuery Validate rule to piggyback on (unlike [Required]/[StringLength]/
+// [RegularExpression], which the unobtrusive library already knows how to render), so both
+// halves (the rule itself and the adapter that reads data-val-grapheme off the input) are
+// registered by hand here. A no-op if jQuery Validate isn't loaded on the current page —
+// only pages with @Html.AntiForgeryToken()-style forms plus _ValidationScriptsPartial pull
+// it in.
+(function () {
+  "use strict";
+
+  if (!window.jQuery || !window.jQuery.validator || !window.jQuery.validator.unobtrusive) {
+    return;
+  }
+
+  var $ = window.jQuery;
+
+  $.validator.addMethod("grapheme", function (value, element) {
+    if (this.optional(element)) {
+      // Matches SingleGraphemeAttribute server-side: an empty value is valid, the field is
+      // optional.
+      return true;
+    }
+
+    // Same control/zero-width rejection ModelConstants.DisplayNameContentPattern encodes
+    // server-side, restated here in JS syntax (see that constant's own comment for why it's
+    // a separate ASCII-escape-only pattern rather than shared verbatim with the server).
+    // Built from a RegExp constructor (rather than a /.../ literal containing the raw
+    // characters) so the zero-width codepoints stay as visible, greppable \u escapes in
+    // source instead of invisible bytes an editor could silently mangle.
+    //
+    // Run against the ZWJ-stripped value, not the raw one -- matching SingleGraphemeAttribute
+    // server-side: U+200D (zero-width joiner) is blocked as invisible junk everywhere else,
+    // but it's also the actual joiner a compound emoji sequence (e.g. the family emoji:
+    // man+ZWJ+woman+ZWJ+girl+ZWJ+boy) is built from, so a legitimate ZWJ emoji must not fail
+    // this check just because the raw string contains ZWJ. Stripping first still catches a
+    // value that's ZWJ characters and nothing else (the stripped text is then empty, failing
+    // \S) while still allowing ZWJ as an interior joiner between real content.
+    var controlOrZeroWidthPattern = new RegExp("[\\x00-\\x1F\\x7F-\\x9F\\u200B\\u200C\\u200D\\u200E\\u200F\\uFEFF]");
+    var withoutJoiners = value.split(String.fromCharCode(0x200d)).join("");
+    if (controlOrZeroWidthPattern.test(withoutJoiners) || !/\S/.test(withoutJoiners)) {
+      return false;
+    }
+
+    var graphemeCount;
+    if (window.Intl && window.Intl.Segmenter) {
+      var segmenter = new window.Intl.Segmenter(undefined, { granularity: "grapheme" });
+      graphemeCount = Array.from(segmenter.segment(value)).length;
+    } else {
+      // Fallback for a browser without Intl.Segmenter: counts Unicode code points (correct
+      // for a plain single-codepoint emoji, but can undercount a multi-codepoint sequence
+      // like a ZWJ family emoji as more than one grapheme). The server-side check via
+      // StringInfo.GetTextElementEnumerator is the real, accurate enforcement either way —
+      // this is only a best-effort head start on showing the error before submit.
+      graphemeCount = Array.from(value).length;
+    }
+
+    return graphemeCount === 1;
+  }, "Must be a single emoji character.");
+
+  $.validator.unobtrusive.adapters.addBool("grapheme");
+})();

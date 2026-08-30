@@ -128,6 +128,99 @@ public class EventsControllerSignInTests : EventsControllerTestFixture
     }
 
     /// <summary>
+    /// A newly created participant's display name is persisted in Unicode Normalization Form C, not
+    /// whatever composition the browser happened to submit — added by
+    /// Spec/Features/FEATURES-tighten-input-validation-site-wide.ospec Section 3 (Issue #88). "é" is
+    /// submitted here as "e" (U+0065) + combining acute accent (U+0301), the NFD form.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_WithDecomposedUnicodeDisplayName_PersistsNfcNormalizedValue()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var decomposedName = "Café"; // "Café" with a combining acute accent (NFD)
+        var composedName = "Café"; // "Café" as a single precomposed codepoint (NFC)
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = decomposedName, Color = "111111" };
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<RedirectToRouteResult>(result);
+        var saved = Assert.Single(Db.Participants);
+        Assert.Equal(composedName, saved.DisplayName, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A display name that renders identically to an existing participant's, but was submitted with a
+    /// different Unicode codepoint composition (NFD vs. the stored NFC form), must still be rejected as a
+    /// duplicate — added by Spec/Features/FEATURES-tighten-input-validation-site-wide.ospec Section 3
+    /// (Issue #88). Without NFC normalization, an ordinal `DisplayName == displayName` comparison in
+    /// <c>ValidateParticipantUniquenessAsync</c> would treat these as different strings and let the
+    /// duplicate through.
+    /// </summary>
+    [Fact]
+    public async Task Post_NewParticipant_WithDecomposedVariantOfExistingComposedDisplayName_AddsModelError()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+        var composedName = "Café"; // "Café" as a single precomposed codepoint (NFC)
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName(composedName).WithColor("111111").Build());
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var decomposedName = "Café"; // same rendered name, NFD form
+        var model = new EventSignInViewModel { Code = "BCDFGH", DisplayName = decomposedName, Color = "222222" };
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Contains(
+            controller.ModelState[nameof(EventSignInViewModel.DisplayName)]!.Errors,
+            e => e.ErrorMessage == "That display name is already taken in this event.");
+        Assert.Single(Db.Participants); // only the pre-seeded one
+    }
+
+    /// <summary>
+    /// Selecting an existing participant from the dropdown by a decomposed (NFD) rendering of its stored,
+    /// composed (NFC) display name must still resolve to that participant — otherwise a display name
+    /// containing combining characters could round-trip through the dropdown's exact-match lookup as "not
+    /// found" purely because of composition, not any real difference. Added by
+    /// Spec/Features/FEATURES-tighten-input-validation-site-wide.ospec Section 3 (Issue #88).
+    /// </summary>
+    [Fact]
+    public async Task Post_ExistingParticipant_SelectedWithDecomposedVariantOfStoredComposedName_UpdatesParticipant()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+        var composedName = "Café"; // "Café" as stored, NFC form
+        Db.Participants.Add(new ParticipantBuilder().ForEvent(evt).WithDisplayName(composedName).WithColor("111111").Build());
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+        var decomposedName = "Café"; // same rendered name, NFD form, as submitted by the form
+        var model = new EventSignInViewModel
+        {
+            Code = "BCDFGH",
+            DisplayName = decomposedName,
+            Color = "222222",
+            SelectedExistingDisplayName = decomposedName
+        };
+
+        var result = await controller.SignIn("BCDFGH", model, CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToRouteResult>(result);
+        Assert.Equal("EventHome", redirect.RouteName);
+
+        var updated = Assert.Single(Db.Participants);
+        Assert.Equal("222222", updated.Color);
+        Assert.Equal(composedName, updated.DisplayName, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// Selecting an existing, unowned guest participant should update it and redirect straight to the event
     /// home page — no rejoin code or other ownership proof is required (Issue #73: rejoin codes were removed
     /// so any guest can pick an existing guest display name from the dropdown).

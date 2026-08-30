@@ -44,6 +44,7 @@ public class Participant
     /// This can be changed from the user's global display name and allows guests to have a name as well.
     /// </summary>
     [StringLength(DisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 16 characters.")]
+    [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Display name contains invalid characters.")]
     public required string DisplayName { get; set; }
 
     /// <summary>

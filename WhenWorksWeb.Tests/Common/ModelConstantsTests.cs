@@ -70,15 +70,18 @@ public class ModelConstantsTests
         Assert.True(ModelConstants.PasswordMinLength <= ModelConstants.PasswordMaxLength);
     }
 
-    // PasswordComplexityPattern/PhoneNumberPattern/DisplayNameContentPattern are exercised through
-    // the real InputModel classes that use them in ChangePasswordModelInputTests,
-    // SetPasswordModelInputTests, and IndexModelInputTests (per CODING_CONVENTIONS.md's guidance to
-    // test DataAnnotations-validated properties through the real model, not the raw pattern). The
-    // checks below are properties of the constants themselves -- that they don't rely on \p{}
-    // Unicode property escapes, which would throw client-side (see each constant's own remarks).
+    // PasswordComplexityPattern/PhoneNumberPattern/DisplayNameContentPattern/DescriptionContentPattern
+    // are exercised through the real model classes that use them in ChangePasswordModelInputTests,
+    // SetPasswordModelInputTests, IndexModelInputTests, EventTests, ParticipantTests,
+    // EventSignInViewModelTests, IndexViewModelTests, EventUpdateDetailsViewModelTests, and
+    // EventSettingsTests (per CODING_CONVENTIONS.md's guidance to test DataAnnotations-validated
+    // properties through the real model, not the raw pattern). The checks below are properties of
+    // the constants themselves -- that they don't rely on \p{} Unicode property escapes, which
+    // would throw client-side (see each constant's own remarks).
     [Theory]
     [InlineData(ModelConstants.PasswordComplexityPattern)]
     [InlineData(ModelConstants.DisplayNameContentPattern)]
+    [InlineData(ModelConstants.DescriptionContentPattern)]
     public void ClientCompatiblePatterns_DoNotUseUnicodePropertyEscapes(string pattern)
     {
         Assert.DoesNotContain(@"\p{", pattern, StringComparison.Ordinal);

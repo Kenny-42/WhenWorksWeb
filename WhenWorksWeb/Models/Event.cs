@@ -38,6 +38,7 @@ public class Event
     /// The title of the event, with a maximum length of 30 characters and minimum of 1 character.
     /// </summary>
     [StringLength(TitleMaxLength, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 30 characters.")]
+    [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Title contains invalid characters.")]
     public required string Title { get; set; }
 
     /// <summary>
@@ -241,6 +242,7 @@ public class EventSettings
     /// A description of the event, which can provide additional details or context. This field is optional.
     /// </summary>
     [StringLength(DescriptionMaxLength)]
+    [RegularExpression(ModelConstants.DescriptionContentPattern, ErrorMessage = "Description contains invalid characters.")]
     public string? Description { get; set; }
 
     /// <summary>

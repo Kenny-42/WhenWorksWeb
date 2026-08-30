@@ -76,4 +76,36 @@ public class EventTests
 
         Assert.False(IsTitleValid(thirtyOneChars));
     }
+
+    [Theory]
+    [InlineData("Trivia Night")]
+    [InlineData("山田太郎")] // non-Latin script (Japanese) stays allowed
+    [InlineData("O'Brien's Party!")] // ordinary punctuation stays allowed
+    [InlineData(" Trivia Night")] // leading whitespace is allowed by the pattern -- trimmed by the caller before persisting
+    [InlineData("Trivia Night ")] // trailing whitespace likewise allowed here, trimmed by the caller
+    public void Title_AcceptsNamesWithNonAsciiOrPunctuation(string title)
+    {
+        Assert.True(IsTitleValid(title));
+    }
+
+    [Theory]
+    [InlineData("   ")] // whitespace-only -- the gap [StringLength]'s MinimumLength alone doesn't close
+    [InlineData("\t\t")] // whitespace-only (tabs)
+    public void Title_RejectsWhitespaceOnlyValue(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
+
+    // A representative sample, not the full character class -- DisplayNameContentPattern's
+    // complete C0/C1/zero-width coverage is exhaustively proven once, against
+    // Participant.DisplayName, in ParticipantTests.DisplayName_RejectsControlAndInvisibleCharacters.
+    // These exist only to confirm the attribute is actually wired up on this property.
+    [Theory]
+    [InlineData("Trivia\u0000Night")] // embedded NUL control character (C0)
+    [InlineData("Trivia\u007FNight")] // embedded DEL control character (C1 boundary)
+    [InlineData("Trivia\u200BNight")] // embedded zero-width space
+    public void Title_RejectsControlAndInvisibleCharacters(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
 }

@@ -143,12 +143,15 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
 
     // ---- UpdateDetails ----
 
+    private static Task<IActionResult> UpdateDetailsAsync(EventsController controller, string code, string title, string? description, string? emoji)
+        => controller.UpdateDetails(code, new EventUpdateDetailsViewModel { Title = title, Description = description, Emoji = emoji }, CancellationToken.None);
+
     [Fact]
     public async Task UpdateDetails_WithNonExistentEventCode_ReturnsEventNotFoundView()
     {
         var (controller, _) = CreateController();
 
-        var result = await controller.UpdateDetails("ZZZZZZ", "New Title", null, null, CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "ZZZZZZ", "New Title", null, null);
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("~/Views/Shared/Error.cshtml", viewResult.ViewName);
@@ -160,7 +163,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         await CreateEventAsync();
         var (controller, _) = CreateController();
 
-        var result = await controller.UpdateDetails("BCDFGH", "New Title", null, null, CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "New Title", null, null);
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("EventSignIn", redirect.RouteName);
@@ -176,7 +179,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
 
         var (_, controller) = await SignInParticipantAsync(evt, "Alice", "ff66c4");
 
-        var result = await controller.UpdateDetails("BCDFGH", "New Title", null, null, CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "New Title", null, null);
 
         Assert.IsType<ForbidResult>(result);
         Assert.Equal("Test Event", (await Db.Events.SingleAsync()).Title);
@@ -189,7 +192,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.UpdateDetails("BCDFGH", emptyTitle, "New description", "🎉", CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", emptyTitle, "New description", "🎉");
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("Settings", viewResult.ViewName);
@@ -205,7 +208,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
         var tooLong = new string('a', WhenWorksWeb.Common.ModelConstants.EventTitleMaxLength + 1);
 
-        var result = await controller.UpdateDetails("BCDFGH", tooLong, null, null, CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", tooLong, null, null);
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("Settings", viewResult.ViewName);
@@ -213,11 +216,88 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
     }
 
     [Fact]
+    public async Task UpdateDetails_WithDescriptionOverMaxLength_ReturnsSettingsViewWithModelErrorAndDoesNotSave()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var tooLong = new string('a', WhenWorksWeb.Common.ModelConstants.EventDescriptionMaxLength + 1);
+
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", tooLong, null);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Settings", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(Db.EventSettings.Where(s => s.EventId == evt.Id));
+    }
+
+    [Theory]
+    [InlineData("🎉🎉")]
+    [InlineData("hi")]
+    public async Task UpdateDetails_WithMultiCharacterEmoji_ReturnsSettingsViewWithModelErrorAndDoesNotSave(string invalidEmoji)
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, invalidEmoji);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Settings", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(Db.EventSettings.Where(s => s.EventId == evt.Id));
+    }
+
+    /// <summary>A whitespace-only emoji trims down to empty, which is "not provided" (valid,
+    /// keeps the existing emoji), not a validation error — same as a whitespace-only description.</summary>
+    [Fact]
+    public async Task UpdateDetails_WithWhitespaceOnlyEmoji_TrimsToEmptyAndKeepsExistingEmoji()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎲", Description = null });
+        await Db.SaveChangesAsync();
+
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, "  ");
+
+        Assert.IsType<RedirectToRouteResult>(result);
+        var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
+        Assert.Equal("🎲", settings.Emoji);
+    }
+
+    /// <summary>A single-codepoint emoji is the common case a picker actually produces.</summary>
+    [Fact]
+    public async Task UpdateDetails_WithSingleCodepointEmoji_Succeeds()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, "🎲");
+
+        var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
+        Assert.Equal("🎲", settings.Emoji);
+    }
+
+    /// <summary>
+    /// A multi-codepoint sequence (family: man, woman, girl, boy joined by ZWJ) is still one
+    /// visible grapheme cluster and must be accepted, not just single-codepoint emoji.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDetails_WithMultiCodepointZwjSequenceEmoji_Succeeds()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        // Man + ZWJ + Woman + ZWJ + Girl + ZWJ + Boy, built via string.Concat with an
+        // explicit \u200D (zero-width joiner) escape rather than a literal ZWJ embedded in
+        // the source string, so the invisible joiner characters stay visible/greppable here.
+        const string zwj = "\u200D";
+        var family = string.Concat("\U0001F468", zwj, "\U0001F469", zwj, "\U0001F467", zwj, "\U0001F466");
+
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, family);
+
+        var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
+        Assert.Equal(family, settings.Emoji);
+    }
+
+    [Fact]
     public async Task UpdateDetails_WithValidData_UpdatesTitleDescriptionAndEmojiAndRedirects()
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.UpdateDetails("BCDFGH", "  Trivia Night  ", "  Bring snacks.  ", "🎲", CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "  Trivia Night  ", "  Bring snacks.  ", "🎲");
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("EventSettings", redirect.RouteName);
@@ -237,7 +317,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎉", Description = "Old description." });
         await Db.SaveChangesAsync();
 
-        await controller.UpdateDetails("BCDFGH", "Trivia Night", "   ", null, CancellationToken.None);
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", "   ", null);
 
         var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
         Assert.Null(settings.Description);
@@ -250,7 +330,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎲", Description = null });
         await Db.SaveChangesAsync();
 
-        await controller.UpdateDetails("BCDFGH", "Trivia Night", null, null, CancellationToken.None);
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, null);
 
         var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
         Assert.Equal("🎲", settings.Emoji);
@@ -261,7 +341,7 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
-        var result = await controller.UpdateDetails("BCDFGH", "Trivia Night", null, null, CancellationToken.None);
+        var result = await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", null, null);
 
         Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("Trivia Night", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).Title);

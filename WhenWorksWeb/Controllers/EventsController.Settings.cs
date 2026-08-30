@@ -37,7 +37,7 @@ public partial class EventsController
     /// </summary>
     [HttpPost("/event/{code}/settings/details", Name = "EventUpdateDetails")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateDetails(string code, [FromForm] string title, [FromForm] string? description, [FromForm] string? emoji, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateDetails(string code, EventUpdateDetailsViewModel model, CancellationToken cancellationToken)
     {
         var (context, failure) = await AuthorizeEventActionAsync(code, CanManageEventAsync, cancellationToken);
         if (failure is not null)
@@ -47,32 +47,30 @@ public partial class EventsController
 
         var (eventEntity, participant) = context!.Value;
 
-        var trimmedTitle = title?.Trim();
-        if (string.IsNullOrEmpty(trimmedTitle) || trimmedTitle.Length > ModelConstants.EventTitleMaxLength)
-        {
-            ModelState.AddModelError(nameof(title), $"Title must be between 1 and {ModelConstants.EventTitleMaxLength} characters.");
-            return View("Settings", await BuildEventSettingsViewModelAsync(eventEntity, participant, cancellationToken));
-        }
+        // Trim before validating, same as the account-settings pages, so e.g. a title of all
+        // whitespace fails [Required]/[StringLength]'s MinimumLength rather than being accepted
+        // and only then trimmed down to an empty string.
+        model.Title = model.Title.Trim();
+        model.Description = model.Description?.Trim();
+        model.Emoji = model.Emoji?.Trim();
 
-        var trimmedDescription = description?.Trim();
-        var trimmedEmoji = emoji?.Trim();
+        // Model binding already ran validation once, against the raw untrimmed values, before
+        // this action even started -- e.g. a title with incidental leading/trailing whitespace
+        // that pushes its raw length past EventTitleMaxLength fails that automatic pass and
+        // leaves a stale error sitting in ModelState even though the trimmed value above is
+        // perfectly valid. Clear that stale state before re-validating the trimmed model, or
+        // TryValidateModel below can never succeed for a value it would otherwise accept.
+        // ModelState.Clear() (not ClearValidationState, which is keyed by ModelState key --
+        // "Title"/"Description"/"Emoji" here, not the "model" parameter name) is safe since
+        // nothing else in this action reads or depends on prior ModelState entries.
+        ModelState.Clear();
 
-        if (trimmedDescription?.Length > ModelConstants.EventDescriptionMaxLength)
-        {
-            ModelState.AddModelError(nameof(description), $"Description must be {ModelConstants.EventDescriptionMaxLength} characters or fewer.");
-        }
-
-        if (trimmedEmoji?.Length > ModelConstants.EventEmojiMaxLength)
-        {
-            ModelState.AddModelError(nameof(emoji), $"Emoji must be {ModelConstants.EventEmojiMaxLength} characters or fewer.");
-        }
-
-        if (!ModelState.IsValid)
+        if (!TryValidateModel(model))
         {
             return View("Settings", await BuildEventSettingsViewModelAsync(eventEntity, participant, cancellationToken));
         }
 
-        eventEntity.Title = trimmedTitle;
+        eventEntity.Title = model.Title;
         eventEntity.LastActiveAt = DateTimeOffset.UtcNow;
 
         var settings = await _db.EventSettings.SingleOrDefaultAsync(s => s.EventId == eventEntity.Id, cancellationToken);
@@ -81,16 +79,16 @@ public partial class EventsController
             settings = new EventSettings
             {
                 EventId = eventEntity.Id,
-                Emoji = string.IsNullOrWhiteSpace(trimmedEmoji) ? ModelConstants.DefaultEventEmoji : trimmedEmoji
+                Emoji = string.IsNullOrWhiteSpace(model.Emoji) ? ModelConstants.DefaultEventEmoji : model.Emoji
             };
             _db.EventSettings.Add(settings);
         }
-        else if (!string.IsNullOrWhiteSpace(trimmedEmoji))
+        else if (!string.IsNullOrWhiteSpace(model.Emoji))
         {
-            settings.Emoji = trimmedEmoji;
+            settings.Emoji = model.Emoji;
         }
 
-        settings.Description = string.IsNullOrEmpty(trimmedDescription) ? null : trimmedDescription;
+        settings.Description = string.IsNullOrEmpty(model.Description) ? null : model.Description;
 
         await _db.SaveChangesAsync(cancellationToken);
 

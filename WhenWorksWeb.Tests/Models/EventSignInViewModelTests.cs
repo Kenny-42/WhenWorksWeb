@@ -44,6 +44,39 @@ public class EventSignInViewModelTests
         Assert.True(IsDisplayNameValid(new string('A', ModelConstants.ParticipantDisplayNameMaxLength)));
     }
 
+    [Theory]
+    [InlineData("Jordan")]
+    [InlineData("J")] // minimum length (1)
+    [InlineData("山田太郎")] // non-Latin script (Japanese) stays allowed
+    [InlineData("O'Brien-Smith")] // ordinary punctuation stays allowed
+    [InlineData(" Jordan")] // leading whitespace is allowed by the pattern -- trimmed by the caller before persisting
+    [InlineData("Jordan ")] // trailing whitespace likewise allowed here, trimmed by the caller
+    public void DisplayName_AcceptsNamesWithNonAsciiOrPunctuation(string displayName)
+    {
+        Assert.True(IsDisplayNameValid(displayName));
+    }
+
+    [Theory]
+    [InlineData("   ")] // whitespace-only -- the gap [Required] alone doesn't close
+    [InlineData("\t\t")] // whitespace-only (tabs)
+    public void DisplayName_RejectsWhitespaceOnlyValue(string displayName)
+    {
+        Assert.False(IsDisplayNameValid(displayName));
+    }
+
+    // A representative sample, not the full character class -- DisplayNameContentPattern's
+    // complete C0/C1/zero-width coverage is exhaustively proven once, against
+    // Participant.DisplayName, in ParticipantTests.DisplayName_RejectsControlAndInvisibleCharacters.
+    // These exist only to confirm the attribute is actually wired up on this property.
+    [Theory]
+    [InlineData("Jordan\u0000")] // embedded NUL control character (C0)
+    [InlineData("Jordan\u007F")] // embedded DEL control character (C1 boundary)
+    [InlineData("Jordan\u200B")] // embedded zero-width space
+    public void DisplayName_RejectsControlAndInvisibleCharacters(string displayName)
+    {
+        Assert.False(IsDisplayNameValid(displayName));
+    }
+
     [Fact]
     public void Color_RejectsEmptyString()
     {
