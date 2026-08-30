@@ -39,22 +39,13 @@ public partial class EventsController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateDetails(string code, [FromForm] string title, [FromForm] string? description, [FromForm] string? emoji, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageEventAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageEventAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, participant) = context!.Value;
 
         var trimmedTitle = title?.Trim();
         if (string.IsNullOrEmpty(trimmedTitle) || trimmedTitle.Length > ModelConstants.EventTitleMaxLength)
@@ -107,28 +98,21 @@ public partial class EventsController
     }
 
     /// <summary>
-    /// Deletes the entire event. Organizer-only, gated by a confirmation modal client-side.
+    /// Deletes the entire event. Gated by <see cref="CanManageOrganizersAsync"/> (not plain
+    /// <see cref="CanManageEventAsync"/> organizer status), and by a confirmation modal
+    /// client-side.
     /// </summary>
     [HttpPost("/event/{code}/settings/delete", Name = "EventDelete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteEvent(string code, CancellationToken cancellationToken)
     {
-        var eventEntity = await GetTrackedEventAsync(code, cancellationToken);
-        if (eventEntity is null)
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageOrganizersAsync, cancellationToken);
+        if (failure is not null)
         {
-            return CreateEventNotFoundResult();
+            return failure;
         }
 
-        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
-        if (participant is null)
-        {
-            return RedirectToRoute("EventSignIn", new { code = eventEntity.Code });
-        }
-
-        if (!await CanManageEventAsync(eventEntity, participant, cancellationToken))
-        {
-            return Forbid();
-        }
+        var (eventEntity, _) = context!.Value;
 
         _db.Events.Remove(eventEntity);
         await _db.SaveChangesAsync(cancellationToken);
@@ -138,7 +122,10 @@ public partial class EventsController
 
     /// <summary>
     /// Builds the Settings tab view model: shared chrome plus the current title/description/
-    /// emoji. Final-date management lives on its own Finalize tab now — see
+    /// emoji, and — only for a participant who holds <see cref="Participant.CanManageOrganizers"/>
+    /// — the "Organizer permissions" card's pill list and dropdown options (see
+    /// <see cref="BuildOrganizerManagementDataAsync"/> in <c>EventsController.Organizers.cs</c>).
+    /// Final-date management lives on its own Finalize tab now — see
     /// <see cref="BuildEventFinalizeViewModelAsync"/> in <c>EventsController.Finalize.cs</c>.
     /// </summary>
     private async Task<EventSettingsViewModel> BuildEventSettingsViewModelAsync(Event eventEntity, Participant participant, CancellationToken cancellationToken)
@@ -149,6 +136,15 @@ public partial class EventsController
 
         var emoji = settings?.Emoji ?? ModelConstants.DefaultEventEmoji;
         var canManageEvent = await CanManageEventAsync(eventEntity, participant, cancellationToken);
+        var canManageOrganizers = await CanManageOrganizersAsync(eventEntity, participant, cancellationToken);
+
+        var organizers = Array.Empty<EventOrganizerViewModel>() as IReadOnlyList<EventOrganizerViewModel>;
+        var promotableParticipants = Array.Empty<EventParticipantOptionViewModel>() as IReadOnlyList<EventParticipantOptionViewModel>;
+
+        if (canManageOrganizers)
+        {
+            (organizers, promotableParticipants) = await BuildOrganizerManagementDataAsync(eventEntity, participant, cancellationToken);
+        }
 
         return new EventSettingsViewModel
         {
@@ -156,7 +152,10 @@ public partial class EventsController
             CanManageEvent = canManageEvent,
             Title = eventEntity.Title,
             Description = string.IsNullOrWhiteSpace(settings?.Description) ? null : settings.Description,
-            Emoji = emoji
+            Emoji = emoji,
+            CanManageOrganizers = canManageOrganizers,
+            Organizers = organizers,
+            PromotableParticipants = promotableParticipants
         };
     }
 }

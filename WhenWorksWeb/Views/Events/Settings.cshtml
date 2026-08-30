@@ -15,68 +15,160 @@
     @if (!Model.CanManageEvent)
     {
         <div class="ww-event-card text-center mb-4">
-            <p class="mb-0">Only this event's organizer can manage its details and deletion.</p>
+            <p class="mb-0">Only this event's organizers can manage its details and deletion.</p>
         </div>
     }
 
-    <!-- "Shape the plan" card: title/description/emoji, organizer-only. -->
-    <div class="ww-event-card ww-settings-shape-card mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-1">
-            <h2 class="font-display mb-0">Shape the plan</h2>
-            <i class="bi bi-sliders" aria-hidden="true"></i>
+    @if (Model.CanManageEvent)
+    {
+        <!-- "Shape the plan" card: title/description/emoji, organizer-only — absent entirely
+             (not just disabled) for anyone without CanManageEvent, same "hide, don't gray out"
+             treatment as the "Organizer permissions" card below. -->
+        <div class="ww-event-card ww-settings-shape-card mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <h2 class="font-display mb-0">Shape the plan</h2>
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+            </div>
+            <p class="ww-people-subtitle mb-3">Only the organizers can edit these details.</p>
+
+            <form asp-route="EventUpdateDetails" asp-route-code="@Model.Header.Code" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label for="ww-settings-title" class="ww-settings-label">Event title</label>
+                    <input type="text"
+                           id="ww-settings-title"
+                           name="title"
+                           class="form-control input-pill input-pill-yellow ww-settings-input w-100"
+                           maxlength="@WhenWorksWeb.Common.ModelConstants.EventTitleMaxLength"
+                           value="@Model.Title"
+                           required />
+                </div>
+
+                <div class="mb-3">
+                    <label for="ww-settings-description" class="ww-settings-label">Description</label>
+                    <textarea id="ww-settings-description"
+                              name="description"
+                              class="form-control ww-settings-textarea"
+                              maxlength="@WhenWorksWeb.Common.ModelConstants.EventDescriptionMaxLength"
+                              rows="4"
+                              placeholder="A new plan is taking shape.">@Model.Description</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="ww-settings-label d-block">Event emoji</label>
+                    <input type="hidden" id="ww-settings-emoji-input" name="emoji" value="@Model.Emoji" />
+                    <button type="button"
+                            id="ww-settings-emoji-button"
+                            class="ww-settings-emoji-button"
+                            aria-haspopup="true"
+                            aria-expanded="false">
+                        <span id="ww-settings-emoji-preview">@Model.Emoji</span>
+                    </button>
+                    <div id="ww-settings-emoji-popup" class="ww-settings-emoji-popup d-none">
+                        <emoji-picker id="ww-settings-emoji-picker"></emoji-picker>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn go-button">Save changes <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+            </form>
         </div>
-        <p class="ww-people-subtitle mb-3">Only the organizer can edit these details.</p>
+    }
 
-        <form asp-route="EventUpdateDetails" asp-route-code="@Model.Header.Code" method="post">
-            @Html.AntiForgeryToken()
-
-            <div class="mb-3">
-                <label for="ww-settings-title" class="ww-settings-label">Event title</label>
-                <input type="text"
-                       id="ww-settings-title"
-                       name="title"
-                       class="form-control input-pill input-pill-yellow ww-settings-input w-100"
-                       maxlength="@WhenWorksWeb.Common.ModelConstants.EventTitleMaxLength"
-                       value="@Model.Title"
-                       disabled="@(!Model.CanManageEvent)"
-                       required />
+    @if (Model.CanManageOrganizers)
+    {
+        <!-- "Organizer permissions" card: promote/demote dropdowns + a pill per current organizer
+             with its own "Full access" toggle. Entirely absent (not just disabled) for anyone
+             without CanManageOrganizers — see the Permission Model section of the feature spec. -->
+        <div class="ww-event-card ww-organizers-card mb-4" id="ww-organizers-card" data-code="@Model.Header.Code" data-current-participant-id="@(Model.Organizers.FirstOrDefault(o => o.IsCurrentParticipant)?.Id)">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <h2 class="font-display mb-0">Organizer permissions</h2>
+                <i class="bi bi-people-fill" aria-hidden="true"></i>
             </div>
+            <p class="ww-people-subtitle mb-3">Promote or demote who's steering this event, and hand out Full access.</p>
 
-            <div class="mb-3">
-                <label for="ww-settings-description" class="ww-settings-label">Description</label>
-                <textarea id="ww-settings-description"
-                          name="description"
-                          class="form-control ww-settings-textarea"
-                          maxlength="@WhenWorksWeb.Common.ModelConstants.EventDescriptionMaxLength"
-                          rows="4"
-                          placeholder="A new plan is taking shape."
-                          disabled="@(!Model.CanManageEvent)">@Model.Description</textarea>
-            </div>
+            <div class="row g-3 mb-4">
+                <!-- Promote dropdown + inline confirm — no modal, per the feature spec's UX call. -->
+                <div class="col-12 col-sm-6">
+                    <label for="ww-organizer-promote-select" class="ww-settings-label">Promote to organizer</label>
+                    @if (Model.PromotableParticipants.Count > 0)
+                    {
+                        <form asp-route="EventPromoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-promote-form">
+                            @Html.AntiForgeryToken()
+                            <select name="participantId" id="ww-organizer-promote-select" class="form-select input-pill input-pill-blue select-arrow-inset w-100 mb-2" required>
+                                <option value="" selected>Select a participant</option>
+                                @foreach (var candidate in Model.PromotableParticipants)
+                                {
+                                    <option value="@candidate.Id">@candidate.DisplayName</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn go-button ww-organizer-confirm-button d-none">Confirm <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+                        </form>
+                    }
+                    else
+                    {
+                        <p class="ww-organizer-empty-text mb-0">Everyone here is already an organizer.</p>
+                    }
+                </div>
 
-            <div class="mb-3">
-                <label class="ww-settings-label d-block">Event emoji</label>
-                <input type="hidden" id="ww-settings-emoji-input" name="emoji" value="@Model.Emoji" />
-                <button type="button"
-                        id="ww-settings-emoji-button"
-                        class="ww-settings-emoji-button"
-                        aria-haspopup="true"
-                        aria-expanded="false"
-                        disabled="@(!Model.CanManageEvent)">
-                    <span id="ww-settings-emoji-preview">@Model.Emoji</span>
-                </button>
-                <div id="ww-settings-emoji-popup" class="ww-settings-emoji-popup d-none">
-                    <emoji-picker id="ww-settings-emoji-picker"></emoji-picker>
+                <!-- Demote dropdown + inline confirm — selecting your own name here is how a
+                     CanManageOrganizers holder steps themselves down; there's no separate
+                     self-service control. data-organizer-count-url backs the last-organizer
+                     confirmation modal below (see this page's script): it's checked live at
+                     submit time rather than off this render's organizer count, since another
+                     tab/organizer promoting or demoting someone in the meantime could otherwise
+                     make a stale count wrongly show (or wrongly skip) the warning. -->
+                <div class="col-12 col-sm-6">
+                    <label for="ww-organizer-demote-select" class="ww-settings-label">Demote to participant</label>
+                    <form asp-route="EventDemoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-demote-form" data-organizer-count-url="@Url.RouteUrl("EventOrganizerCount", new { code = Model.Header.Code })">
+                        @Html.AntiForgeryToken()
+                        <select name="participantId" id="ww-organizer-demote-select" class="form-select input-pill input-pill-red select-arrow-inset w-100 mb-2" required>
+                            <option value="" selected>Select an organizer</option>
+                            @foreach (var organizer in Model.Organizers)
+                            {
+                                <option value="@organizer.Id">@organizer.DisplayName@(organizer.IsCurrentParticipant ? " (you)" : "")</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn go-button ww-organizer-confirm-button d-none">Confirm <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+                    </form>
                 </div>
             </div>
 
-            @if (Model.CanManageEvent)
-            {
-                <button type="submit" class="btn go-button">Save changes <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
-            }
-        </form>
-    </div>
+            <p class="ww-settings-sublabel mb-2">Current organizers</p>
+            <ul class="list-unstyled d-flex flex-column gap-2 mb-0" id="ww-organizers-pill-list">
+                @foreach (var organizer in Model.Organizers)
+                {
+                    @await Html.PartialAsync("_OrganizerPill", organizer)
+                }
+            </ul>
+        </div>
 
-    @if (Model.CanManageEvent)
+        <!-- Confirmation shown only when a live check (see this page's script) confirms the event
+             currently has exactly one organizer — demoting them leaves the event with none at
+             all, and while CanManageOrganizersAsync's zero-organizer fallback means someone can
+             always promote a new one back in (or delete the event) in the meantime, it does mean
+             every one of those actions is temporarily open to every participant, not just
+             organizers — worth a real pause before it happens. -->
+        <div class="modal fade" id="demote-last-organizer-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content delete-modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title font-display">Remove the last organizer?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">This event will have no organizers left. Until someone new is promoted, its settings, final dates, and organizer permissions — including deleting the event — will be open to every participant.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn modal-cancel-button" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn modal-delete-button" id="ww-demote-last-organizer-confirm">Demote anyway</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (Model.CanManageOrganizers)
     {
         <div class="d-flex justify-content-center">
             <button type="button" class="ww-delete-event-button" data-bs-toggle="modal" data-bs-target="#delete-event-modal">
@@ -150,6 +242,142 @@
                         emojiPopup.classList.add('d-none');
                         emojiButton.setAttribute('aria-expanded', 'false');
                     }
+                });
+            }
+
+            // "Organizer permissions" card: keep each Confirm button hidden until its dropdown has
+            // a real selection — rather than merely disabled, so a user isn't shown a control they
+            // can't yet use (mirrors My Events' delete-submit-button disabled-until-chosen intent,
+            // just hidden instead of grayed out) — and enhance the "Full access" toggle forms into
+            // an in-place fetch/swap, except toggling the current participant's own row, which
+            // reloads the whole page since that can hide the card/controls they're looking at.
+            document.querySelectorAll('.ww-organizer-action-form').forEach(function (form) {
+                var select = form.querySelector('select');
+                var confirmButton = form.querySelector('.ww-organizer-confirm-button');
+                if (!select || !confirmButton) {
+                    return;
+                }
+
+                select.addEventListener('change', function () {
+                    confirmButton.classList.toggle('d-none', !select.value);
+                });
+            });
+
+            // Demoting the sole remaining organizer leaves the event with none at all — pause on
+            // a confirmation modal (rather than submitting immediately) explaining what that
+            // means, same pattern as the Delete Event button's own modal below. The organizer
+            // count is checked live against the server on every submit attempt (rather than off
+            // this page's render-time count) so a concurrent change in another tab or by another
+            // organizer can't make this warning wrongly fire or wrongly stay silent.
+            var demoteForm = document.getElementById('ww-organizer-demote-form');
+            var lastOrganizerModalEl = document.getElementById('demote-last-organizer-modal');
+            var lastOrganizerConfirmButton = document.getElementById('ww-demote-last-organizer-confirm');
+            var organizerCountUrl = demoteForm ? demoteForm.dataset.organizerCountUrl : null;
+            if (demoteForm && lastOrganizerModalEl && lastOrganizerConfirmButton && organizerCountUrl && window.bootstrap && window.fetch) {
+                var lastOrganizerModal = new bootstrap.Modal(lastOrganizerModalEl);
+                var demoteConfirmed = false;
+
+                function submitDemoteForm() {
+                    demoteConfirmed = true;
+                    if (demoteForm.requestSubmit) {
+                        demoteForm.requestSubmit();
+                    } else {
+                        demoteForm.submit();
+                    }
+                }
+
+                demoteForm.addEventListener('submit', function (event) {
+                    if (demoteConfirmed) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    fetch(organizerCountUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to check the current organizer count');
+                            }
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (data.count === 1) {
+                                lastOrganizerModal.show();
+                            } else {
+                                submitDemoteForm();
+                            }
+                        })
+                        .catch(function () {
+                            // Couldn't confirm the live count — show the warning rather than
+                            // silently skipping it, since submitting straight through is the
+                            // riskier failure mode of the two.
+                            lastOrganizerModal.show();
+                        });
+                });
+
+                lastOrganizerConfirmButton.addEventListener('click', function () {
+                    lastOrganizerModal.hide();
+                    submitDemoteForm();
+                });
+            }
+
+            var organizersCard = document.getElementById('ww-organizers-card');
+            if (organizersCard && window.fetch) {
+                var currentParticipantId = organizersCard.dataset.currentParticipantId;
+
+                organizersCard.addEventListener('submit', function (event) {
+                    var form = event.target.closest('.ww-organizer-toggle-form');
+                    if (!form) {
+                        return;
+                    }
+
+                    var pill = form.closest('[data-organizer-pill]');
+                    var isSelf = pill && pill.dataset.participantId === currentParticipantId;
+
+                    // Toggling your own Full access changes what this whole card (and the Delete
+                    // Event button below it) looks like, so a normal full-page form submit —
+                    // rather than the in-place swap below — is the simplest way to reliably show
+                    // the participant their new, more limited view.
+                    if (isSelf) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    var formData = new FormData(form);
+                    fetch(form.action, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: formData
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to toggle organizer permission');
+                            }
+                            return response.text();
+                        })
+                        .then(function (html) {
+                            var wrapper = document.createElement('div');
+                            wrapper.innerHTML = html.trim();
+                            var newPill = wrapper.firstElementChild;
+                            if (newPill && pill) {
+                                pill.replaceWith(newPill);
+                                var toggleButton = newPill.querySelector('.ww-organizer-toggle-button');
+                                if (toggleButton) {
+                                    // Re-trigger the pop animation on the freshly swapped-in
+                                    // button — a class already present on newly-parsed markup
+                                    // doesn't (re)start a CSS animation on its own.
+                                    toggleButton.classList.add('ww-organizer-toggle-pop');
+                                    toggleButton.addEventListener('animationend', function () {
+                                        toggleButton.classList.remove('ww-organizer-toggle-pop');
+                                    }, { once: true });
+                                }
+                            }
+                        })
+                        .catch(function () {
+                            // Fall back to a real navigation if the fetch/swap fails for any reason.
+                            form.submit();
+                        });
                 });
             }
         })();

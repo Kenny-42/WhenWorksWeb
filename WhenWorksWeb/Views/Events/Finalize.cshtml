@@ -1,91 +1,33 @@
-@using System.Text.Json
 @model WhenWorksWeb.Models.EventFinalizeViewModel
 
 @{
     ViewData["Title"] = Model.Header.Title;
     ViewData["DisableTitleSuffix"] = true;
-
-    var calendarJsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    var calendarJson = JsonSerializer.Serialize(Model.Calendar, calendarJsonOptions);
 }
 
 <!-- Event Finalize tab: shared header/tab bar, then "Call the date" (suggestions + add-date form)
-     and "Final dates". Single-column layout (48rem), matching People.cshtml's convention, since
-     there's no longer a second "main" card to sit beside these two (moved off Settings). -->
+     and "Final dates" — each its own partial (_FinalizeCallTheDateCard/_FinalizeFinalDatesCard)
+     so they can swap order below without duplicating markup. Single-column layout (48rem),
+     matching People.cshtml's convention, since there's no longer a second "main" card to sit
+     beside these two (moved off Settings).
+
+     Once a final date has actually been picked, "Final dates" renders above "Call the date"
+     instead of below it, for everyone — it's the settled result at that point, more relevant
+     than the (now secondary) suggestions/add-date card below it. Before any final date exists,
+     "Call the date" stays first, the more actionable of the two either way. -->
 <div class="container py-4 ww-finalize-page" style="max-width: 48rem;">
     @await Html.PartialAsync("_EventHeader", Model.Header)
 
-    @if (!Model.CanManageEvent)
+    @if (Model.FinalDates.Count > 0)
     {
-        <div class="ww-event-card text-center mb-4">
-            <p class="mb-0">Only this event's organizer can manage final dates.</p>
-        </div>
+        @await Html.PartialAsync("_FinalizeFinalDatesCard", Model)
+        @await Html.PartialAsync("_FinalizeCallTheDateCard", Model)
     }
-
-    <div class="ww-event-card mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-            <h3 class="font-display mb-0">Call the date</h3>
-            <i class="bi bi-calendar-check" aria-hidden="true"></i>
-        </div>
-        <p class="ww-people-subtitle mb-3">Select a final date independently of availability.</p>
-        @* "Suggestions" sub-list below. *@
-
-        <h4 class="ww-settings-sublabel">Suggestions</h4>
-        <div id="ww-final-date-suggestions"
-             data-calendar="@calendarJson"
-             data-code="@Model.Header.Code"
-             class="mb-3">
-        </div>
-
-        @if (Model.CanManageEvent)
-        {
-            <form asp-route="EventAddFinalDate" asp-route-code="@Model.Header.Code" method="post" class="ww-settings-add-date-form mb-3">
-                @Html.AntiForgeryToken()
-                <div class="mb-2">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <label for="ww-final-date-start" class="ww-settings-label mb-0">Start date</label>
-                        <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-start">Clear</button>
-                    </div>
-                    <input type="date" id="ww-final-date-start" name="startDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" required />
-                </div>
-                <div class="mb-2">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <label for="ww-final-date-end" class="ww-settings-label mb-0">End date <span class="ww-settings-optional-tag">(optional)</span></label>
-                        <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-end">Clear</button>
-                    </div>
-                    <input type="date" id="ww-final-date-end" name="endDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" />
-                </div>
-                <button type="submit" class="btn go-button w-100">Add a date <i class="bi bi-plus-lg" aria-hidden="true"></i></button>
-            </form>
-        }
-    </div>
-
-    <!-- Final dates: its own card (not a sub-section of "Call the date") so a confirmed date
-         reads as a bigger, more settled result than a suggestion, with a full h3 heading (not
-         .ww-settings-sublabel's smaller sub-heading size) to match. Rows themselves are rendered
-         client-side by the same WWBestBets.renderFinalDatesList the Availability tab's live
-         "Final dates" card uses (same #ww-final-dates-list id, so it picks up that card's own
-         blue-tint styling for free) — the per-date "N of M available" counts it shows only exist
-         as a client-side computation over the calendar JSON already loaded for Suggestions above,
-         with no server-side equivalent to render this from directly. options.renderRemoveControl
-         (organizer-only) adds the "x" button a plain Availability-tab row doesn't have. -->
-    <div class="ww-event-card">
-        <h3 class="font-display mb-3">Final dates</h3>
-        @if (Model.FinalDates.Count == 0)
-        {
-            <p class="ww-people-subtitle mb-0">No final date set yet.</p>
-        }
-        else
-        {
-            <div id="ww-final-dates-list"></div>
-            @if (Model.CanManageEvent)
-            {
-                <form id="ww-final-date-remove-antiforgery-form" class="visually-hidden">
-                    @Html.AntiForgeryToken()
-                </form>
-            }
-        }
-    </div>
+    else
+    {
+        @await Html.PartialAsync("_FinalizeCallTheDateCard", Model)
+        @await Html.PartialAsync("_FinalizeFinalDatesCard", Model)
+    }
 </div>
 
 @section Scripts {

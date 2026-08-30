@@ -32,4 +32,25 @@ public sealed class EventSettingsViewModel
     /// The event's current emoji, prefilled into the emoji-picker trigger button.
     /// </summary>
     public required string Emoji { get; init; }
+
+    /// <summary>
+    /// Whether the current participant can manage other organizers (promote/demote, toggle another
+    /// organizer's <see cref="Participant.CanManageOrganizers"/> flag, delete the event) — see the
+    /// Permission Model section of the organizer-permissions spec. Drives whether the "Organizer
+    /// permissions" card is shown at all, not just whether its controls are enabled.
+    /// </summary>
+    public required bool CanManageOrganizers { get; init; }
+
+    /// <summary>
+    /// Every current organizer, for the pill list and the Demote dropdown. Empty when
+    /// <see cref="CanManageOrganizers"/> is false — the card that would render this is hidden
+    /// entirely, so it's never queried in that case.
+    /// </summary>
+    public required IReadOnlyList<EventOrganizerViewModel> Organizers { get; init; }
+
+    /// <summary>
+    /// Every current non-organizer participant, for the Promote dropdown. Empty when
+    /// <see cref="CanManageOrganizers"/> is false, same reasoning as <see cref="Organizers"/>.
+    /// </summary>
+    public required IReadOnlyList<EventParticipantOptionViewModel> PromotableParticipants { get; init; }
 }

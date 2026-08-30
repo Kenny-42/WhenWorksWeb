@@ -67,7 +67,10 @@
                         <i class="bi bi-calendar-check" aria-hidden="true"></i>
                     </div>
                     <div id="ww-final-dates-list"></div>
-                    <a asp-route="EventFinalize" asp-route-code="@Model.Header.Code" class="btn ww-status-button mt-2">Choose another date</a>
+                    @if (Model.CanManageEvent)
+                    {
+                        <a asp-route="EventFinalize" asp-route-code="@Model.Header.Code" class="btn ww-status-button mt-2">Choose another date</a>
+                    }
                 </div>
             }
             else

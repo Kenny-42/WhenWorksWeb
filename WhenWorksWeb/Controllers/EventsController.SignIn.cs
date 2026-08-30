@@ -105,6 +105,7 @@ public partial class EventsController
         {
             participant.IsCreator = true;
             participant.IsOrganizer = true;
+            participant.CanManageOrganizers = true;
         }
 
         // Save changes to the database to persist the new or updated participant record.

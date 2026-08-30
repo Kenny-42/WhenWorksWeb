@@ -15,4 +15,11 @@ public sealed class EventHomeViewModel
     /// The calendar data for the Availability tab, rendered/updated entirely client-side.
     /// </summary>
     public required EventCalendarViewModel Calendar { get; init; }
+
+    /// <summary>
+    /// Whether the current participant can manage this event (edit details, manage final dates,
+    /// delete the event) — see the Organizer Permission Model section of the spec. Drives whether
+    /// the live "Final dates" card's "Choose another date" link is shown.
+    /// </summary>
+    public required bool CanManageEvent { get; init; }
 }

@@ -1,0 +1,32 @@
+@model WhenWorksWeb.Models.EventFinalizeViewModel
+
+@* Finalize tab's "Final dates" card — split out of Finalize.cshtml so it can be rendered in
+   either position (above or below "Call the date", depending on Model.CanManageEvent — see
+   Finalize.cshtml) without duplicating markup.
+
+   Its own card, not a sub-section of "Call the date", so a confirmed date reads as a bigger,
+   more settled result than a suggestion, with a full h3 heading (not .ww-settings-sublabel's
+   smaller sub-heading size) to match. Rows themselves are rendered client-side by the same
+   WWBestBets.renderFinalDatesList the Availability tab's live "Final dates" card uses (same
+   #ww-final-dates-list id, so it picks up that card's own blue-tint styling for free) — the
+   per-date "N of M available" counts it shows only exist as a client-side computation over the
+   calendar JSON _FinalizeCallTheDateCard loads for Suggestions, with no server-side equivalent to
+   render this from directly. options.renderRemoveControl (organizer-only) adds the "x" button a
+   plain Availability-tab row doesn't have. *@
+<div class="ww-event-card mb-4">
+    <h3 class="font-display mb-3">Final dates</h3>
+    @if (Model.FinalDates.Count == 0)
+    {
+        <p class="ww-people-subtitle mb-0">No final date set yet.</p>
+    }
+    else
+    {
+        <div id="ww-final-dates-list"></div>
+        @if (Model.CanManageEvent)
+        {
+            <form id="ww-final-date-remove-antiforgery-form" class="visually-hidden">
+                @Html.AntiForgeryToken()
+            </form>
+        }
+    }
+</div>
