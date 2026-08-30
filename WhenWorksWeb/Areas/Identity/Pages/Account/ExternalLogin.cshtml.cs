@@ -97,7 +97,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             /// <see cref="ApplicationUser.DisplayName"/> enforces on the local registration form.
             /// </summary>
             [Required]
-            [StringLength(ModelConstants.ApplicationUserDisplayNameMaxLength, ErrorMessage = "The {0} must be at least {1} character long.", MinimumLength = 1)]
+            [StringLength(ModelConstants.ApplicationUserDisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between {2} and {1} characters.")]
+            [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Display name can't be blank or made up only of whitespace, and can't contain control characters or invisible characters.")]
             [Display(Name = "Display Name")]
             public string DisplayName { get; set; }
 
@@ -200,7 +201,10 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 var user = CreateUser();
 
                 // Populate the custom properties this app requires beyond what the provider supplies.
-                user.DisplayName = Input.DisplayName;
+                // DisplayName is trimmed here (not just validated) so leading/trailing whitespace
+                // never reaches the database, matching Register.cshtml.cs/Manage/Index.cshtml.cs --
+                // see ModelConstants.DisplayNameContentPattern.
+                user.DisplayName = Input.DisplayName?.Trim();
                 user.Color = Input.Color;
 
                 // CreatedAt/LastActiveAt are required properties with no meaningful default — set them

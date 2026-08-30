@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account
@@ -94,7 +95,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             /// The maximum length is set to 16 characters to ensure concise display names.
             /// </summary>
             [Required]
-            [StringLength(16, ErrorMessage = "The {0} must be at least {1} character long.", MinimumLength = 1)]
+            [StringLength(ModelConstants.ApplicationUserDisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between {2} and {1} characters.")]
+            [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Display name can't be blank or made up only of whitespace, and can't contain control characters or invisible characters.")]
             [Display(Name = "Display Name")]
             public string DisplayName { get; set; }
 
@@ -104,7 +106,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             /// during registration.
             /// </summary>
             [Required]
-            [RegularExpression(@"^[A-Fa-f0-9]{6}$", ErrorMessage = "The {0} must be a valid 6-character hexadecimal color code.")]
+            [RegularExpression(ModelConstants.HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
+            [StringLength(ModelConstants.HexColorLength, MinimumLength = ModelConstants.HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
             [Display(Name = "Preferred Color")]
             public string Color { get; set; }
 
@@ -113,7 +116,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
             [Required]
-            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+            [StringLength(ModelConstants.PasswordMaxLength, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = ModelConstants.PasswordMinLength)]
+            [RegularExpression(ModelConstants.PasswordComplexityPattern, ErrorMessage = "The {0} must include an uppercase letter, a lowercase letter, a digit, and a symbol.")]
             [DataType(DataType.Password)]
             [Display(Name = "Password")]
             public string Password { get; set; }
@@ -170,9 +174,11 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             {
                 var user = CreateUser();
 
-                // Populate the custom properties
+                // Populate the custom properties. DisplayName is trimmed here (not just validated)
+                // so leading/trailing whitespace never reaches the database, matching
+                // Manage/Index.cshtml.cs -- see ModelConstants.DisplayNameContentPattern.
                 user.UserName = Input.UserName;
-                user.DisplayName = Input.DisplayName;
+                user.DisplayName = Input.DisplayName?.Trim();
                 user.Color = Input.Color;
 
                 await _userStore.SetUserNameAsync(user, Input.UserName, CancellationToken.None);

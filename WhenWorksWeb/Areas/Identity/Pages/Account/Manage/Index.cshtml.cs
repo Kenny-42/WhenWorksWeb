@@ -57,7 +57,7 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Phone]
+            [RegularExpression(ModelConstants.PhoneNumberPattern, ErrorMessage = "Phone number must be entered in international format: an optional leading '+' followed by 7-15 digits, with no spaces, dashes, or other characters.")]
             [Display(Name = "Phone number")]
             public string PhoneNumber { get; set; }
 
@@ -66,7 +66,8 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
             /// registration alongside the account itself (see <see cref="ApplicationUser.DisplayName"/>).
             /// </summary>
             [Required]
-            [StringLength(ModelConstants.ApplicationUserDisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 16 characters.")]
+            [StringLength(ModelConstants.ApplicationUserDisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between {2} and {1} characters.")]
+            [RegularExpression(ModelConstants.DisplayNameContentPattern, ErrorMessage = "Display name can't be blank or made up only of whitespace, and can't contain control characters or invisible characters.")]
             [Display(Name = "Display Name")]
             public string DisplayName { get; set; }
 
@@ -133,11 +134,16 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
                 }
             }
 
+            // Trimmed here (not just validated) so leading/trailing whitespace never reaches the
+            // database, even though DisplayNameContentPattern intentionally allows it through
+            // validation -- see ModelConstants.DisplayNameContentPattern.
+            var trimmedDisplayName = Input.DisplayName?.Trim();
+
             // DisplayName/Color aren't Identity-managed fields (no dedicated UserManager
             // setter), so they're written directly and persisted via UpdateAsync.
-            if (user.DisplayName != Input.DisplayName || user.Color != Input.Color)
+            if (user.DisplayName != trimmedDisplayName || user.Color != Input.Color)
             {
-                user.DisplayName = Input.DisplayName;
+                user.DisplayName = trimmedDisplayName;
                 user.Color = Input.Color;
 
                 var updateResult = await _userManager.UpdateAsync(user);

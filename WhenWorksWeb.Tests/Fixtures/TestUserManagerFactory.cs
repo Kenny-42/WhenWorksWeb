@@ -5,6 +5,12 @@ using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Tests.Fixtures;
 
+// NOTE: AddIdentityCore() below is configured with IdentityConfiguration.Configure -- the same
+// delegate Program.cs passes to AddDefaultIdentity() in production -- so tests built on this
+// factory exercise the real password/lockout/username policy, not IdentityOptions' library
+// defaults. See WhenWorksWeb.Tests/Models/IdentityConfigurationTests.cs for tests that depend on
+// this specifically.
+
 /// <summary>
 /// Builds a real <see cref="UserManager{TUser}"/> backed by a real EF Core-based <see cref="IUserStore{TUser}"/>
 /// over a test <see cref="ApplicationDbContext"/>, instead of mocking <see cref="UserManager{TUser}"/>.
@@ -35,7 +41,7 @@ public static class TestUserManagerFactory
         services.AddSingleton(db);
         services.AddLogging();
 
-        services.AddIdentityCore<ApplicationUser>()
+        services.AddIdentityCore<ApplicationUser>(IdentityConfiguration.Configure)
             .AddEntityFrameworkStores<ApplicationDbContext>();
 
         return services.BuildServiceProvider().GetRequiredService<UserManager<ApplicationUser>>();

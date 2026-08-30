@@ -308,8 +308,10 @@ public sealed class DevelopmentDataSeeder(
             LastActiveAt = lastActiveAt
         };
 
-        // Attempt to create the user and handle any errors that may occur during creation. The default password "Dev123" is used
-        var result = await userManager.CreateAsync(user, "Dev123");
+        // Attempt to create the user and handle any errors that may occur during creation. The default password
+        // "Dev123!@" is used -- meets IdentityConfiguration's password policy (length 8+, upper/lower/digit/symbol)
+        // per Spec/Features/FEATURES-tighten-account-validation.ospec's strengthened rules.
+        var result = await userManager.CreateAsync(user, "Dev123!@");
 
         if (!result.Succeeded)
         {
