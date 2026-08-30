@@ -69,6 +69,41 @@ public class EventUpdateDetailsViewModelTests
         Assert.True(IsTitleValid(atMax));
     }
 
+    [Theory]
+    [InlineData("山田太郎")] // non-Latin script (Japanese) stays allowed
+    [InlineData("O'Brien's Party!")] // ordinary punctuation stays allowed
+    [InlineData(" Trivia Night")] // leading whitespace is allowed by the pattern -- trimmed by the caller before persisting
+    [InlineData("Trivia Night ")] // trailing whitespace likewise allowed here, trimmed by the caller
+    public void Title_AcceptsNamesWithNonAsciiOrPunctuation(string title)
+    {
+        Assert.True(IsTitleValid(title));
+    }
+
+    [Theory]
+    [InlineData("   ")] // whitespace-only -- the gap [Required]/[StringLength] alone doesn't close
+    [InlineData("\t\t")] // whitespace-only (tabs)
+    public void Title_RejectsWhitespaceOnlyValue(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
+
+    [Theory]
+    [InlineData("Trivia\u0000Night")] // embedded NUL control character
+    [InlineData("Trivia\u0007Night")] // embedded BEL control character (within C0 range)
+    [InlineData("Trivia\u001FNight")] // embedded C0 control character (upper boundary)
+    [InlineData("Trivia\u007FNight")] // embedded DEL control character
+    [InlineData("Trivia\u009FNight")] // embedded C1 control character (upper boundary)
+    [InlineData("Trivia\u200BNight")] // embedded zero-width space
+    [InlineData("Trivia\u200CNight")] // embedded zero-width non-joiner
+    [InlineData("Trivia\u200DNight")] // embedded zero-width joiner
+    [InlineData("Trivia\u200ENight")] // embedded left-to-right mark
+    [InlineData("Trivia\u200FNight")] // embedded right-to-left mark
+    [InlineData("Trivia\uFEFFNight")] // embedded byte-order mark
+    public void Title_RejectsControlAndInvisibleCharacters(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
+
     [Fact]
     public void Description_AcceptsNullOrEmpty()
     {
@@ -88,6 +123,44 @@ public class EventUpdateDetailsViewModelTests
     {
         var atMax = new string('a', ModelConstants.EventDescriptionMaxLength);
         Assert.True(IsDescriptionValid(atMax));
+    }
+
+    [Theory]
+    [InlineData("Line one\nLine two")] // embedded LF is explicitly allowed, unlike Title/DisplayName
+    [InlineData("Line one\r\nLine two")] // embedded CRLF is likewise allowed
+    [InlineData("\nLeading newline")]
+    [InlineData("Trailing newline\n")]
+    [InlineData("山田太郎")] // non-Latin script (Japanese) stays allowed
+    [InlineData("Plans, plans, plans!")] // ordinary punctuation stays allowed
+    [InlineData(" Leading space")] // leading whitespace is allowed by the pattern -- trimmed by the caller before persisting
+    [InlineData("Trailing space ")] // trailing whitespace likewise allowed here, trimmed by the caller
+    public void Description_AcceptsMultilineAndNonAsciiContent(string description)
+    {
+        Assert.True(IsDescriptionValid(description));
+    }
+
+    [Theory]
+    [InlineData("\n")] // newline-only -- no non-whitespace character present
+    [InlineData("   \n   ")] // whitespace and a newline, still nothing non-whitespace
+    [InlineData("\t\t")] // whitespace-only (tabs) -- no embedded newline involved at all
+    public void Description_RejectsWhitespaceOnlyValue(string description)
+    {
+        Assert.False(IsDescriptionValid(description));
+    }
+
+    [Theory]
+    [InlineData("Line one\nLine\u0000two")] // control character on the second line -- the exact case
+                                             // DescriptionContentPattern's [\s\S] rewrite exists to
+                                             // still catch, since a plain ".*[bad chars]" lookahead
+                                             // stops scanning at the first newline
+    [InlineData("Line\u0000one\nLine two")] // control character on the first line (would already be
+                                             // caught by a naive pattern too, kept as a baseline)
+    [InlineData("Line one\nLine\u200Btwo")] // zero-width space on the second line
+    [InlineData("Line one\nLine\tTabbed")] // an embedded raw tab is still blocked even in the
+                                            // multiline pattern -- only \n/\r are exempted
+    public void Description_RejectsControlAndInvisibleCharactersAcrossLines(string description)
+    {
+        Assert.False(IsDescriptionValid(description));
     }
 
     [Fact]

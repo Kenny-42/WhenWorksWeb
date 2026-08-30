@@ -76,4 +76,40 @@ public class EventTests
 
         Assert.False(IsTitleValid(thirtyOneChars));
     }
+
+    [Theory]
+    [InlineData("Trivia Night")]
+    [InlineData("山田太郎")] // non-Latin script (Japanese) stays allowed
+    [InlineData("O'Brien's Party!")] // ordinary punctuation stays allowed
+    [InlineData(" Trivia Night")] // leading whitespace is allowed by the pattern -- trimmed by the caller before persisting
+    [InlineData("Trivia Night ")] // trailing whitespace likewise allowed here, trimmed by the caller
+    public void Title_AcceptsNamesWithNonAsciiOrPunctuation(string title)
+    {
+        Assert.True(IsTitleValid(title));
+    }
+
+    [Theory]
+    [InlineData("   ")] // whitespace-only -- the gap [StringLength]'s MinimumLength alone doesn't close
+    [InlineData("\t\t")] // whitespace-only (tabs)
+    public void Title_RejectsWhitespaceOnlyValue(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
+
+    [Theory]
+    [InlineData("Trivia\u0000Night")] // embedded NUL control character
+    [InlineData("Trivia\u0007Night")] // embedded BEL control character (within C0 range)
+    [InlineData("Trivia\u001FNight")] // embedded C0 control character (upper boundary)
+    [InlineData("Trivia\u007FNight")] // embedded DEL control character
+    [InlineData("Trivia\u009FNight")] // embedded C1 control character (upper boundary)
+    [InlineData("Trivia\u200BNight")] // embedded zero-width space
+    [InlineData("Trivia\u200CNight")] // embedded zero-width non-joiner
+    [InlineData("Trivia\u200DNight")] // embedded zero-width joiner
+    [InlineData("Trivia\u200ENight")] // embedded left-to-right mark
+    [InlineData("Trivia\u200FNight")] // embedded right-to-left mark
+    [InlineData("Trivia\uFEFFNight")] // embedded byte-order mark
+    public void Title_RejectsControlAndInvisibleCharacters(string title)
+    {
+        Assert.False(IsTitleValid(title));
+    }
 }
