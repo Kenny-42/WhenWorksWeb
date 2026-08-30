@@ -38,12 +38,13 @@ public partial class EventsController
         }
 
         var emoji = await GetEventEmojiAsync(eventEntity, cancellationToken);
+        var description = await GetEventDescriptionAsync(eventEntity, cancellationToken);
         var calendar = await BuildEventCalendarAsync(eventEntity, participant, cancellationToken);
         var canManageEvent = await CanManageEventAsync(eventEntity, participant, cancellationToken);
 
         return View(new EventHomeViewModel
         {
-            Header = BuildEventHeader(eventEntity, emoji, EventTab.Availability),
+            Header = BuildEventHeader(eventEntity, emoji, EventTab.Availability, description),
             Calendar = calendar,
             CanManageEvent = canManageEvent
         });

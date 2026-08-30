@@ -3353,6 +3353,58 @@ label:has(+ .input-pill:disabled) {
   font-size: 0.85rem;
 }
 
+/* Event header's description card — same .ww-event-card surface, but shorter (tighter vertical
+   padding, since it's just a line or two of blurb) and centered at a smaller font size than
+   body copy, per the feature spec's "short, wide, centered, small text" call. Sits directly
+   under the title row, inside .ww-event-header-top, above the tab bar. */
+.ww-event-description-card {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+}
+
+/* Clamped to 2 lines by default — same clamp technique as .ww-myevent-description — with
+   .expanded (toggled by the "Read more" script above) lifting the clamp for the full text. */
+.ww-event-description-text {
+  color: var(--color-text-strong);
+  opacity: 0.8;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ww-event-description-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* Plain text-link styling, not a full pill — a quiet secondary action under the description
+   rather than a competing button. */
+.ww-event-description-toggle {
+  display: inline-block;
+  margin-top: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--color-accent-blue-border);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ww-event-description-toggle:hover,
+.ww-event-description-toggle:focus-visible {
+  color: var(--color-text-strong);
+}
+
 .ww-people-count-badge {
   flex: none;
   color: var(--color-brand-badge-fill);

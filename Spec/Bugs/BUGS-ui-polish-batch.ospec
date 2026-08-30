@@ -1,0 +1,230 @@
+A batch of small, unrelated UI issues collected over time — each too minor to justify its own
+GitHub issue, so they're tracked together as one issue (#90) with one shared Spec file. Unlike
+the grouped-file convention for a single staged initiative, these steps aren't ordered or
+dependent on each other; they're just being scheduled and shipped together.
+
+---
+
+## Step 1: Add description card to Event Home page
+
+### Status
+Proposed.
+
+### GitHub Issue
+#90
+
+### Summary
+The Event Home page shows the event title and tabs but never surfaces the event's own
+description anywhere.
+
+### Reported Behavior
+No description text appears on the Event Home tab at all.
+
+### Expected Behavior
+A card renders directly under the event title/tabs header (`_EventHeader.cshtml`) containing
+the event's description. The card should be short (minimal vertical height) and fairly wide,
+with small, centered text.
+
+### Root Cause
+Not a regression — the feature was never built. `Home.cshtml` only renders `_EventHeader`
+(title/emoji/tabs); nothing downstream of it surfaces `Description`.
+
+### Proposed Fix
+Add a new card (or a small section within/after `_EventHeader.cshtml`) on the Event Home view
+that renders the event's `Description` field, styled per the "short, wide, centered, small text"
+requirement.
+
+### Acceptance Criteria
+- Event Home page shows a card under the title heading with the event description.
+- Card is visually short (low height) and wide, matching the surrounding card style language.
+- Description text is centered and rendered at a smaller font size than body copy.
+
+### Out of Scope
+- Editing the description from this page (already handled via Settings).
+- Behavior when description is empty/null (confirm with developer before implementing —
+  hide the card entirely vs. show an empty-state message).
+
+---
+
+## Step 2: Organizer dropdown/list don't handle zero organizers
+
+### Status
+Proposed.
+
+### GitHub Issue
+#90
+
+### Summary
+The "Demote to participant" dropdown on the Organizer permissions card always renders even
+when there are no organizers to select, and the "Current organizers" list shows nothing when
+empty instead of a message.
+
+### Reported Behavior
+On the Settings tab's "Organizer permissions" card, "Select an organizer" (the demote dropdown)
+is shown even when `Model.Organizers` is empty. The "Current organizers" section below it
+renders an empty list with no indication that there are no organizers.
+
+### Expected Behavior
+The demote dropdown should behave like the promote dropdown already does when its list is
+empty — hide the `<select>`/confirm button and show an equivalent short message instead (e.g.
+"There are no organizers to demote."). The "Current organizers" section should show a
+"no organizers yet" message when `Model.Organizers` is empty, instead of an empty list.
+
+### Root Cause
+`WhenWorksWeb/Views/Events/Settings.cshtml:99-116` (promote dropdown) already has this
+empty-state branch: `if (Model.PromotableParticipants.Count > 0) { <select>... } else { <p>Everyone
+here is already an organizer.</p> }`. The demote dropdown at `Settings.cshtml:126-139` has no
+equivalent check — it unconditionally renders the `<select>` and iterates `Model.Organizers`,
+which is simply empty. The "Current organizers" list at `Settings.cshtml:142-148` similarly has
+no empty-state branch around its `@foreach`.
+
+### Proposed Fix
+Mirror the promote dropdown's existing pattern for the demote dropdown (`Settings.cshtml:126-139`):
+wrap it in `if (Model.Organizers.Count > 0)` / `else` with a short empty-state message. Add a
+similar `if (Model.Organizers.Count > 0)` / `else` around the "Current organizers" list
+(`Settings.cshtml:142-148`) with a "no organizers" message in the `else` branch.
+
+### Acceptance Criteria
+- With zero organizers, the demote dropdown is replaced by an empty-state message (exact
+  copy TBD, following the existing "Everyone here is already an organizer." tone).
+- With zero organizers, "Current organizers" shows a message instead of an empty list.
+- With one or more organizers, both sections behave exactly as they do today.
+
+### Out of Scope
+- Changing the zero-organizer permission fallback logic itself (`CanManageOrganizersAsync`) —
+  this is purely the Settings view's empty-state rendering.
+
+---
+
+## Step 3: "New Event" button sized differently in hamburger menu
+
+### Status
+Proposed.
+
+### GitHub Issue
+#90
+
+### Summary
+In the collapsed (mobile) hamburger nav, the "New Event" pill doesn't match the size of the
+other stacked nav links.
+
+### Reported Behavior
+Below the `sm` breakpoint, once the navbar collapses behind the hamburger toggle, "New Event"
+renders at a different size than My Events/Account/etc.
+
+### Expected Behavior
+"New Event" should match the height/width/padding of its sibling pills in the collapsed menu.
+
+### Root Cause
+Likely candidate (needs visual confirmation before fixing): unlike the other nav items, "New
+Event" is a `<button>` wrapped in its own `<form class="d-flex">`
+(`WhenWorksWeb/Views/Shared/_LoginPartial.cshtml:19-25`), rather than a bare `<a class="nav-link">`.
+The collapsed-menu rule `.navbar-collapse .nav-link { display: block; width: 100%; }`
+(`site.css:675-685`) targets the `.nav-link` class directly, which the button does carry, but
+the icon+"New Event" label combination is longer than the other plain-text labels — at
+full-width in a narrow mobile viewport this may wrap to two lines (or otherwise size
+differently) where the shorter single-word labels don't, producing a visibly different pill
+height/width.
+
+### Proposed Fix
+Confirm the actual visual discrepancy (screenshot/devtools at <576px), then align sizing —
+likely constraining/adjusting the label so it doesn't wrap, or explicitly matching padding/
+line-height between the button and its sibling `<a>` pills in the collapsed-menu media query.
+
+### Acceptance Criteria
+- At mobile widths, the "New Event" pill in the hamburger menu visually matches the height
+  and width behavior of the other nav pills.
+
+### Out of Scope
+- Desktop navbar sizing (not reported as an issue there).
+
+---
+
+## Step 4: My Events card avatars wrap into a column instead of a row
+
+### Status
+Proposed.
+
+### GitHub Issue
+#90
+
+### Summary
+Participant avatar circles on My Events cards stack into one long vertical column for events
+with multiple participants, instead of flowing left-to-right and wrapping only when a row
+runs out of width.
+
+### Reported Behavior
+On My Events cards with several participants, avatars cascade into a single column even when
+there's clearly enough horizontal space in the card for multiple avatars per row.
+
+### Expected Behavior
+Avatars should flow in a row, wrapping onto additional rows only once a row is actually full.
+
+### Root Cause
+`.ww-myevent-avatars` (`site.css:1915-1921`) is `display: flex; flex-wrap: wrap;` with
+`max-width: 7rem` and no explicit `flex-shrink`/`min-width` of its own. It sits inside
+`.ww-myevent-footer` (`site.css:1908-1910`), itself a `d-flex align-items-center
+justify-content-between gap-2` row alongside the delete button and "Enter" button
+(`MyEvents/Index.cshtml:88-106`). With no min-width reservation, the avatars container can be
+squeezed down by its flex siblings to a width that only fits one ~1.7rem circle per row,
+producing the reported single-column cascade instead of true multi-avatar rows. Needs
+confirmation via devtools (checking the container's actual computed width when this happens),
+but this is the strongest candidate.
+
+### Proposed Fix
+Give `.ww-myevent-avatars` a `min-width` (or `flex-shrink: 0` sized to fit a reasonable number
+of avatars, e.g. 2-3) so its siblings in `.ww-myevent-footer` don't compress it to single-circle
+width before shrinking themselves.
+
+### Acceptance Criteria
+- Events with 2+ participants show multiple avatars per row on My Events cards at normal card
+  widths, wrapping only when actually out of horizontal room.
+
+### Out of Scope
+- Avatar circle size/shape itself (not reported as wrong — only the wrapping behavior).
+
+---
+
+## Step 5: Nickname input on Event Sign-In turns white after autofill
+
+### Status
+Proposed.
+
+### GitHub Issue
+#90
+
+### Summary
+The Nickname field on the Event Sign-In page loses its yellow pill styling and turns white
+after being autofilled by the browser, and doesn't revert once focus leaves the field.
+
+### Reported Behavior
+After browser autofill populates the Nickname field, it turns white; clicking away from the
+field doesn't restore the normal yellow background.
+
+### Expected Behavior
+The field should keep its normal `.input-pill-yellow` styling in every state, matching how it
+looks when filled in manually.
+
+### Root Cause
+Needs live-browser confirmation before a fix is written — this may be a known, hard Chromium
+autofill limitation rather than a straightforward CSS bug. `SignIn.cshtml:45-48` already uses
+`.input-pill-yellow`, and `site.css:832-840` already applies the standard inset
+`box-shadow`/`-webkit-text-fill-color` autofill override for that exact class. Since that
+override exists and targets `:-webkit-autofill` (all pseudo-states) plus the standards-track
+`:autofill`, the reported "still turns white after blur" behavior suggests either: (a) some
+other rule with higher specificity/later source order is overriding the fix specifically after
+blur, or (b) the field's browser/version combination doesn't match `:-webkit-autofill`
+reliably after blur (a known Chromium quirk in some versions), or (c) validation-state styling
+(`is-invalid`/similar) is involved. Confirm exact browser/version and whether devtools shows
+`:-webkit-autofill` still matching after blur before deciding whether this is fixable.
+
+### Proposed Fix
+TBD pending investigation above — may be a small CSS specificity fix, or may need to be
+documented as a known browser limitation with no full fix available.
+
+### Acceptance Criteria
+- Nickname field either keeps its yellow styling after autofill + blur, or — if confirmed
+  unfixable — this is documented as a known limitation rather than left as an open bug.
+
+### Out of Scope
+- Autofill behavior on any other input/page not reported here.

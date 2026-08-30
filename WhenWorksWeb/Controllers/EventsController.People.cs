@@ -30,6 +30,7 @@ public partial class EventsController
         }
 
         var emoji = await GetEventEmojiAsync(eventEntity, cancellationToken);
+        var description = await GetEventDescriptionAsync(eventEntity, cancellationToken);
 
         var totalCount = await _db.Participants
             .AsNoTracking()
@@ -63,7 +64,7 @@ public partial class EventsController
 
         var model = new EventPeopleViewModel
         {
-            Header = BuildEventHeader(eventEntity, emoji, EventTab.People),
+            Header = BuildEventHeader(eventEntity, emoji, EventTab.People, description),
             Participants = participants,
             CurrentPage = currentPage,
             TotalPages = totalPages,

@@ -88,7 +88,18 @@ public partial class EventsController
             settings.Emoji = model.Emoji;
         }
 
-        settings.Description = string.IsNullOrEmpty(model.Description) ? null : model.Description;
+        // Null leaves the description uncustomized (Event Home falls back to the default
+        // placeholder text — see GetEventDescriptionAsync); but if it was previously non-null —
+        // real text, or already the "explicitly cleared" empty-string sentinel itself — and this
+        // save blanks it, that's (re-)stored as an empty string instead of null so Event Home can
+        // tell "never customized" apart from "explicitly cleared" and hide the description card
+        // entirely rather than reverting to the default text. Checked against settings.Description
+        // (not-null, not IsNullOrEmpty) specifically so a blank resubmit over an already-cleared
+        // description doesn't get read as "nothing to clear" and wrongly reset back to null.
+        var trimmedDescription = string.IsNullOrEmpty(model.Description) ? null : model.Description;
+        settings.Description = trimmedDescription is null && settings.Description is not null
+            ? string.Empty
+            : trimmedDescription;
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -146,7 +157,7 @@ public partial class EventsController
 
         return new EventSettingsViewModel
         {
-            Header = BuildEventHeader(eventEntity, emoji, EventTab.Settings),
+            Header = BuildEventHeader(eventEntity, emoji, EventTab.Settings, ResolveHeaderDescription(settings?.Description)),
             CanManageEvent = canManageEvent,
             Title = eventEntity.Title,
             Description = string.IsNullOrWhiteSpace(settings?.Description) ? null : settings.Description,

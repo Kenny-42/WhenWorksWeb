@@ -39,12 +39,13 @@ public partial class EventsController
     private async Task<EventFinalizeViewModel> BuildEventFinalizeViewModelAsync(Event eventEntity, Participant participant, CancellationToken cancellationToken)
     {
         var emoji = await GetEventEmojiAsync(eventEntity, cancellationToken);
+        var description = await GetEventDescriptionAsync(eventEntity, cancellationToken);
         var canManageEvent = await CanManageEventAsync(eventEntity, participant, cancellationToken);
         var calendar = await BuildEventCalendarAsync(eventEntity, participant, cancellationToken);
 
         return new EventFinalizeViewModel
         {
-            Header = BuildEventHeader(eventEntity, emoji, EventTab.Finalize),
+            Header = BuildEventHeader(eventEntity, emoji, EventTab.Finalize, description),
             CanManageEvent = canManageEvent,
             Calendar = calendar,
             FinalDates = calendar.FinalDates
