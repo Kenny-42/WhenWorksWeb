@@ -84,8 +84,20 @@
 
                         <div class="ww-myevent-divider"></div>
 
-                        <!-- Bottom row: organizer avatars, delete trigger, and the direct Enter action -->
-                        <div class="ww-myevent-footer d-flex align-items-center justify-content-between gap-2">
+                        <!-- Bottom row: organizer avatars, delete trigger, and the direct Enter action. Actions
+                             float right and come first in the markup so the avatar circles after them wrap
+                             around the float (grow to fill the row, cascading below once they meet it) instead
+                             of the two competing for a shared flex row. -->
+                        <div class="ww-myevent-footer">
+                            <div class="ww-myevent-actions d-flex align-items-center gap-2">
+                                <button type="button" class="ww-myevent-delete-button" aria-label="Delete event" title="Delete event">
+                                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                                </button>
+                                <a href="@myEvent.SignInUrl" class="go-button ww-myevent-enter-button">
+                                    <span class="ww-shiny-text">Enter <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                                </a>
+                            </div>
+
                             <div class="ww-myevent-avatars">
                                 @foreach (var participant in myEvent.Participants)
                                 {
@@ -93,15 +105,6 @@
                                         @participant.DisplayName.Substring(0, 1).ToUpperInvariant()
                                     </span>
                                 }
-                            </div>
-
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="ww-myevent-delete-button" aria-label="Delete event" title="Delete event">
-                                    <i class="bi bi-trash3" aria-hidden="true"></i>
-                                </button>
-                                <a href="@myEvent.SignInUrl" class="go-button ww-myevent-enter-button">
-                                    <span class="ww-shiny-text">Enter <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
-                                </a>
                             </div>
                         </div>
                     </div>

@@ -143,7 +143,7 @@ line-height between the button and its sibling `<a>` pills in the collapsed-menu
 ## Step 4: My Events card avatars wrap into a column instead of a row
 
 ### Status
-Proposed.
+Fixed.
 
 ### GitHub Issue
 #90
