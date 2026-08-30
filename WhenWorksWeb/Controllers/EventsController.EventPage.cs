@@ -57,4 +57,27 @@ public partial class EventsController
             .AsNoTracking()
             .AnyAsync(p => p.EventId == eventEntity.Id && p.IsOrganizer, cancellationToken);
     }
+
+    /// <summary>
+    /// Returns whether the given participant may perform manage-organizers actions on the event
+    /// (promoting/demoting other organizers, toggling another organizer's
+    /// <see cref="Participant.CanManageOrganizers"/> flag, deleting the event): true if they
+    /// currently hold the flag themselves, or — narrower than <see cref="CanManageEventAsync"/>'s
+    /// own zero-organizer fallback — if the event has no <see cref="Participant.CanManageOrganizers"/>
+    /// holder at all right now, in which case these actions fall open to every current organizer
+    /// instead of every participant.
+    /// </summary>
+    private async Task<bool> CanManageOrganizersAsync(Event eventEntity, Participant currentParticipant, CancellationToken cancellationToken)
+    {
+        if (currentParticipant.CanManageOrganizers)
+        {
+            return true;
+        }
+
+        var anyoneHoldsFlag = await _db.Participants
+            .AsNoTracking()
+            .AnyAsync(p => p.EventId == eventEntity.Id && p.CanManageOrganizers, cancellationToken);
+
+        return !anyoneHoldsFlag && currentParticipant.IsOrganizer;
+    }
 }
