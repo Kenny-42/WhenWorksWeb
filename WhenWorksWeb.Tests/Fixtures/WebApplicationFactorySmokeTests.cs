@@ -183,6 +183,62 @@ public class WebApplicationFactorySmokeTests : IClassFixture<CustomWebApplicatio
     }
 
     /// <summary>
+    /// The Settings tab's Organizer permissions card only renders its promote/demote/current-organizer
+    /// sections conditionally on <c>Model.Organizers</c>/<c>Model.PromotableParticipants</c> counts
+    /// (<c>Views/Events/Settings.cshtml</c>) — a Razor-view branch the Tier 2 controller tests can't see,
+    /// since they only assert on the view model, not the rendered markup. The joiner here (as opposed to
+    /// the event's creator, who auto-becomes an organizer on sign-in — see
+    /// <c>EventsController.SignIn.cs</c>'s creator-cookie handling) is the event's sole participant with
+    /// zero <c>IsOrganizer</c> participants (falls open per <c>CanManageOrganizersAsync</c>'s zero-holder
+    /// rule), so this exercises the zero-organizers empty-state branches end to end.
+    /// </summary>
+    [Fact]
+    public async Task SettingsPage_WithZeroOrganizers_RendersEmptyStateInsteadOfDemoteDropdownAndList()
+    {
+        var creatorClient = CreateClient();
+        var homePageHtml = await creatorClient.GetStringAsync("/");
+        var createToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(homePageHtml);
+
+        var createResponse = await creatorClient.PostAsync("/Events/Create", new FormUrlEncodedContent(
+        [
+            new("CreateEventName", "Organizer Empty State Event"),
+            new("__RequestVerificationToken", createToken)
+        ]));
+        createResponse.EnsureSuccessStatusCode();
+        var eventCode = createResponse.RequestMessage!.RequestUri!.AbsolutePath.Split('/')[2];
+
+        // A different "browser" joins by code — it never carries the creator cookie, so it doesn't
+        // auto-become an organizer on sign-in, leaving the event with zero organizers.
+        var joinerClient = CreateClient();
+        var joinerHomeHtml = await joinerClient.GetStringAsync("/");
+        var joinToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(joinerHomeHtml);
+
+        var joinResponse = await joinerClient.PostAsync("/Events/Join", new FormUrlEncodedContent(
+        [
+            new("EventCode", eventCode),
+            new("__RequestVerificationToken", joinToken)
+        ]));
+        joinResponse.EnsureSuccessStatusCode();
+
+        var signInPageHtml = await joinResponse.Content.ReadAsStringAsync();
+        var signInToken = AntiForgeryTokenExtractor.ExtractRequestVerificationToken(signInPageHtml);
+        var signInResponse = await joinerClient.PostAsync($"/event/{eventCode}/signin", new FormUrlEncodedContent(
+        [
+            new("Code", eventCode),
+            new("DisplayName", "Settings Tester"),
+            new("Color", "ff66c4"),
+            new("__RequestVerificationToken", signInToken)
+        ]));
+        signInResponse.EnsureSuccessStatusCode();
+
+        var settingsHtml = await joinerClient.GetStringAsync($"/event/{eventCode}/settings");
+
+        Assert.Contains("There are no organizers to demote.", settingsHtml, StringComparison.Ordinal);
+        Assert.Contains("There are no organizers yet.", settingsHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"ww-organizer-demote-select\"", settingsHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Mirrors <see cref="CreateEvent_WithoutAntiForgeryToken_IsRejected"/> for the new fetch-based
     /// endpoint: a POST with no token must be rejected outright by the real pipeline, proving
     /// [ValidateAntiForgeryToken] still applies even though this endpoint is called via fetch rather than
