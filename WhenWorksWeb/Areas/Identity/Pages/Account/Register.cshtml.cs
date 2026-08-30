@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account
 {
@@ -174,11 +175,13 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             {
                 var user = CreateUser();
 
-                // Populate the custom properties. DisplayName is trimmed here (not just validated)
-                // so leading/trailing whitespace never reaches the database, matching
-                // Manage/Index.cshtml.cs -- see ModelConstants.DisplayNameContentPattern.
+                // Populate the custom properties. DisplayName is trimmed and NFC-normalized here
+                // (not just validated) so leading/trailing whitespace never reaches the database and
+                // so two visually-identical names that differ only in codepoint composition persist
+                // the same way, matching Manage/Index.cshtml.cs -- see
+                // ModelConstants.DisplayNameContentPattern and TextNormalizer.
                 user.UserName = Input.UserName;
-                user.DisplayName = Input.DisplayName?.Trim();
+                user.DisplayName = TextNormalizer.NormalizeToNfc(Input.DisplayName?.Trim());
                 user.Color = Input.Color;
 
                 await _userStore.SetUserNameAsync(user, Input.UserName, CancellationToken.None);

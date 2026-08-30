@@ -1,8 +1,8 @@
 ## Tighten input validation site-wide
 
 ### Status
-In progress — working section by section (see Implementation Plan below). Sections 1-2 landed;
-next up is Section 3.
+In progress — working section by section (see Implementation Plan below). Sections 1-3 landed;
+next up is Section 4.
 
 ### Implementation Plan
 Broken into sections so work can span multiple sessions. Check off as each section lands.
@@ -38,10 +38,29 @@ Broken into sections so work can span multiple sessions. Check off as each secti
       newline still rejected, embedded raw tab still rejected) for `DescriptionContentPattern`
       (`EventUpdateDetailsViewModelTests`, new `EventSettingsTests`), and `DescriptionContentPattern`
       added to `ModelConstantsTests`' pattern-coherence checks.
-- [ ] **Section 3 — NFC normalization.** Normalize `Participant.DisplayName` (and other
-      identity-bearing free-text fields) before persisting so `ValidateParticipantUniquenessAsync`
-      can't be defeated by codepoint-composition differences; check whether Identity pages should
-      adopt the same pattern/helper.
+- [x] **Section 3 — NFC normalization.** Added `Services/TextNormalizer.NormalizeToNfc`, a small
+      static helper (`UniqueCodeGenerator`/`ColorContrastHelper`-style utility, no DI dependency
+      needed) that normalizes to Unicode Normalization Form C, returning null/empty input
+      unchanged. Audited every identity-bearing free-text field site-wide for a uniqueness/equality
+      check it could defeat via codepoint-composition differences — the only one found was
+      `Participant.DisplayName` via `EventsController.SignIn.cs`'s `ValidateParticipantUniquenessAsync`
+      (`Event.Title`/descriptions have no such check, and `ApplicationUser`'s email uniqueness goes
+      through Identity's own normalized-email column, untouched here). Applied
+      `TextNormalizer.NormalizeToNfc` in `NormalizeSignInModel` to both `DisplayName` and
+      `SelectedExistingDisplayName` (the latter so a decomposed-form dropdown selection still
+      resolves to its composed, already-normalized stored counterpart in
+      `GetSelectedExistingParticipantAsync`). Also adopted the same helper on `ApplicationUser.DisplayName`
+      in `Register.cshtml.cs`, `ExternalLogin.cshtml.cs`, and `Manage/Index.cshtml.cs` for
+      consistency, even though no uniqueness check currently reads that field — `Manage/Index.cshtml.cs`
+      normalizes before its dirty-check comparison so an already-normalized name round-tripping
+      through the form doesn't trigger a spurious `UpdateAsync`. Added
+      `WhenWorksWeb.Tests/Services/TextNormalizerTests.cs` (null/empty/ASCII/idempotency/already-NFC
+      short-circuit/non-Latin script coverage, using explicit `\u`-escaped codepoints rather than
+      literal accented characters in source so the exact composition under test doesn't depend on
+      file encoding) and new `EventsControllerSignInTests` cases: a decomposed submission persists
+      NFC-normalized, a decomposed submission matching an existing composed name is still rejected
+      as a duplicate, and a decomposed dropdown selection still resolves and updates the existing
+      composed participant.
 - [ ] **Section 4 — Admin area.** Validation attributes on `ManageUsersModel.Email` +
       corresponding view markup.
 

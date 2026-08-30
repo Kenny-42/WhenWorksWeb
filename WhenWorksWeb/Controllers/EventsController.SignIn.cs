@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Controllers;
 
@@ -208,11 +209,17 @@ public partial class EventsController
     /// <summary>
     /// Normalizes the submitted sign-in form values before validation and persistence.
     /// </summary>
+    /// <remarks>Display names are also normalized to Unicode NFC (after trimming) so
+    /// <see cref="ValidateParticipantUniquenessAsync"/> can't be defeated by two values that render
+    /// identically but differ only in codepoint composition — see <see cref="TextNormalizer"/>.
+    /// <see cref="EventSignInViewModel.SelectedExistingDisplayName"/> is normalized too since it's
+    /// compared against stored, already-normalized display names in
+    /// <see cref="GetSelectedExistingParticipantAsync"/>.</remarks>
     private static void NormalizeSignInModel(EventSignInViewModel model)
     {
-        model.DisplayName = model.DisplayName?.Trim() ?? string.Empty;
+        model.DisplayName = TextNormalizer.NormalizeToNfc(model.DisplayName?.Trim()) ?? string.Empty;
         model.Color = NormalizeColor(model.Color);
-        model.SelectedExistingDisplayName = model.SelectedExistingDisplayName?.Trim();
+        model.SelectedExistingDisplayName = TextNormalizer.NormalizeToNfc(model.SelectedExistingDisplayName?.Trim());
     }
 
     /// <summary>

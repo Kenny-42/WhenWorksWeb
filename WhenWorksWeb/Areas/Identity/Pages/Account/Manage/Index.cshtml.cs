@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
 {
@@ -134,10 +135,14 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
                 }
             }
 
-            // Trimmed here (not just validated) so leading/trailing whitespace never reaches the
-            // database, even though DisplayNameContentPattern intentionally allows it through
-            // validation -- see ModelConstants.DisplayNameContentPattern.
-            var trimmedDisplayName = Input.DisplayName?.Trim();
+            // Trimmed and NFC-normalized here (not just validated) so leading/trailing whitespace
+            // never reaches the database, even though DisplayNameContentPattern intentionally
+            // allows it through validation, and so two visually-identical names that differ only in
+            // codepoint composition persist the same way -- see ModelConstants.DisplayNameContentPattern
+            // and TextNormalizer. Normalizing before the equality check below (rather than after)
+            // also avoids a spurious UpdateAsync call every time an already-stored, already-normalized
+            // name round-trips through the form unchanged.
+            var trimmedDisplayName = TextNormalizer.NormalizeToNfc(Input.DisplayName?.Trim());
 
             // DisplayName/Color aren't Identity-managed fields (no dedicated UserManager
             // setter), so they're written directly and persisted via UpdateAsync.

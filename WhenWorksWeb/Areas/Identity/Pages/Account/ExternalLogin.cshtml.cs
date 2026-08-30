@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account
 {
@@ -201,10 +202,12 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 var user = CreateUser();
 
                 // Populate the custom properties this app requires beyond what the provider supplies.
-                // DisplayName is trimmed here (not just validated) so leading/trailing whitespace
-                // never reaches the database, matching Register.cshtml.cs/Manage/Index.cshtml.cs --
-                // see ModelConstants.DisplayNameContentPattern.
-                user.DisplayName = Input.DisplayName?.Trim();
+                // DisplayName is trimmed and NFC-normalized here (not just validated) so
+                // leading/trailing whitespace never reaches the database and two visually-identical
+                // names that differ only in codepoint composition persist the same way, matching
+                // Register.cshtml.cs/Manage/Index.cshtml.cs -- see
+                // ModelConstants.DisplayNameContentPattern and TextNormalizer.
+                user.DisplayName = TextNormalizer.NormalizeToNfc(Input.DisplayName?.Trim());
                 user.Color = Input.Color;
 
                 // CreatedAt/LastActiveAt are required properties with no meaningful default — set them
