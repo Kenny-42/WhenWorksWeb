@@ -26,6 +26,12 @@ public static class ModelConstants
     // The maximum length for an application user's unique identifier (username).
     public const int UserIdMaxLength = 450;
 
+    // The maximum length for an application user's email address. Mirrors Identity's own
+    // AspNetUsers.Email/NormalizedEmail column bound (see CreateIdentitySchema migration) rather
+    // than reusing UserIdMaxLength above, which is a separate, much larger bound for the row's
+    // primary key/username, not its email.
+    public const int UserEmailMaxLength = 256;
+
     // The length of a hexadecimal color code (without the leading '#').
     public const int HexColorLength = 6;
 

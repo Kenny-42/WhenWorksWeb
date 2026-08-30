@@ -1,8 +1,7 @@
 ## Tighten input validation site-wide
 
 ### Status
-In progress — working section by section (see Implementation Plan below). Sections 1-3 landed;
-next up is Section 4.
+Complete — all four sections landed (see Implementation Plan below).
 
 ### Implementation Plan
 Broken into sections so work can span multiple sessions. Check off as each section lands.
@@ -61,8 +60,28 @@ Broken into sections so work can span multiple sessions. Check off as each secti
       NFC-normalized, a decomposed submission matching an existing composed name is still rejected
       as a duplicate, and a decomposed dropdown selection still resolves and updates the existing
       composed participant.
-- [ ] **Section 4 — Admin area.** Validation attributes on `ManageUsersModel.Email` +
-      corresponding view markup.
+- [x] **Section 4 — Admin area.** Added `[Required]`/`[EmailAddress]`/`[StringLength]` to
+      `ManageUsersModel.Email`, backed by a new `ModelConstants.UserEmailMaxLength` (256, mirroring
+      Identity's own `AspNetUsers.Email` column bound rather than reusing the much larger
+      `UserIdMaxLength`). Added matching `asp-validation-summary`/`asp-validation-for` markup and
+      `_ValidationScriptsPartial` to `ManageUsers.cshtml`. `OnPostAddAdminAsync` now trims before
+      validating (site-wide convention) and re-validates just the `Email` property via
+      `Validator.TryValidateProperty` rather than `TryValidateModel(this)` — unlike a dedicated view
+      model, `this` is the page model itself, and `TryValidateModel` walks every public property
+      reachable from it, including base-class ones like `HttpContext`/`Request`, which blew up
+      reading a nonexistent request form during testing. This replaces the old manual
+      `IsNullOrWhiteSpace` check with real validation (still rejects the same empty/whitespace
+      cases, plus now catches a malformed or over-length address). `OnPostRemoveAdminAsync`'s
+      `email` handler parameter is untouched — it's a hidden-input value round-tripped from the
+      already-validated admin list, not user-typed. Added
+      `WhenWorksWeb.Tests/Areas/Admin/Pages/Users/ManageUsersModelTests.cs` (Tier 1
+      `Validator.TryValidateProperty` coverage of the `Email` attributes — missing/empty/
+      whitespace-only, malformed shapes matching `[EmailAddress]`'s actual minimal check rather than
+      a stricter assumption, over/at max length — and Tier 2 `OnPostAddAdminAsync` behavior tests
+      against a real `UserManager` covering the invalid-email/over-length/trim-then-succeed/
+      unknown-email/not-root-admin paths). Extended `TestUserManagerFactory` with `.AddRoles<IdentityRole>()`
+      (mirroring `Program.cs`) since `ManageUsersModel` unconditionally calls role-membership APIs
+      that throw `NotSupportedException` without it.
 
 ### GitHub Issue
 #88

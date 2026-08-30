@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Areas.Admin.Pages.Users;
@@ -18,6 +20,9 @@ public class ManageUsersModel(UserManager<ApplicationUser> userManager) : PageMo
     /// The email address entered in the "add admin" form.
     /// </summary>
     [BindProperty]
+    [Required(ErrorMessage = "Email is required.")]
+    [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+    [StringLength(ModelConstants.UserEmailMaxLength, ErrorMessage = "Email must be {1} characters or fewer.")]
     public string? Email { get; set; }
 
     /// <summary>
@@ -59,16 +64,33 @@ public class ManageUsersModel(UserManager<ApplicationUser> userManager) : PageMo
             return Page();
         }
 
+        // Trim before validating, same as the rest of the site, so e.g. an all-whitespace value
+        // fails [Required] rather than being accepted and only then trimmed down to an empty
+        // string. Re-runs validation against the trimmed value since the framework's own
+        // model-binding validation already ran once against the untrimmed input.
+        //
+        // Deliberately re-validates just the Email property (Validator.TryValidateProperty)
+        // rather than calling TryValidateModel(this) on the whole page model -- unlike a
+        // dedicated view model (e.g. EventUpdateDetailsViewModel), "this" is the PageModel
+        // itself, and ASP.NET Core's ObjectModelValidator walks every public property reachable
+        // from it, including base-class ones like HttpContext/Request that aren't meant to be
+        // validated at all.
         Email = Email?.Trim();
 
-        if (string.IsNullOrWhiteSpace(Email))
+        var validationContext = new ValidationContext(this) { MemberName = nameof(Email) };
+        var validationResults = new List<ValidationResult>();
+        if (!Validator.TryValidateProperty(Email, validationContext, validationResults))
         {
-            StatusMessage = "Email is required.";
+            foreach (var validationResult in validationResults)
+            {
+                ModelState.AddModelError(nameof(Email), validationResult.ErrorMessage ?? "Enter a valid email address.");
+            }
+
             await LoadAdminsAsync();
             return Page();
         }
 
-        var user = await userManager.FindByEmailAsync(Email);
+        var user = await userManager.FindByEmailAsync(Email!);
         if (user == null)
         {
             StatusMessage = "User not found.";
