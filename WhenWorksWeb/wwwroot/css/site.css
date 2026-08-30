@@ -29,6 +29,12 @@
   --color-accent-green-border: #8eca51;
   --color-accent-red: #ef5d5d;
   --color-accent-red-border: #d84343;
+  /* Softer tint of --color-accent-red — used where a full-intensity red fill would read as
+     too alarming for the surrounding area (the organizer-permissions toggle's off state
+     sits right next to a whole list of other pills, not as a lone destructive action).
+     Border/thumb stay on the stronger --color-accent-red-border so the control still reads
+     clearly as "off" against the light fill. */
+  --color-accent-red-light: #f7a3a3;
   --color-text-on-gradient: #ffffff;
   /* Default dark text color on light surfaces (white-glass pills/cards, accent fills). */
   --color-text-strong: #514c54;
@@ -4199,10 +4205,18 @@ label:has(+ .input-pill:disabled) {
   box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
+/* !important on all four: Bootstrap's own ":not(.btn-check)+.btn:active" rule outranks a plain
+   ".ww-delete-event-button:active" whenever this button also carries .btn — without it, that
+   rule's own --bs-btn-active-* properties (which this class never defines) win instead, resolving
+   to a near-black outline, transparent/white fill, and no bounce. Same fix as .go-button:active
+   above, for the same reason — kept here defensively even though no current usage pairs this
+   class with .btn, since that's exactly the kind of bug that's invisible until someone adds one. */
 .ww-delete-event-button:active {
-  background-color: var(--color-accent-red-border);
+  background-color: var(--color-accent-red-border) !important;
+  border-color: var(--color-accent-red-border) !important;
+  color: var(--color-text-strong) !important;
   transform: translateY(2px);
-  box-shadow: var(--shadow-hard-active);
+  box-shadow: var(--shadow-hard-active) !important;
 }
 
 /* Small text "Clear" affordance beside each date field's label — lets the organizer blank a
@@ -4245,4 +4259,263 @@ label:has(+ .input-pill:disabled) {
 #ww-final-dates-list .ww-best-bet-row {
   border-color: var(--color-accent-blue-border);
   background-color: rgba(79, 184, 196, 0.1);
+}
+
+/* ==========================================================================
+   Settings tab — "Organizer permissions" card (organizer-permissions feature spec).
+   ========================================================================== */
+
+/* Outer card: same "recolor the outline only" pattern as .ww-people-roster-card/
+   .ww-final-dates-card — regular white-glass .ww-event-card fill/shadow, blue border since this
+   card is about people/permissions the same way the People tab's roster card is. */
+.ww-organizers-card {
+  border-color: var(--color-accent-blue-border);
+}
+
+.ww-organizers-card h2 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+/* Promote/Demote <select>s: the same select-arrow-inset.input-pill-blue/-red pairing used by
+   MyEvents' delete-participant picker and SignIn's existing-participant picker, plus the
+   Settings page's own hard-shadow pop/hover-lift/press-down bounce (.ww-settings-page .input-pill
+   already gives every plain .input-pill on this page that treatment; these two need it restated
+   since select-arrow-inset's background-image layers would otherwise fight a later, unscoped
+   redeclaration order — keeping the full state set here, next to the rule that uses it, is
+   clearer than relying on load order). */
+.ww-organizers-card .select-arrow-inset {
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ww-organizers-card .select-arrow-inset:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-organizers-card .select-arrow-inset:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-organizers-card .select-arrow-inset:focus,
+.ww-organizers-card .select-arrow-inset:focus-visible {
+  outline: none !important;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
+}
+
+/* Confirm buttons: full-width so they sit flush under their <select> in the two-column row.
+   .go-button (Promote and Demote both — green, same as every other "confirm this" action on the
+   card) already carries the hover-lift/press-down bounce; this only adds the layout. Hidden
+   (.d-none, toggled by Settings.cshtml's script) rather than merely disabled while nothing's
+   selected — a control the user can't yet use isn't shown at all. */
+.ww-organizer-confirm-button {
+  width: 100%;
+}
+
+/* "Everyone here is already an organizer" — same muted small-text treatment as
+   .ww-final-date-remove-button's resting opacity, not a full .ww-people-subtitle (this is a
+   fallback message, not a section subtitle). */
+.ww-organizer-empty-text {
+  color: var(--color-text-strong);
+  opacity: 0.65;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Pill list: one row per current organizer. Same shape/tint language as .ww-people-card (a
+   distinct little card per person), recolored blue to match this card's own outline rather than
+   the People tab's yellow. */
+.ww-organizer-pill {
+  border: 2px solid var(--color-accent-blue-border);
+  border-radius: 1rem;
+  background-color: rgba(143, 216, 224, 0.15);
+  padding: 0.65rem 0.9rem;
+}
+
+/* "Full access" control: a label plus a slider-style toggle switch — the earlier pill-with-text
+   button read as just another button, not obviously a two-state switch, and didn't say what it
+   actually did. The label sits outside the switch (not inside it, unlike the old button) so the
+   switch itself can be sized like an actual toggle instead of stretching to fit text.
+   Positioning context for the hover/focus tooltip below, which is a child of the wrap (not
+   nested inside the switch's own <form>/<button>) so hovering/focusing anywhere across the label
+   *and* the switch reveals it — see the tooltip's own comment further down. */
+.ww-organizer-toggle-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* line-height: 1 keeps this label's own box exactly font-size tall rather than the body font's
+   normal (larger) line-height, so align-items: center above lines its glyphs up against the
+   switch's vertical center instead of sitting slightly above/below it. */
+.ww-organizer-toggle-label {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.ww-organizer-toggle-label:focus-visible {
+  outline: none;
+}
+
+.ww-organizer-toggle-form {
+  display: inline-flex;
+}
+
+/* Off state: a filled red track (this organizer can still manage event details, just not other
+   organizers). Fill uses the softer --color-accent-red-light rather than the full-intensity
+   --color-accent-red every other destructive control (.ww-delete-event-button, the Demote
+   dropdown) uses — a whole list of these pills sitting side by side read as too much alarming
+   red at full intensity, unlike a single one-off destructive button. Border/thumb stay on
+   --color-accent-red-border so "off" still reads clearly against the lighter fill. Same
+   hard-shadow pop language as every other control on this page; the fill/border swap between
+   on/off is its own transition (not just hover), so flipping the switch reads as a deliberate
+   state change rather than a hover flicker.
+
+   box-sizing is explicitly content-box, not border-box (Bootstrap's reboot sets border-box on
+   every element via `*`, so this has to opt back out): the thumb below is inset/sized in rem
+   against this element's own *content* box, so the border needs to sit outside that math rather
+   than eating into it — border-box shrank the content box by the border's width, leaving the
+   thumb ~0.2rem taller than the space actually available and pushing it visibly off-center
+   (toward the bottom) inside the track. */
+.ww-organizer-toggle-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: content-box;
+  width: 2.6rem;
+  height: 1.4rem;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-accent-red-border);
+  background-color: var(--color-accent-red-light);
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* The round knob, sliding between the track's two ends — the switch's actual on/off tell, same
+   accent-swap language (red off / green on) the track's own border already uses. Inset/sized
+   against the track's content box (see box-sizing note above): 0.15rem top/bottom inset + 1.1rem
+   thumb = 1.4rem, exactly the track's own declared (content-box) height, so it sits flush and
+   centered rather than overflowing past the bottom. */
+.ww-organizer-toggle-thumb {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background-color: var(--color-accent-red-border);
+  transition: transform 0.15s cubic-bezier(.2, 1.4, .4, 1), background-color 0.15s ease;
+}
+
+/* On state: solid green fill, same accent .go-button uses for "the affirmative/primary action is
+   active here" — reads as "this organizer currently has Full access" at a glance across the
+   whole pill list. */
+.ww-organizer-toggle-button.is-active {
+  border-color: var(--color-accent-green-border);
+  background-color: var(--color-accent-green);
+}
+
+.ww-organizer-toggle-button.is-active .ww-organizer-toggle-thumb {
+  transform: translateX(1.2rem);
+  background-color: var(--color-accent-green-border);
+}
+
+.ww-organizer-toggle-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-organizer-toggle-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-organizer-toggle-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Short "what does this do" popup — pure CSS hover/focus, no JS needed. Centered over the whole
+   wrap (label + switch together — see the trigger rule further down), not just the switch, so
+   the description shows from either half. Off by default and lifted slightly (translateY) so it
+   visibly settles into place on show rather than just appearing. */
+.ww-organizer-toggle-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 12rem;
+  background-color: rgba(255, 255, 255, 0.97);
+  border: 2px solid var(--color-accent-green-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-hard);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--color-text-strong);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 5;
+}
+
+/* Little pointer connecting the popup back down to the switch it describes. */
+.ww-organizer-toggle-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--color-accent-green-border);
+}
+
+/* Triggered by hovering/focusing anywhere in the wrap (label or switch, not just the switch
+   alone) — :hover covers mouse across that whole area, :focus-within covers touch: tapping
+   either the label (a plain, inert tabindex target — see _OrganizerPill.cshtml) or the switch
+   itself focuses it on mobile browsers, which shows the popup the same way keyboard focus does
+   on desktop, with no separate JS needed. */
+.ww-organizer-toggle-wrap:hover .ww-organizer-toggle-tooltip,
+.ww-organizer-toggle-wrap:focus-within .ww-organizer-toggle-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* One-shot "pop" the instant a toggle actually flips (site.js adds this class after a successful
+   fetch, then removes it once the animation ends) — same bouncy easing as the calendar's
+   celebration emoji (.ww-calendar-cell-celebrating), scaled down for a small pill instead of a
+   whole emoji glyph. Distinguishes "this just changed" from the plain hover lift above. */
+@media (prefers-reduced-motion: no-preference) {
+  .ww-organizer-toggle-button.ww-organizer-toggle-pop {
+    animation: ww-organizer-toggle-pop 0.4s cubic-bezier(.28, 1.55, .4, 1);
+  }
+}
+
+@keyframes ww-organizer-toggle-pop {
+  0% {
+    transform: scale(0.85);
+  }
+  55% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }

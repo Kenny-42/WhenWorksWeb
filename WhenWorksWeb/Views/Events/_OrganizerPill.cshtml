@@ -1,0 +1,44 @@
+@model WhenWorksWeb.Models.EventOrganizerViewModel
+
+@* One organizer pill in the Settings tab's "Organizer permissions" card: avatar + name, and a
+   "Full access" slider toggle for their CanManageOrganizers flag. Split into its own partial so
+   EventsController.Organizers.cs's ToggleCanManageOrganizers action can return just this one pill
+   for the fetch-and-swap enhancement (see Settings.cshtml's script) instead of the whole card.
+   The toggle itself doesn't say what it does at a glance, so a short description sits in a
+   hover/focus popup above it (.ww-organizer-toggle-tooltip, pure CSS — no JS needed) rather than
+   on the control itself. The tooltip is a child of .ww-organizer-toggle-wrap (not nested inside
+   the form/button) so :hover/:focus-within on the *whole* label+switch area reveals it — not just
+   the switch itself. The label carries its own tabindex so a tap there (which does nothing else)
+   previews the tooltip on touch via :focus-within, without also firing the switch's actual action
+   the way tapping the switch itself would. *@
+<li class="ww-organizer-pill d-flex align-items-center gap-3" data-organizer-pill data-participant-id="@Model.Id">
+    <span class="ww-people-avatar" style="--avatar-color:#@Model.Color">
+        @Model.DisplayName.Substring(0, 1).ToUpperInvariant()
+    </span>
+    <div class="ww-organizer-pill-info flex-grow-1">
+        <p class="ww-people-name mb-0">
+            @Model.DisplayName
+            @if (Model.IsCurrentParticipant)
+            {
+                <span class="ww-people-you">(you)</span>
+            }
+        </p>
+    </div>
+    <div class="ww-organizer-toggle-wrap">
+        <span class="ww-organizer-toggle-label" tabindex="0">Full access</span>
+        <form asp-route="EventToggleCanManageOrganizers" asp-route-code="@Model.EventCode" asp-route-participantId="@Model.Id" method="post" class="ww-organizer-toggle-form">
+            @Html.AntiForgeryToken()
+            <button type="submit"
+                    class="ww-organizer-toggle-button @(Model.CanManageOrganizers ? "is-active" : "")"
+                    role="switch"
+                    aria-checked="@(Model.CanManageOrganizers ? "true" : "false")"
+                    aria-label="Full access for @Model.DisplayName">
+                <span class="ww-organizer-toggle-thumb" aria-hidden="true"></span>
+            </button>
+        </form>
+        <div class="ww-organizer-toggle-tooltip" role="tooltip">
+            Can promote, demote, and manage other organizers — and delete the event.
+            If no one has this, every organizer gets these powers instead.
+        </div>
+    </div>
+</li>

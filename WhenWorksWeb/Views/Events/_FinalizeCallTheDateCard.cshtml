@@ -1,0 +1,55 @@
+@using System.Text.Json
+@model WhenWorksWeb.Models.EventFinalizeViewModel
+
+@{
+    // Recomputed here rather than passed in from Finalize.cshtml, since this partial can render
+    // above or below _FinalizeFinalDatesCard depending on Model.CanManageEvent (see
+    // Finalize.cshtml) and needs to own its own view-only data either way.
+    var calendarJsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    var calendarJson = JsonSerializer.Serialize(Model.Calendar, calendarJsonOptions);
+}
+
+@* Finalize tab's "Call the date" card: suggestions + (organizer-only) add-date form. For a
+   participant who can't manage final dates, the subheading explains why there's nothing to
+   interact with here instead of a separate standalone card saying the same thing. *@
+<div class="ww-event-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h3 class="font-display mb-0">Call the date</h3>
+        <i class="bi bi-calendar-check" aria-hidden="true"></i>
+    </div>
+    <p class="ww-people-subtitle mb-3">
+        @(Model.CanManageEvent
+            ? "Select a final date independently of availability."
+            : "Only this event's organizers can manage final dates.")
+    </p>
+    @* "Suggestions" sub-list below. *@
+
+    <h4 class="ww-settings-sublabel">Suggestions</h4>
+    <div id="ww-final-date-suggestions"
+         data-calendar="@calendarJson"
+         data-code="@Model.Header.Code"
+         class="mb-3">
+    </div>
+
+    @if (Model.CanManageEvent)
+    {
+        <form asp-route="EventAddFinalDate" asp-route-code="@Model.Header.Code" method="post" class="ww-settings-add-date-form mb-3">
+            @Html.AntiForgeryToken()
+            <div class="mb-2">
+                <div class="d-flex align-items-center justify-content-between">
+                    <label for="ww-final-date-start" class="ww-settings-label mb-0">Start date</label>
+                    <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-start">Clear</button>
+                </div>
+                <input type="date" id="ww-final-date-start" name="startDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" required />
+            </div>
+            <div class="mb-2">
+                <div class="d-flex align-items-center justify-content-between">
+                    <label for="ww-final-date-end" class="ww-settings-label mb-0">End date <span class="ww-settings-optional-tag">(optional)</span></label>
+                    <button type="button" class="ww-settings-clear-date-button" data-clear-target="ww-final-date-end">Clear</button>
+                </div>
+                <input type="date" id="ww-final-date-end" name="endDate" class="form-control input-pill input-pill-yellow ww-settings-input w-100" />
+            </div>
+            <button type="submit" class="btn go-button w-100">Add a date <i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+        </form>
+    }
+</div>
