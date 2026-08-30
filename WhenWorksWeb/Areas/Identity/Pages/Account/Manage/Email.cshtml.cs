@@ -117,6 +117,25 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
             var email = await _userManager.GetEmailAsync(user);
             if (Input.NewEmail != email)
             {
+                // Explicitly checked (rather than letting ChangeEmailAsync's eventual failure
+                // bubble up as a generic error) so the user gets a clear, specific reason instead
+                // of a vague "something went wrong" -- see
+                // Spec/Features/FEATURES-tighten-account-validation.ospec for the accepted
+                // email-enumeration tradeoff this involves.
+                var existingUser = await _userManager.FindByEmailAsync(Input.NewEmail);
+                if (existingUser != null && existingUser.Id != user.Id)
+                {
+                    ModelState.AddModelError(string.Empty, "This email address is already registered to another account.");
+
+                    // LoadAsync() resets Input to a blank InputModel (see its comment above) --
+                    // preserve what the user typed so the invalid value stays visible next to the
+                    // error instead of forcing them to retype it.
+                    var newEmail = Input.NewEmail;
+                    await LoadAsync(user);
+                    Input.NewEmail = newEmail;
+                    return Page();
+                }
+
                 var userId = await _userManager.GetUserIdAsync(user);
                 var code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));

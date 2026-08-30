@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using WhenWorksWeb.Common;
 
 namespace WhenWorksWeb.Models;
 
@@ -19,12 +20,15 @@ public static class IdentityConfiguration
         // Sign in settings
         options.SignIn.RequireConfirmedAccount = false;
 
-        // Password settings
+        // Password settings. Kept in sync with ModelConstants.PasswordMinLength/
+        // PasswordComplexityPattern, which the Manage/ChangePassword and Manage/SetPassword pages
+        // use to surface these same rules to the user client-side before they ever hit this
+        // server-side enforcement (see Spec/Features/FEATURES-tighten-account-validation.ospec).
         options.Password.RequireDigit = true;
-        options.Password.RequiredLength = 6;
+        options.Password.RequiredLength = ModelConstants.PasswordMinLength;
         options.Password.RequireUppercase = true;
         options.Password.RequireLowercase = true;
-        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireNonAlphanumeric = true;
         options.Password.RequiredUniqueChars = 3;
 
         // Lockout settings

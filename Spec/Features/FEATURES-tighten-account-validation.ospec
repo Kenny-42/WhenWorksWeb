@@ -1,0 +1,164 @@
+## Tighten input validation on account settings pages
+
+### Status
+Implemented.
+
+### GitHub Issue
+#81
+
+### Summary
+The account settings pages under `Areas/Identity/Pages/Account/Manage` (Index, Email,
+ChangePassword, SetPassword) rely on the default Identity scaffolding's baseline data-annotation
+attributes, which are loose enough to let malformed values through or to only reject them with a
+generic message after a full round-trip. Tighten validation on every input field on these four
+pages — phone number, display name, preferred color, new email, and new/confirm password — so
+users get accurate client-side feedback, and so the values that do reach the database are safe and
+well-formed.
+
+### Motivation
+Today: `[Phone]` accepts almost any digit/punctuation string; the password fields only enforce a
+6-100 character length even though `IdentityConfiguration.cs` actually requires digit+upper+lower
+server-side (via `UserManager`), so the page never tells the user the real rule until after
+submit; Display Name has no character restriction beyond length, and it's rendered elsewhere in
+the app (event pages, chat); a duplicate email currently surfaces whatever generic error
+`ChangeEmailAsync`/`SetEmailAsync` happens to produce. This closes those gaps and gives the
+account pages the same level of scrutiny as the rest of the app's user-facing forms.
+
+---
+
+### Scope
+The four Manage pages named in the issue — `Index.cshtml(.cs)`, `Email.cshtml(.cs)`,
+`ChangePassword.cshtml(.cs)`, `SetPassword.cshtml(.cs)` — plus, per an explicit follow-up request to
+keep validation consistent site-wide, every other `Areas/Identity/Pages/Account` page that
+duplicates one of these same fields/rules in its own `InputModel`: `Register.cshtml(.cs)`
+(Password, DisplayName, Color), `ResetPassword.cshtml(.cs)` (Password), and
+`ExternalLogin.cshtml(.cs)` (DisplayName — its own XML doc comment already claimed to match
+Register's rule, which made the drift a real bug, not just an inconsistency). `Login.cshtml(.cs)`
+and `DeletePersonalData.cshtml(.cs)` were checked and intentionally left alone — both only verify
+an *existing* password (`[Required]` + `[DataType(Password)]`, no length/complexity attribute),
+where none of this pass's new rules apply.
+
+### Proposed Changes
+
+#### Password policy (ChangePassword, SetPassword)
+Strengthened, not just surfaced — a real policy change:
+- `IdentityConfiguration.cs`: `RequiredLength` raised from 6 to 8, `RequireNonAlphanumeric` turned
+  on (was `false`). `RequireDigit`/`RequireUppercase`/`RequireLowercase` stay `true`. This is
+  enforced server-side by `UserManager` on every `ChangePasswordAsync`/`AddPasswordAsync` call
+  regardless of what the page-level attributes say, so it's the actual source of truth.
+- `InputModel.NewPassword` on both pages: replace the bare `[StringLength(100, MinimumLength = 6)]`
+  with validation matching the new policy — minimum 8 characters, and a check that the value
+  contains at least one uppercase letter, one lowercase letter, one digit, and one symbol. Needs a
+  custom `ValidationAttribute` (or an equivalent regex-based `[RegularExpression]`) since a single
+  built-in attribute can't express "all four character classes present" — implementation detail to
+  settle while building, but it must render via ASP.NET's unobtrusive client-side validation
+  (`data-val-*` attributes) so the mismatch is caught before submit, not just server-side.
+  Existing passwords set before this change keep working for sign-in; the stronger rule only
+  applies the next time a password is set or changed.
+- Confirm-password `[Compare]` behavior is unchanged — already works correctly per the issue;
+  verify the mismatch message is visibly rendered in the UI (add a validation summary/message
+  span next to the field if the current view is missing one).
+
+#### Phone number (Index)
+- Replace `[Phone]` with an E.164-based format: optional leading `+`, followed by 7-15 digits, no
+  other characters. Reject anything else (letters, extra punctuation, spaces embedded mid-number,
+  more than one `+`).
+- Field stays optional (no `[Required]` added) — empty/null continues to mean "no phone number on
+  file," matching today's behavior.
+
+#### Display Name (Index)
+- Keep `[Required]` + existing length rule (`ModelConstants.ApplicationUserDisplayNameMaxLength`).
+- Add a check that blocks C0/C1 control characters (Unicode category Cc, e.g. U+0000-U+001F,
+  U+007F-U+009F) and zero-width/invisible Unicode characters (e.g. U+200B zero-width space,
+  U+200E/U+200F directional marks, U+FEFF byte-order mark) — broad Unicode letters/scripts
+  otherwise remain allowed, so non-Latin display names keep working.
+- Trim leading/trailing whitespace before validating and before persisting, and reject a name that
+  is empty or all-whitespace after trimming (closes the gap where `[Required]` alone lets
+  whitespace-only values through).
+
+#### Preferred Color (Index)
+No change — `[Required]` + `[RegularExpression(ModelConstants.HexColorPattern)]` +
+`[StringLength(ModelConstants.HexColorLength, ...)]` already fully constrain this field to exactly
+6 hex characters; issue only asked to confirm it's surfaced clearly, which it already is via
+standard unobtrusive validation.
+
+#### New email (Email)
+- Keep `[Required]` + `[EmailAddress]`.
+- On `OnPostChangeEmailAsync`, when the target email is already registered to another account,
+  detect that explicitly (e.g. via `_userManager.FindByEmailAsync`) and add a specific
+  `ModelState` error (e.g. "This email address is already registered to another account.") instead
+  of letting a generic Identity error surface. This is a deliberate choice to favor clear UX
+  feedback over hiding account existence — accepted email-enumeration tradeoff, see Out of Scope.
+
+#### Client-side validation
+All new/changed rules above must participate in ASP.NET Core's existing unobtrusive client-side
+validation (the same `jquery.validate` + `jquery.validate.unobtrusive` pipeline already wired into
+these pages) so invalid input is flagged before a round-trip, not only after. A custom password
+ValidationAttribute needs a matching client-side adapter registered in `site.js` (or an inline
+script on the two password pages) to produce the same before-submit feedback as the built-in
+attributes.
+
+#### Site-wide consistency pass (Register, ResetPassword, ExternalLogin)
+Following an explicit request to make sure nothing elsewhere broke or drifted once the rules above
+landed:
+- `Register.cshtml.cs` — `Password` gets the same `ModelConstants.PasswordMinLength`/
+  `PasswordComplexityPattern` rule as ChangePassword/SetPassword/ResetPassword (was still the old
+  bare 6-100 length check, which would pass client-side and then fail server-side against the
+  now-stricter `IdentityConfiguration` policy with a confusing generic error); `DisplayName` gets
+  `ModelConstants.DisplayNameContentPattern` and is trimmed before persisting, matching
+  Manage/Index; `Color` switches from a hardcoded inline `[RegularExpression(@"^[A-Fa-f0-9]{6}$")]`
+  to `ModelConstants.HexColorPattern` (plus the matching `[StringLength]`), removing a second
+  hand-copied pattern that could silently drift from the shared constant.
+- `ResetPassword.cshtml.cs` — `Password` gets the same fix as Register's, for the same reason (it
+  had the identical stale 6-100 rule).
+- `ExternalLogin.cshtml.cs` — `DisplayName` gets `ModelConstants.DisplayNameContentPattern` and is
+  trimmed before persisting; its `Color` field already used `ModelConstants.HexColorPattern`, so no
+  change there.
+- `DevelopmentDataSeeder.cs`'s hardcoded dev-seed password (`"Dev123"`, 6 characters, no symbol) no
+  longer satisfies the strengthened `IdentityConfiguration` policy and broke every
+  `WebApplicationFactory`-based test that boots the app in Development — updated to `"Dev123!@"`.
+  This was caught by the full test suite while implementing the original four-page change, not by
+  this follow-up request, but is recorded here since it's part of why the password policy change
+  ripples site-wide.
+
+#### Tests
+`WhenWorksWeb.Tests` coverage for the new/changed validation rules on the original four Manage
+pages: valid and invalid cases for the phone regex, the password complexity attribute, the Display
+Name character/whitespace rule, and the Email duplicate-detection path. Extended, for the site-wide
+consistency pass, with matching coverage for `RegisterModel.InputModel`'s Password/DisplayName/
+Color, `ResetPasswordModel.InputModel.Password`, and `ExternalLoginModel.InputModel.DisplayName`.
+Per CLAUDE.md, tests are only added here because explicitly requested for this task.
+
+---
+
+### Acceptance Criteria
+- `IdentityConfiguration.cs` requires passwords of at least 8 characters containing uppercase,
+  lowercase, digit, and symbol; `ChangePassword`/`SetPassword` reject a non-complying `NewPassword`
+  client-side (before submit) with a message describing the actual rule, and server-side
+  regardless of client-side bypass.
+- Index page's Phone number field rejects any value that isn't empty or a valid E.164-shaped
+  number (optional `+`, 7-15 digits); valid international numbers are accepted.
+- Index page's Display Name field rejects control characters and zero-width/invisible Unicode
+  characters, rejects empty-after-trim values, and persists the trimmed value — while still
+  accepting non-Latin scripts and ordinary punctuation/spacing.
+- Email page's "already registered" case produces a specific, clear `ModelState` error rather than
+  a generic failure message.
+- Confirm-password mismatch message is visibly rendered on both ChangePassword and SetPassword.
+- `Register.cshtml`, `ResetPassword.cshtml`, and `ExternalLogin.cshtml` enforce the same
+  Password/DisplayName/Color rules as the Manage pages for the fields they each collect, so no
+  page in `Areas/Identity/Pages/Account` accepts a value another page in the same area would
+  reject.
+- All of the above have matching xUnit test coverage in `WhenWorksWeb.Tests`.
+
+### Out of Scope
+- `Login.cshtml` and `DeletePersonalData.cshtml` — both only verify an existing password, which
+  none of these new rules apply to (see Scope above).
+- Rate limiting / throttling on the change-password or change-email POST handlers, lockout policy
+  tuning, or any other anti-automation hardening — separate concern from field-level validation;
+  would need its own discussion and spec if pursued.
+- Accepting the email-enumeration tradeoff that comes with a specific "already registered" message
+  on the Email page (chosen deliberately for UX clarity — see Proposed Changes) — revisiting that
+  tradeoff is out of scope for this pass.
+- Any change to `ModelConstants.HexColorPattern`/Preferred Color validation — already sufficient.
+- Migrating existing users' passwords to meet the new complexity policy — enforcement only applies
+  going forward, on the next password set/change.
