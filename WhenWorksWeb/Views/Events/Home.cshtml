@@ -137,6 +137,11 @@
                 datesByKey[d.date] = d.participantIds.slice();
             });
 
+            // 'yyyy-MM-dd' -> true for every day covered by an organizer-chosen final date —
+            // computed once since final dates only change via a full-page Finalize action, unlike
+            // datesByKey above which is updated in place after every toggle.
+            var finalDateKeys = WWBestBets.getFinalDateKeys(calendar.finalDates);
+
             var windowStart = parseMonth(calendar.windowStartMonth);
             var windowEnd = parseMonth(calendar.windowEndMonth);
             var viewMonth = parseMonth(calendar.initialMonth);
@@ -144,7 +149,7 @@
             gridEl.style.setProperty('--current-participant-color', '#' + colorFor(calendar.currentParticipantId));
 
             // The event's own emoji (rendered once already, in the page header) — reused as the
-            // "everyone's in" marker overlaid on a fully-picked date, so it reads as *this
+            // final-date marker overlaid on an organizer-chosen date, so it reads as *this
             // event's* celebration rather than a generic icon. Falls back to a party popper on
             // the off chance the header emoji isn't on the page for some reason.
             var eventEmojiEl = document.querySelector('.ww-event-title-emoji');
@@ -252,7 +257,13 @@
                 cell.className = 'ww-calendar-cell' + (isAdjacent ? ' ww-calendar-cell-adjacent' : '');
                 cell.dataset.date = key;
                 cell.setAttribute('role', 'gridcell');
-                cell.setAttribute('aria-label', formatDateLabel(key));
+                // Base accessible label; updateCellCompletion below appends "— Great candidate!"
+                // itself as the pick state changes. Final status is folded in here instead, since
+                // (unlike completion) it never changes without a full-page reload. Both popups are
+                // aria-hidden (purely visual hover/focus tooltips), so this is the only place a
+                // screen reader user learns either fact.
+                cell.dataset.baseLabel = formatDateLabel(key) + (finalDateKeys[key] ? ' — Save the date!' : '');
+                cell.setAttribute('aria-label', cell.dataset.baseLabel);
                 cell.addEventListener('click', function () {
                     toggleDate(key, cell);
                 });
@@ -261,6 +272,25 @@
                 numberEl.className = 'ww-calendar-cell-number';
                 numberEl.textContent = day;
                 cell.appendChild(numberEl);
+
+                if (finalDateKeys[key]) {
+                    cell.classList.add('ww-calendar-cell-final');
+
+                    var tooltipEl = document.createElement('span');
+                    tooltipEl.className = 'ww-calendar-cell-final-tooltip';
+                    tooltipEl.setAttribute('aria-hidden', 'true');
+                    tooltipEl.textContent = 'Save the date!';
+                    cell.appendChild(tooltipEl);
+
+                    // The emoji marker lives on final dates now (not "everyone's in" dates — see
+                    // updateCellCompletion below), and final status can't change without a
+                    // full-page reload, so it's set once here rather than added/removed per toggle.
+                    var emojiEl = document.createElement('span');
+                    emojiEl.className = 'ww-calendar-cell-emoji';
+                    emojiEl.setAttribute('aria-hidden', 'true');
+                    emojiEl.textContent = eventEmoji;
+                    cell.appendChild(emojiEl);
+                }
 
                 applyWedges(cell, datesByKey[key] || []);
                 updateCellCompletion(cell, datesByKey[key] || []);
@@ -273,23 +303,25 @@
                 return calendar.participants.length > 0 && participantIds.length === calendar.participants.length;
             }
 
-            // Adds/removes the permanent emoji marker for a fully-picked date. Called on every
-            // render (initial paint, month navigation, and after each toggle) so the marker's
-            // presence always matches the date's current pick state — not just the moment it was
-            // first completed (see celebrateDate for that one-off animation).
+            // Toggles the thicker gold "everyone's in" border plus its "Great candidate!" popup
+            // and accessible-label suffix. Called on every render (initial paint, month
+            // navigation, and after each toggle) so it always matches the date's current pick
+            // state — not just the moment it was first completed (see celebrateDate for that
+            // one-off pop+confetti animation).
             function updateCellCompletion(cell, participantIds) {
                 var complete = isDateComplete(participantIds);
                 cell.classList.toggle('ww-calendar-cell-complete', complete);
+                cell.setAttribute('aria-label', cell.dataset.baseLabel + (complete ? ' — Great candidate!' : ''));
 
-                var existing = cell.querySelector('.ww-calendar-cell-emoji');
-                if (complete && !existing) {
-                    var emojiEl = document.createElement('span');
-                    emojiEl.className = 'ww-calendar-cell-emoji';
-                    emojiEl.setAttribute('aria-hidden', 'true');
-                    emojiEl.textContent = eventEmoji;
-                    cell.appendChild(emojiEl);
-                } else if (!complete && existing) {
-                    existing.remove();
+                var existingTooltip = cell.querySelector('.ww-calendar-cell-complete-tooltip');
+                if (complete && !existingTooltip) {
+                    var tooltipEl = document.createElement('span');
+                    tooltipEl.className = 'ww-calendar-cell-complete-tooltip';
+                    tooltipEl.setAttribute('aria-hidden', 'true');
+                    tooltipEl.textContent = 'Great candidate!';
+                    cell.appendChild(tooltipEl);
+                } else if (!complete && existingTooltip) {
+                    existingTooltip.remove();
                 }
             }
 
@@ -342,8 +374,11 @@
             }
 
             // Plays once, the moment a date flips from "not everyone's in" to "everyone's in" —
-            // a confetti burst from the cell's own position plus a bouncy pop on its (already
-            // permanent) emoji marker.
+            // a confetti burst from the cell's own position plus a bouncy pop on the cell itself
+            // (site.css's .ww-calendar-cell-celebrating), so a plain cell and a final date that
+            // happens to complete at the same moment celebrate identically. A final date's
+            // (already permanent) emoji marker gets its own extra pop layered on top — see the
+            // adjacent keyframe in site.css.
             function celebrateDate(cell) {
                 var rect = cell.getBoundingClientRect();
                 var originX = rect.left + rect.width / 2;

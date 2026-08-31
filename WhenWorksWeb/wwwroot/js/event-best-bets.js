@@ -173,6 +173,21 @@
         };
     }
 
+    // Every 'yyyy-MM-dd' key covered by any final date entry's [StartDate, EndDate ?? StartDate]
+    // range, as an object map for O(1) lookup — used by the Availability tab's calendar to mark
+    // final-date cells (see Home.cshtml's buildCell) without each cell re-walking every entry.
+    function getFinalDateKeys(finalDates) {
+        var keys = {};
+        finalDates.forEach(function (finalDate) {
+            var day = parseDateOnly(finalDate.startDate);
+            var lastDay = finalDate.endDate ? parseDateOnly(finalDate.endDate) : day;
+            for (; day <= lastDay; day = addDay(day)) {
+                keys[formatDateOnly(day)] = true;
+            }
+        });
+        return keys;
+    }
+
     // Renders a "Final dates" list: one row per final date, reusing the same
     // '.ww-best-bet-row'/-info/-date/-count/-dots/-dot styling as Best Bets. A single-day entry
     // shows one "N of M available" line; a range shows both the intersection ("every day") and
@@ -250,6 +265,7 @@
         computeTopDates: computeTopDates,
         renderBestBetsList: renderBestBetsList,
         computeFinalDateAvailability: computeFinalDateAvailability,
+        getFinalDateKeys: getFinalDateKeys,
         renderFinalDatesList: renderFinalDatesList
     };
 })(window);
