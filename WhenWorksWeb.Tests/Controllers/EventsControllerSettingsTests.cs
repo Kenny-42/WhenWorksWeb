@@ -310,8 +310,15 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         Assert.Equal("🎲", settings.Emoji);
     }
 
+    /// <summary>
+    /// Blanking a previously-real description is an explicit clear — stored as an empty string,
+    /// not null, so the Event Home page (see EventsController.EventPage.cs's
+    /// GetEventDescriptionAsync/ResolveHeaderDescription) can tell it apart from a description
+    /// that was simply never customized and hide the description card entirely instead of
+    /// falling back to the default placeholder text.
+    /// </summary>
     [Fact]
-    public async Task UpdateDetails_WithBlankDescription_ClearsDescriptionToNull()
+    public async Task UpdateDetails_ClearingAPreviouslySetDescription_StoresEmptyStringNotNull()
     {
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
         Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎉", Description = "Old description." });
@@ -320,7 +327,41 @@ public class EventsControllerSettingsTests : EventsControllerTestFixture
         await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", "   ", null);
 
         var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
+        Assert.Equal(string.Empty, settings.Description);
+    }
+
+    /// <summary>
+    /// Submitting a blank description when it was never customized (no prior EventSettings row)
+    /// leaves it null — not the empty-string "explicitly cleared" sentinel — since nothing was
+    /// actually cleared here; the Event Home page should keep showing the default text.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDetails_WithBlankDescriptionAndNoPriorSettingsRow_LeavesDescriptionNull()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", "   ", null);
+
+        var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
         Assert.Null(settings.Description);
+    }
+
+    /// <summary>
+    /// Submitting a blank description again once it's already the empty-string "explicitly
+    /// cleared" sentinel is a no-op — it stays empty, not null (which would wrongly bring the
+    /// default placeholder text back).
+    /// </summary>
+    [Fact]
+    public async Task UpdateDetails_WithBlankDescriptionAndAlreadyExplicitlyCleared_StaysEmptyString()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        Db.EventSettings.Add(new EventSettings { EventId = evt.Id, Emoji = "🎉", Description = string.Empty });
+        await Db.SaveChangesAsync();
+
+        await UpdateDetailsAsync(controller, "BCDFGH", "Trivia Night", "   ", null);
+
+        var settings = await Db.EventSettings.SingleAsync(s => s.EventId == evt.Id);
+        Assert.Equal(string.Empty, settings.Description);
     }
 
     [Fact]

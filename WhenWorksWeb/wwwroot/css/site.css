@@ -585,7 +585,11 @@ body {
 
   .navbar .nav-link.nav-link-account-toggle {
     display: flex;
-    width: 100%;
+    /* Same overshoot as the other stacked pills (see .navbar-collapse .nav-link further
+       down) and the same fix — subtracting both horizontal margins instead of a bare
+       "width: 100%" — needed here too since this rule's extra ".nav-link-account-toggle"
+       specificity otherwise wins over that shared rule for this property. */
+    width: calc(100% - 0.5rem);
     height: auto;
     justify-content: center;
     gap: 0.5rem;
@@ -674,7 +678,25 @@ body {
 
   .navbar-collapse .nav-link {
     display: block;
-    width: 100%;
+    /* "100% minus both horizontal margins" (0.25rem each, set on the base .navbar .nav-link
+       rule below), not a plain "width: 100%". A block box's "width: 100%" is measured
+       against the parent's content box and then has its own horizontal margins added on
+       *top* of that, so it overshoots the parent by one margin's width on the right (CSS
+       box-model basics: width and margin are independent unless width is auto). That
+       overshoot was invisible once the menu was fully open (nothing to clip it against —
+       .collapse.show is "overflow: visible"), but Bootstrap's .collapsing class (applied
+       only for the ~0.35s the menu is actually opening/closing) sets "overflow: hidden" for
+       the height animation, and clipping at the parent's edge sliced right through the
+       overshooting pill's rounded corner, squaring it off for that duration. Explicitly
+       subtracting the margins removes the overshoot outright, so there's nothing left to
+       clip regardless of the container's overflow state. Deliberately not left as implicit
+       "width: auto" instead (which arrives at the same number for a plain <a>) — a <button>
+       (the "New Event" pill's element, see the form.d-flex rule below) is a form control,
+       and Chromium still sizes it to fit its own content under "width: auto" even once
+       "display: block" is set, ignoring the parent's available width the way a plain <a>
+       or <div> would honor. Stating the width explicitly sidesteps that quirk uniformly for
+       every pill, rather than special-casing the one that's a <button>. */
+    width: calc(100% - 0.5rem);
     text-align: center;
     /* Roomier than the 0.15rem the pills carry in the horizontal desktop row — stacked
        full-width pills are only their margins apart, and the proximity glow reaches
@@ -682,6 +704,19 @@ body {
        landing on the labels above/below. */
     margin-top: 0.4rem;
     margin-bottom: 0.4rem;
+  }
+
+  /* "New Event" is the one pill that's a <button> inside its own <form class="d-flex">
+     rather than a bare <a>, so it's a flex item here, not a plain block. That matters:
+     a flex item with no explicit width sizes to fit its own content (here, just the
+     "+ New Event" label) rather than filling the available space the way an ordinary
+     block box with "width: auto" does — leaving it visibly narrower than the sibling
+     <a> pills. Forcing the form back to a plain block here removes it from flex layout
+     so the button follows the same block-sizing rules as its siblings and lines up with
+     them exactly. Needs !important to beat Bootstrap's own
+     ".d-flex { display: flex !important; }" utility. */
+  .navbar-collapse form.d-flex {
+    display: block !important;
   }
 }
 
@@ -1452,6 +1487,36 @@ body {
   background-repeat: no-repeat, no-repeat;
   background-position: center right 0.75rem, right center;
   background-size: 1rem 1rem, 2.5rem 100%;
+  /* Long display names (up to 16 chars, plus a possible " (you)" suffix on the Settings
+     demote picker) can outrun the pill's available width once the arrow well's fixed
+     3.25rem is subtracted — ellipsis this instead of letting the browser hard-clip
+     mid-character. The narrow-viewport font-size step below is the real fix (it keeps
+     names from needing to truncate at all in the common case); this is the fallback for
+     whatever still doesn't fit. */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Below the md breakpoint (html's own root font-size is still 17.5px here, not the 20px
+   it jumps to at 768px — see html's font-size rule near the top of this file) these
+   selects are often squeezed into a half-width column (.col-sm-6 on the Settings
+   promote/demote pair) or a card no wider than a phone screen. A step down in font-size
+   buys enough room for a full 16-char display name (plus " (you)") to fit next to the
+   arrow well without ellipsizing, on every .select-arrow-inset use sitewide (Settings'
+   organizer pickers, My Events' delete-participant picker, Sign-In's existing-participant
+   picker). */
+@media (max-width: 767.98px) {
+  .select-arrow-inset {
+    font-size: 0.85rem;
+  }
+
+  /* Restates .ww-signin-select-compact's own 0.8rem (site.css, "Shorter and smaller-text
+     than the other pills" above) so the step-down above doesn't nudge it back up —
+     same specificity, later in the cascade would otherwise win. */
+  .select-arrow-inset.ww-signin-select-compact {
+    font-size: 0.8rem;
+  }
 }
 
 .select-arrow-inset.input-pill-blue {
@@ -1906,27 +1971,42 @@ body {
 }
 
 .ww-myevent-footer {
-  margin-top: auto;
+  overflow: hidden; /* contains the float so this element's height grows around it */
+  /* Top/bottom breathing room: without it, overflow: hidden clips the buttons' own
+     hover/focus bounce and the last avatar row's resting box-shadow. */
+  padding-top: 0.75rem;
+  padding-bottom: 0.3rem;
 }
 
-/* Organizer avatar stack — one circle per current-user participant record on this
-   event, initial + that participant's own color. Wraps onto a new line rather than
-   overlapping once there isn't room for more on one row. */
+.ww-myevent-actions {
+  float: right;
+  align-items: center;
+  margin: 0 0 0.5rem 0.75rem;
+}
+
+/* display: flex makes this a block box that must avoid the float rather than wrap
+   around it (a plain inline-flow block tried that instead and kept breaking — how much
+   a *line* narrows beside a float depends on the float's exact height, which real
+   buttons/icons made unpredictable). Avoiding a float still uses a real, spec-defined
+   width: shrink-to-fit within whatever space is actually left over beside it — not the
+   fixed 2-column width an earlier version hardcoded. flex-wrap then packs as many
+   avatars as that width holds per row, wrapping the rest onto more rows below — sizing
+   in both directions off the real leftover space instead of a guessed column count. */
 .ww-myevent-avatars {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem;
-  max-width: 7rem;
+  gap: 0.35rem;
 }
 
+/* Organizer avatar stack — one circle per current-user participant record. No margin of
+   its own — .ww-myevent-avatars' own `gap` spaces the flex items now. */
 .ww-myevent-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.7rem;
   height: 1.7rem;
-  flex: none;
+  vertical-align: middle;
   border-radius: 50%;
   border: 2px solid #fff;
   background-color: var(--avatar-color, var(--color-accent-pink-fill));
@@ -3353,6 +3433,58 @@ label:has(+ .input-pill:disabled) {
   font-size: 0.85rem;
 }
 
+/* Event header's description card — same .ww-event-card surface, but shorter (tighter vertical
+   padding, since it's just a line or two of blurb) and centered at a smaller font size than
+   body copy, per the feature spec's "short, wide, centered, small text" call. Sits directly
+   under the title row, inside .ww-event-header-top, above the tab bar. */
+.ww-event-description-card {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+}
+
+/* Clamped to 2 lines by default — same clamp technique as .ww-myevent-description — with
+   .expanded (toggled by the "Read more" script above) lifting the clamp for the full text. */
+.ww-event-description-text {
+  color: var(--color-text-strong);
+  opacity: 0.8;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ww-event-description-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* Plain text-link styling, not a full pill — a quiet secondary action under the description
+   rather than a competing button. */
+.ww-event-description-toggle {
+  display: inline-block;
+  margin-top: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--color-accent-blue-border);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ww-event-description-toggle:hover,
+.ww-event-description-toggle:focus-visible {
+  color: var(--color-text-strong);
+}
+
 .ww-people-count-badge {
   flex: none;
   color: var(--color-brand-badge-fill);
@@ -3617,10 +3749,104 @@ label:has(+ .input-pill:disabled) {
   border: 2px solid rgba(255, 255, 255, 0.9);
 }
 
-/* Permanent marker for a date every participant has picked — the event's own emoji, centered
-   over the cell's wedge fill. Stays as long as the date stays fully picked (site.js adds/removes
-   it on every render, not just the moment it's completed); .ww-calendar-cell-celebrating (below)
-   is the one-off entrance animation that plays only at the moment it *becomes* complete. */
+/* Both a final (organizer-chosen) date and an "everyone's in" date get the same thicker-outline
+   treatment — light-at-rest/darker-on-hover, like the plain cell border above (#f7d9c5 at rest,
+   --color-accent-yellow-border on hover), just widened and each recolored to its own accent
+   (pink for final, the sitewide blue accent for complete — same pair the "Final dates" list rows
+   and .ww-organizers-card already use) so either reads as distinct without needing hover, without
+   looking flatly saturated the way an always-on darker border would. Each hover rule is declared
+   right after (and has the same specificity as) .ww-calendar-cell:hover above, so source order
+   alone lets it win without !important. border-width stays 4px in both states for both — the
+   thicker-than-usual outline is the point, not just a hover embellishment. A date can be both at
+   once (a final date everyone's also picked); the final outline/tooltip take priority there, so
+   Home.cshtml's updateCellCompletion never even applies .ww-calendar-cell-complete once a date
+   is final — this rule's own cascade order is never actually exercised for that overlap. */
+.ww-calendar-cell-complete {
+  border-width: 4px;
+  border-color: var(--color-accent-blue-fill);
+}
+
+.ww-calendar-cell-complete:hover:not(:disabled) {
+  border-color: var(--color-accent-blue-border);
+}
+
+.ww-calendar-cell-final {
+  border-width: 4px;
+  border-color: #f596cd;
+}
+
+.ww-calendar-cell-final:hover:not(:disabled) {
+  border-color: var(--color-brand-badge-fill);
+}
+
+/* "Great candidate!" / "Save the date!" popups — pure CSS hover/focus, same centered-above/
+   settle-into-place pattern as .ww-organizer-toggle-tooltip, each recolored to match the border
+   it describes above. The cell is already `position: relative` so these position directly
+   against it with no extra wrapper needed. */
+.ww-calendar-cell-complete-tooltip,
+.ww-calendar-cell-final-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 10rem;
+  background-color: rgba(255, 255, 255, 0.97);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-hard);
+  padding: 0.4rem 0.65rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--color-text-strong);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 5;
+}
+
+.ww-calendar-cell-complete-tooltip {
+  border: 2px solid var(--color-accent-blue-border);
+}
+
+.ww-calendar-cell-final-tooltip {
+  border: 2px solid var(--color-brand-badge-fill);
+}
+
+/* Little pointer connecting each popup back down to the date it describes. */
+.ww-calendar-cell-complete-tooltip::after,
+.ww-calendar-cell-final-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+}
+
+.ww-calendar-cell-complete-tooltip::after {
+  border-top-color: var(--color-accent-blue-border);
+}
+
+.ww-calendar-cell-final-tooltip::after {
+  border-top-color: var(--color-brand-badge-fill);
+}
+
+/* :focus-visible (not :focus-within — each tooltip is the button's own child, not a separate
+   focusable control) covers keyboard/touch the same way :hover covers mouse. */
+.ww-calendar-cell-complete:hover .ww-calendar-cell-complete-tooltip,
+.ww-calendar-cell-complete:focus-visible .ww-calendar-cell-complete-tooltip,
+.ww-calendar-cell-final:hover .ww-calendar-cell-final-tooltip,
+.ww-calendar-cell-final:focus-visible .ww-calendar-cell-final-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Permanent marker for a final (organizer-chosen) date — the event's own emoji, centered over
+   the cell's wedge fill. Set once when the cell is built (final dates don't change without a
+   full-page reload via Finalize, unlike the pink border above which toggles live). */
 .ww-calendar-cell-emoji {
   position: absolute;
   inset: 0;
@@ -3633,9 +3859,31 @@ label:has(+ .input-pill:disabled) {
   text-shadow: 0 1px 3px rgba(73, 18, 50, 0.35);
 }
 
+/* One-off entrance animation, played the moment a cell's availability *becomes* complete (see
+   celebrateDate in Home.cshtml) — the same confetti burst plus this same pop plays whether the
+   cell is a plain complete cell (nothing else here to animate, so just the cell itself bounces)
+   or a final date that just became complete too (its emoji marker gets its own extra pop on top,
+   below), so both cell types read as celebrating identically rather than the emoji cell getting a
+   flourish the plain one doesn't. */
 @media (prefers-reduced-motion: no-preference) {
+  .ww-calendar-cell-celebrating {
+    animation: ww-calendar-cell-pop 0.6s cubic-bezier(.28, 1.55, .4, 1);
+  }
+
   .ww-calendar-cell-celebrating .ww-calendar-cell-emoji {
     animation: ww-calendar-emoji-pop 0.6s cubic-bezier(.28, 1.55, .4, 1);
+  }
+}
+
+@keyframes ww-calendar-cell-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
@@ -3817,7 +4065,9 @@ label:has(+ .input-pill:disabled) {
 
 /* Wraps onto a second (third, ...) line, right-aligned, once more dots are picked for a date
    than fit on one line — so a busy date's dots cascade downward instead of overlapping the
-   date/count text beside them. */
+   date/count text beside them. Shared by every renderBestBetsList/renderFinalDatesList caller
+   (Home's plain Best Bets card, Settings' suggestion list, and the Finalize tab's final-date
+   rows), so the base rule stays proportional to its row rather than a fixed size. */
 .ww-best-bet-dots {
   display: flex;
   flex-wrap: wrap;
@@ -3826,6 +4076,20 @@ label:has(+ .input-pill:disabled) {
   gap: 0.3rem;
   flex: none;
   max-width: 40%;
+}
+
+/* On the Finalize tab specifically, this box sits nested inside .ww-final-date-row-trailing,
+   which has no width of its own (it's sized by its content, dots included) — a percentage width
+   here can't resolve against that and falls back to content-based sizing, so a row with fewer
+   dots got a narrower box, which drifted the whole dots/remove-button section left or right
+   relative to other final-date rows. An absolute width doesn't depend on any ancestor's size, so
+   every final-date row reserves identical space and the section lines up between rows/cards
+   regardless of dot count. Scoped to .ww-final-date-row-trailing only, so it doesn't affect the
+   plain Best Bets rows elsewhere that don't have this ancestor. Sized for ~5 dots per line at the
+   current dot size/gap — widen this if .ww-best-bet-dot's size or gap changes. */
+.ww-final-date-row-trailing .ww-best-bet-dots {
+  width: 6rem;
+  max-width: none;
 }
 
 .ww-best-bet-dot {

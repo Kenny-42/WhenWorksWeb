@@ -25,4 +25,12 @@ public sealed class EventHeaderViewModel
     /// Which tab is currently active, so the tab bar can highlight it.
     /// </summary>
     public required EventTab ActiveTab { get; init; }
+
+    /// <summary>
+    /// The event's description, rendered directly under the title on every tab. The default
+    /// placeholder text if it's never been customized, or null if an organizer explicitly cleared
+    /// it — in which case the card is hidden entirely rather than shown empty. See
+    /// <see cref="EventsController"/>'s <c>GetEventDescriptionAsync</c>/<c>ResolveHeaderDescription</c>.
+    /// </summary>
+    public string? Description { get; init; }
 }

@@ -45,6 +45,11 @@ public static class ModelConstants
     // that skip the Home page's name-entry form and create an event immediately.
     public const string DefaultEventTitle = "New Event";
 
+    // Shown in place of an event's description wherever one hasn't been customized yet (My
+    // Events cards, the Event Home description card). Distinct from an organizer explicitly
+    // clearing a previously-set description — see EventsController.Settings.cs's UpdateDetails.
+    public const string DefaultEventDescription = "A new plan is taking shape.";
+
     // The default color assigned to a user or participant when no custom color is provided.
     // Literal copy of --color-accent-pink-fill in wwwroot/css/site.css (that variable is the
     // single source of truth for this hue — it's the site's global "hot pink" accent used

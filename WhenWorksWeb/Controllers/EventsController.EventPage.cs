@@ -69,16 +69,52 @@ public partial class EventsController
     }
 
     /// <summary>
+    /// Loads the event's description for the shared page header's description card, queried on
+    /// its own (rather than reusing an already-loaded <see cref="EventSettings"/> row) for the
+    /// three tabs that don't otherwise load one. See <see cref="ResolveHeaderDescription"/> for
+    /// the null/empty-string meaning.
+    /// </summary>
+    private async Task<string?> GetEventDescriptionAsync(Event eventEntity, CancellationToken cancellationToken)
+    {
+        var description = await _db.EventSettings
+            .AsNoTracking()
+            .Where(s => s.EventId == eventEntity.Id)
+            .Select(s => s.Description)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return ResolveHeaderDescription(description);
+    }
+
+    /// <summary>
+    /// Resolves a raw <see cref="EventSettings.Description"/> value (or null, if no
+    /// <see cref="EventSettings"/> row exists yet) into what the header's description card should
+    /// render. Null (never customized) resolves to the default placeholder text. Empty string
+    /// means an organizer previously set a description and then explicitly cleared it (see
+    /// <c>UpdateDetails</c> in <c>EventsController.Settings.cs</c>) — that resolves to null here so
+    /// the caller hides the card entirely rather than falling back to the default text.
+    /// </summary>
+    private static string? ResolveHeaderDescription(string? rawDescription)
+    {
+        if (rawDescription is null)
+        {
+            return ModelConstants.DefaultEventDescription;
+        }
+
+        return rawDescription.Length == 0 ? null : rawDescription;
+    }
+
+    /// <summary>
     /// Builds the shared header/tab-bar view model rendered identically at the top of all three tabs.
     /// </summary>
-    private static EventHeaderViewModel BuildEventHeader(Event eventEntity, string emoji, EventTab activeTab)
+    private static EventHeaderViewModel BuildEventHeader(Event eventEntity, string emoji, EventTab activeTab, string? description = null)
     {
         return new EventHeaderViewModel
         {
             Code = eventEntity.Code,
             Title = eventEntity.Title,
             Emoji = emoji,
-            ActiveTab = activeTab
+            ActiveTab = activeTab,
+            Description = description
         };
     }
 

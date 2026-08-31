@@ -21,9 +21,6 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
     /// <summary>The number of events displayed per page on the My Events list.</summary>
     private const int PageSize = 6;
 
-    /// <summary>Shown in place of an event's description when the organizer hasn't set one.</summary>
-    private const string DefaultEventDescription = "A new plan is taking shape.";
-
     /// <summary>
     /// This action retrieves one page of the events the current user has joined or created and displays them on the
     /// My Events page. The events are ordered by most recently updated (LastActiveAt, which is set to the creation
@@ -108,7 +105,7 @@ public class MyEventsController(ApplicationDbContext db, UserManager<Application
                 Code = myEvent.Code,
                 Title = myEvent.Title,
                 Emoji = myEvent.Emoji,
-                Description = string.IsNullOrWhiteSpace(myEvent.Description) ? DefaultEventDescription : myEvent.Description,
+                Description = string.IsNullOrWhiteSpace(myEvent.Description) ? ModelConstants.DefaultEventDescription : myEvent.Description,
                 TotalParticipantCount = myEvent.TotalParticipantCount,
                 SignInUrl = Url.RouteUrl("EventSignIn", new { code = myEvent.Code }) ?? string.Empty
             })

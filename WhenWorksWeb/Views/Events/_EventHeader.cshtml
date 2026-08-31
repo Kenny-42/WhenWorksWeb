@@ -34,6 +34,21 @@
                scaleAdjacentEmoji, which sizes both this and the real emoji identically. *@
             <span class="ww-event-title-emoji ww-event-title-emoji-spacer" aria-hidden="true">@Model.Emoji</span>
         </div>
+
+        @if (Model.Description is not null)
+        {
+            <!-- Short, wide, centered description card, shown on every tab; hidden entirely
+                 rather than shown empty when an organizer has explicitly cleared the description
+                 (see GetEventDescriptionAsync/ResolveHeaderDescription). Clamped to 2 lines with
+                 a "Read more" toggle for longer text (up to EventDescriptionMaxLength/1000 chars)
+                 so a long description can't push the tab bar/calendar further down the page —
+                 the toggle button itself starts hidden and is only revealed by the script below
+                 once it's confirmed the text actually overflows 2 lines. -->
+            <div class="ww-event-card ww-event-description-card">
+                <p class="ww-event-description-text mb-0">@Model.Description</p>
+                <button type="button" class="ww-event-description-toggle d-none" aria-expanded="false">Read more</button>
+            </div>
+        }
     </div>
 
     <nav class="ww-event-tabs" aria-label="Event sections">
@@ -93,6 +108,48 @@
                 // Clipboard access can be denied by the browser/OS — silently no-op rather than
                 // surfacing a broken-looking error for a purely convenience feature.
             });
+        });
+    })();
+</script>
+
+@* "Read more"/"Read less" for the description card above — only shown once the 2-line clamp
+   has actually cut the text off (scrollHeight > clientHeight), so a short description never
+   shows a toggle it doesn't need. Same guarded-wiring pattern as the copy-button script above. *@
+<script>
+    (function () {
+        if (window.__wwEventDescriptionToggleWired) {
+            return;
+        }
+        window.__wwEventDescriptionToggleWired = true;
+
+        function revealToggleIfClamped(card) {
+            const text = card.querySelector('.ww-event-description-text');
+            const toggle = card.querySelector('.ww-event-description-toggle');
+            if (!text || !toggle) {
+                return;
+            }
+
+            if (text.scrollHeight > text.clientHeight + 1) {
+                toggle.classList.remove('d-none');
+            }
+        }
+
+        document.querySelectorAll('.ww-event-description-card').forEach(revealToggleIfClamped);
+
+        document.addEventListener('click', function (event) {
+            const toggle = event.target.closest('.ww-event-description-toggle');
+            if (!toggle) {
+                return;
+            }
+
+            const text = toggle.closest('.ww-event-description-card')?.querySelector('.ww-event-description-text');
+            if (!text) {
+                return;
+            }
+
+            const expanded = text.classList.toggle('expanded');
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            toggle.textContent = expanded ? 'Read less' : 'Read more';
         });
     })();
 </script>
