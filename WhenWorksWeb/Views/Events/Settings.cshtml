@@ -95,7 +95,7 @@
             <div class="row g-3 mb-4">
                 <!-- Promote dropdown + inline confirm — no modal, per the feature spec's UX call. -->
                 <div class="col-12 col-sm-6">
-                    <label for="ww-organizer-promote-select" class="ww-settings-label">Promote to organizer</label>
+                    <label for="@(Model.PromotableParticipants.Count > 0 ? "ww-organizer-promote-select" : null)" class="ww-settings-label">Promote to organizer</label>
                     @if (Model.PromotableParticipants.Count > 0)
                     {
                         <form asp-route="EventPromoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-promote-form">
@@ -124,7 +124,7 @@
                      tab/organizer promoting or demoting someone in the meantime could otherwise
                      make a stale count wrongly show (or wrongly skip) the warning. -->
                 <div class="col-12 col-sm-6">
-                    <label for="ww-organizer-demote-select" class="ww-settings-label">Demote to participant</label>
+                    <label for="@(Model.Organizers.Count > 0 ? "ww-organizer-demote-select" : null)" class="ww-settings-label">Demote to participant</label>
                     @if (Model.Organizers.Count > 0)
                     {
                         <form asp-route="EventDemoteOrganizer" asp-route-code="@Model.Header.Code" method="post" class="ww-organizer-action-form" id="ww-organizer-demote-form" data-organizer-count-url="@Url.RouteUrl("EventOrganizerCount", new { code = Model.Header.Code })">

@@ -307,9 +307,11 @@
             // and accessible-label suffix. Called on every render (initial paint, month
             // navigation, and after each toggle) so it always matches the date's current pick
             // state — not just the moment it was first completed (see celebrateDate for that
-            // one-off pop+confetti animation).
+            // one-off pop+confetti animation). A final date's own outline/tooltip take priority:
+            // once a "Great candidate!" date is finalized, the complete treatment is suppressed
+            // entirely rather than left to compete with the final one for the same cell.
             function updateCellCompletion(cell, participantIds) {
-                var complete = isDateComplete(participantIds);
+                var complete = isDateComplete(participantIds) && !cell.classList.contains('ww-calendar-cell-final');
                 cell.classList.toggle('ww-calendar-cell-complete', complete);
                 cell.setAttribute('aria-label', cell.dataset.baseLabel + (complete ? ' — Great candidate!' : ''));
 

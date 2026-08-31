@@ -3758,7 +3758,9 @@ label:has(+ .input-pill:disabled) {
    right after (and has the same specificity as) .ww-calendar-cell:hover above, so source order
    alone lets it win without !important. border-width stays 4px in both states for both — the
    thicker-than-usual outline is the point, not just a hover embellishment. A date can be both at
-   once (a final date everyone's also picked); the final pink wins simply by being declared last. */
+   once (a final date everyone's also picked); the final outline/tooltip take priority there, so
+   Home.cshtml's updateCellCompletion never even applies .ww-calendar-cell-complete once a date
+   is final — this rule's own cascade order is never actually exercised for that overlap. */
 .ww-calendar-cell-complete {
   border-width: 4px;
   border-color: var(--color-accent-blue-fill);
@@ -4063,14 +4065,9 @@ label:has(+ .input-pill:disabled) {
 
 /* Wraps onto a second (third, ...) line, right-aligned, once more dots are picked for a date
    than fit on one line — so a busy date's dots cascade downward instead of overlapping the
-   date/count text beside them. Fixed rem `width`, not a percentage: on the Finalize tab this box
-   sits nested inside .ww-final-date-row-trailing, which has no width of its own (it's sized by its
-   content, dots included) — a percentage width here can't resolve against that and falls back to
-   content-based sizing, so a row with fewer dots got a narrower box, which drifted the whole
-   dots/remove-button section left or right relative to other final-date rows. An absolute width
-   doesn't depend on any ancestor's size, so every row reserves identical space and the section
-   lines up between rows/cards regardless of dot count. Sized for ~5 dots per line at the current
-   dot size/gap — widen this if .ww-best-bet-dot's size or gap changes. */
+   date/count text beside them. Shared by every renderBestBetsList/renderFinalDatesList caller
+   (Home's plain Best Bets card, Settings' suggestion list, and the Finalize tab's final-date
+   rows), so the base rule stays proportional to its row rather than a fixed size. */
 .ww-best-bet-dots {
   display: flex;
   flex-wrap: wrap;
@@ -4078,7 +4075,21 @@ label:has(+ .input-pill:disabled) {
   align-content: flex-start;
   gap: 0.3rem;
   flex: none;
+  max-width: 40%;
+}
+
+/* On the Finalize tab specifically, this box sits nested inside .ww-final-date-row-trailing,
+   which has no width of its own (it's sized by its content, dots included) — a percentage width
+   here can't resolve against that and falls back to content-based sizing, so a row with fewer
+   dots got a narrower box, which drifted the whole dots/remove-button section left or right
+   relative to other final-date rows. An absolute width doesn't depend on any ancestor's size, so
+   every final-date row reserves identical space and the section lines up between rows/cards
+   regardless of dot count. Scoped to .ww-final-date-row-trailing only, so it doesn't affect the
+   plain Best Bets rows elsewhere that don't have this ancestor. Sized for ~5 dots per line at the
+   current dot size/gap — widen this if .ww-best-bet-dot's size or gap changes. */
+.ww-final-date-row-trailing .ww-best-bet-dots {
   width: 6rem;
+  max-width: none;
 }
 
 .ww-best-bet-dot {
