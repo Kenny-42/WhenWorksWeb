@@ -1,62 +1,77 @@
-# WhenWorks Website
+# WhenWorks
 
-WhenWorks is a web application designed to help groups coordinate availability for events. Users can create or join an event, mark their availability on a shared calendar, and communicate through an integrated chat feature.
-
----
-
-## Live Demo
-
-Try out the current version of the application here: [https://whenworks.azurewebsites.net/](https://whenworks.azurewebsites.net/)
+WhenWorks is a web application that helps groups coordinate availability for events. Create an event, share the code, and everyone marks the dates that work for them on a shared calendar — no account required to join.
 
 ---
 
 ## Implemented Features
 
 - **Event Creation and Access**
-  - Create a new event
-  - Join an existing event using a generated event code
+  - Create a new event and get a shareable event code
+  - Join an existing event using that code
 
-- **Participant Sign‑In**
+- **Participant Sign-In**
   - Enter a new display name or select an existing participant
-  - Choose a personal color for calendar selections
+  - Choose a personal color used for your calendar selections
+
+- **Availability Calendar**
+  - Click dates to toggle your own availability
+  - Each participant's selections appear in their chosen color
+  - Best-bets ranking surfaces the dates with the most availability
+
+- **Finalize**
+  - "Call the date" suggestions drawn from the availability calendar
+  - Organizers can lock in one or more final dates for the event
+
+- **People**
+  - Paginated participant roster, organizers listed first, then alphabetically
+
+- **Organizer Permissions**
+  - Promote or demote organizers
+  - Grant/revoke an organizer's ability to manage other organizers
+  - Safeguards against demoting the last remaining organizer
+
+- **Event Settings**
+  - Edit the event's title, description, and emoji
+  - Delete the event
 
 - **My Events Page**
-  - View a list of events the user has joined
-  - Access (enter) previously joined events
-  - Delete events the user has joined
+  - View every event you've joined
+  - Jump back into an event or delete it from your list
 
 ---
 
 ## Planned Features
 
-- **Availability Calendar**
-  - Click dates to indicate availability
-  - Each participant’s selections appear in their chosen color
-  - Event code displayed for easy sharing
-
-- **Event Options**
-  - Rename the event
-  - Change the event emoji
-  - Additional configuration options planned
-
 - **Chat System**
-  - Send and view messages within the event
+  - Send and view messages within an event
 
 ---
 
-
 ## Gallery
 
-*Screenshots of the application in action for a logged-in user:*
+*Screenshots of the application in action:*
 
 *Event creation and landing page*
-<img width="2558" height="1232" alt="image" src="https://github.com/user-attachments/assets/0dc62e5d-5b41-4270-8783-9731621ed117" />
- 
-*Event sign in page*
-<img width="2555" height="1235" alt="image" src="https://github.com/user-attachments/assets/5a0b75a4-e05f-464b-8c1b-743e497ef717" />
+![Home page](docs/images/home.png)
 
-*User dashboard showing joined events*
-<img width="2557" height="1231" alt="image" src="https://github.com/user-attachments/assets/077155a3-d3fc-4bcf-86d5-b0d4b094e489" />
+*Event sign-in page*
+![Event sign-in page](docs/images/signin.png)
+
+*Availability calendar*
+![Availability calendar](docs/images/availability.png)
+
+*Finalize tab*
+![Finalize tab](docs/images/finalize.png)
+
+*People roster*
+![People roster](docs/images/people.png)
+
+*Event settings*
+![Event settings](docs/images/settings.png)
+
+*My Events dashboard*
+![My Events dashboard](docs/images/myevents.png)
 
 ---
 
@@ -64,11 +79,39 @@ Try out the current version of the application here: [https://whenworks.azureweb
 
 | Area | Technology |
 |------|------------|
-| Frontend | HTML5, CSS, JavaScript |
-| Backend | C# with ASP.NET Core |
-| Authentication | Identity Framework |
-| Version Control | Git & GitHub |
+| Backend | C# with ASP.NET Core MVC (.NET 10) |
+| Frontend | Razor views, Bootstrap 5, vanilla JavaScript |
+| Data Access | Entity Framework Core (code-first) |
+| Authentication | ASP.NET Core Identity |
 | Database | SQL Server |
+| Version Control | Git & GitHub |
+
+---
+
+## Running Locally
+
+**Prerequisites**
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- SQL Server — LocalDB (bundled with Visual Studio) works out of the box; a full SQL Server instance works too, just update the connection string
+- The EF Core CLI tools, if you don't already have them: `dotnet tool install --global dotnet-ef`
+
+**Steps**
+
+```bash
+# Clone the repo
+git clone https://github.com/Kenny-42/WhenWorksWeb
+cd WhenWorksWeb/WhenWorksWeb
+
+# Apply database migrations (creates the local database)
+dotnet ef database update
+
+# Run the app
+dotnet run
+```
+
+The app starts on the URL printed in the console (see `Properties/launchSettings.json`). Open it in a browser to create or join an event — no account is required to try the core flow; registering an account is only needed to use the My Events dashboard.
+
+If you're not on Windows or don't have LocalDB, update the `DefaultConnection` string in `appsettings.json` (or `appsettings.Development.json`) to point at your own SQL Server instance before running the migration.
 
 ---
 
