@@ -37,6 +37,9 @@ builder.Services.AddScoped<DevelopmentDataSeeder>();
 // Register the EventDateCleanupService as a scoped service, so both EventsController and
 // MyEventsController can remove now-empty candidate dates after an availability mark is removed.
 builder.Services.AddScoped<EventDateCleanupService>();
+// Registered as a singleton (unlike the scoped services above) since it holds no per-request
+// state -- see its own remarks for why that's safe.
+builder.Services.AddSingleton<TimeZoneOptionsProvider>();
 
 builder.Services.AddControllersWithViews();
 
