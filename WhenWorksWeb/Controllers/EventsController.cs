@@ -54,6 +54,12 @@ public partial class EventsController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
 
     /// <summary>
+    /// Builds the grouped IANA timezone option list for the event timezone picker, and validates a
+    /// submitted timezone id.
+    /// </summary>
+    private readonly TimeZoneOptionsProvider _timeZoneOptionsProvider;
+
+    /// <summary>
     /// Provides data protection services for event access operations.
     /// </summary>
     /// <remarks>This field is used to secure sensitive event-related data, such as tokens or identifiers, by
@@ -77,13 +83,15 @@ public partial class EventsController : Controller
         EventDateCleanupService eventDateCleanup,
         IHubContext<EventHub> hub,
         UserManager<ApplicationUser> userManager,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        TimeZoneOptionsProvider timeZoneOptionsProvider)
     {
         _db = db;
         _codeGenerator = codeGenerator;
         _eventDateCleanup = eventDateCleanup;
         _hub = hub;
         _userManager = userManager;
+        _timeZoneOptionsProvider = timeZoneOptionsProvider;
         // Create a data protector specifically for event access operations, using a unique purpose string to ensure that the
         // protected data is isolated from other uses of data protection in the application.
         _eventAccessProtector = dataProtectionProvider.CreateProtector("WhenWorksWeb.EventAccess");
@@ -119,8 +127,16 @@ public partial class EventsController : Controller
 
         // Generate a unique event code using the code generator service.
         var code = await _codeGenerator.GenerateUniqueEventCodeAsync(cancellationToken);
+
+        // The submitted id came from the browser's own Intl API (see IndexViewModel.TimeZoneId's
+        // doc comment) rather than the picker's fixed option list, so it's checked against the same
+        // real-timezone validity as a picker-driven update instead of trusted outright; an absent
+        // or invalid value (no JS detection step, or detection failed) falls back to UTC, same as
+        // Event.Create's own default when null is passed through.
+        var timeZoneId = _timeZoneOptionsProvider.IsValidTimeZoneId(model.TimeZoneId) ? model.TimeZoneId : null;
+
         // Create a new Event entity using the generated code and the provided event name from the model.
-        var eventEntity = Event.Create(code, model.CreateEventName!, currentUser?.Id);
+        var eventEntity = Event.Create(code, model.CreateEventName!, currentUser?.Id, timeZoneId);
 
         // Add the new event entity to the database context and save changes to persist it in the database.
         _db.Events.Add(eventEntity);

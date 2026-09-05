@@ -46,7 +46,9 @@ public partial class EventsController
         {
             Header = BuildEventHeader(eventEntity, emoji, EventTab.Availability, description),
             Calendar = calendar,
-            CanManageEvent = canManageEvent
+            CanManageEvent = canManageEvent,
+            CurrentTimeZoneId = eventEntity.TimeZoneId,
+            TimeZoneGroups = _timeZoneOptionsProvider.GetGroupedOptions()
         });
     }
 
@@ -72,7 +74,7 @@ public partial class EventsController
 
         var (dates, finalDates) = await BuildEventCalendarDatesAsync(eventEntity, cancellationToken);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = ResolveEventLocalToday(eventEntity);
         var initialMonth = new DateOnly(today.Year, today.Month, 1);
 
         return new EventCalendarViewModel

@@ -19,7 +19,21 @@ public sealed class EventHomeViewModel
     /// <summary>
     /// Whether the current participant can manage this event (edit details, manage final dates,
     /// delete the event) — see the Organizer Permission Model section of the spec. Drives whether
-    /// the live "Final dates" card's "Choose another date" link is shown.
+    /// the live "Final dates" card's "Choose another date" link is shown, and whether the calendar
+    /// card header's timezone picker is enabled (shown either way, since every participant should
+    /// see what zone the calendar reflects — see the event-timezone feature spec).
     /// </summary>
     public required bool CanManageEvent { get; init; }
+
+    /// <summary>
+    /// The event's current IANA timezone id, preselected in the calendar card header's timezone
+    /// picker.
+    /// </summary>
+    public required string CurrentTimeZoneId { get; init; }
+
+    /// <summary>
+    /// The full grouped, offset-sorted IANA zone list for the timezone picker's <c>&lt;select&gt;</c>
+    /// — see <see cref="Services.TimeZoneOptionsProvider.GetGroupedOptions"/>.
+    /// </summary>
+    public required IReadOnlyList<TimeZoneGroupViewModel> TimeZoneGroups { get; init; }
 }

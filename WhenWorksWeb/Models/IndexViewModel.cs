@@ -25,4 +25,16 @@ public sealed class IndexViewModel
     [RegularExpression(ModelConstants.EventCodePattern,
         ErrorMessage = "Event code must be alphanumeric (excluding A,E,I,L,O,U,0,1).")]
     public string? EventCode { get; set; }
+
+    /// <summary>
+    /// The organizer's browser-detected IANA timezone id (<c>Intl.DateTimeFormat().resolvedOptions().timeZone</c>),
+    /// prefilled into a hidden field by <c>Views/Home/Index.cshtml</c>'s script before the Create
+    /// form submits. Null for a quick "New Event" submit that has no JS detection step (My Events
+    /// page, navbar), and for any value that turns out not to be a real timezone id — either way,
+    /// <c>EventsController.Create</c> falls back to <see cref="ModelConstants.DefaultEventTimeZoneId"/>.
+    /// Deliberately unvalidated here (no <see cref="RequiredAttribute"/>/<see cref="StringLengthAttribute"/>)
+    /// since a missing/malformed value is an expected, silently-handled case, not a form error to
+    /// surface to the user.
+    /// </summary>
+    public string? TimeZoneId { get; set; }
 }

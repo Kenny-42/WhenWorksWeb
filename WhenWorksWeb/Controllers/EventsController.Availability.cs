@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Controllers;
 
@@ -58,15 +59,16 @@ public partial class EventsController
         // convenience only — this is the actual, server-enforced boundary, since nothing stops a
         // request from being sent directly with an arbitrary date. Shared with AddFinalDate in
         // EventsController.FinalDate.cs via ModelConstants.UserSuppliedDateBoundYears.
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = ResolveEventLocalToday(eventEntity);
         if (day < today.AddYears(-ModelConstants.UserSuppliedDateBoundYears) || day > today.AddYears(ModelConstants.UserSuppliedDateBoundYears))
         {
             return BadRequest();
         }
 
-        // Calendar days are identified by UTC midnight regardless of the server's or any
-        // participant's local timezone — a deliberate simplification, since EventDate.Date carries
-        // no time-of-day meaning anywhere else in the app yet.
+        // Calendar days are always stored as UTC midnight, regardless of the event's TimeZoneId —
+        // that id is a display/interpretation lens only (which local day a stored value represents,
+        // and where "today" above rolls over), not a storage format; EventDate.Date carries no
+        // time-of-day meaning anywhere else in the app yet. See the event-timezone feature spec.
         var utcDate = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
         var participantIds = await ToggleAvailabilityMarkAsync(eventEntity.Id, participant.Id, utcDate, cancellationToken);
@@ -200,5 +202,50 @@ public partial class EventsController
         // beyond ordinary concurrent-click contention, so let it surface as a 500 instead of
         // looping forever.
         throw new InvalidOperationException($"Failed to create availability for event {eventId} after {maxAttempts} attempts.");
+    }
+
+    /// <summary>
+    /// Updates the event's <see cref="Event.TimeZoneId"/> — the Availability tab calendar card
+    /// header's timezone picker. Organizer-gated the same as the Settings tab's mutations (see
+    /// <see cref="AuthorizeEventActionAsync"/>), even though the control itself lives on this tab.
+    /// This only relabels which zone <see cref="EventDate.Date"/>'s stored UTC-midnight values are
+    /// read in — it never moves any existing candidate date (see the feature spec's Design
+    /// Decisions), which is why there's no confirmation/staleness check here beyond the client's own
+    /// plain-language confirmation dialog before submit.
+    /// </summary>
+    [HttpPost("/event/{code}/availability/timezone", Name = "EventUpdateTimeZone")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateTimeZone(string code, EventUpdateTimeZoneViewModel model, CancellationToken cancellationToken)
+    {
+        var (context, failure) = await AuthorizeEventActionAsync(code, CanManageEventAsync, cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var (eventEntity, participant) = context!.Value;
+
+        if (!TryValidateModel(model) || !_timeZoneOptionsProvider.IsValidTimeZoneId(model.TimeZoneId))
+        {
+            ModelState.AddModelError(nameof(EventUpdateTimeZoneViewModel.TimeZoneId), "Choose a valid timezone.");
+            var emoji = await GetEventEmojiAsync(eventEntity, cancellationToken);
+            var description = await GetEventDescriptionAsync(eventEntity, cancellationToken);
+            var calendar = await BuildEventCalendarAsync(eventEntity, participant, cancellationToken);
+
+            return View("Home", new EventHomeViewModel
+            {
+                Header = BuildEventHeader(eventEntity, emoji, EventTab.Availability, description),
+                Calendar = calendar,
+                CanManageEvent = true,
+                CurrentTimeZoneId = eventEntity.TimeZoneId,
+                TimeZoneGroups = _timeZoneOptionsProvider.GetGroupedOptions()
+            });
+        }
+
+        eventEntity.TimeZoneId = model.TimeZoneId;
+        eventEntity.LastActiveAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return RedirectToRoute("EventHome", new { code = eventEntity.Code });
     }
 }

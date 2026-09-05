@@ -104,6 +104,26 @@ public partial class EventsController
     }
 
     /// <summary>
+    /// Resolves <paramref name="eventEntity"/>'s current local calendar day per its
+    /// <see cref="Event.TimeZoneId"/> -- the shared "today" used by the Availability tab's
+    /// month-paging window (<c>EventsController.Home.cs</c>) and the boundary check on a directly
+    /// posted date (<c>ToggleAvailability</c> in <c>EventsController.Availability.cs</c>), replacing
+    /// the previous <c>DateTime.UtcNow</c>-only calculation those shared before this event-timezone
+    /// feature. Falls back to UTC if the stored id somehow doesn't resolve (it's validated against
+    /// <see cref="TimeZoneOptionsProvider.IsValidTimeZoneId"/> before ever being saved, so this is a
+    /// defensive fallback rather than an expected path -- e.g. an OS/ICU zone database update
+    /// removing an id already in use).
+    /// </summary>
+    private static DateOnly ResolveEventLocalToday(Event eventEntity)
+    {
+        var timeZone = TimeZoneInfo.TryFindSystemTimeZoneById(eventEntity.TimeZoneId, out var found)
+            ? found
+            : TimeZoneInfo.Utc;
+
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).Date);
+    }
+
+    /// <summary>
     /// Builds the shared header/tab-bar view model rendered identically at the top of all three tabs.
     /// </summary>
     private static EventHeaderViewModel BuildEventHeader(Event eventEntity, string emoji, EventTab activeTab, string? description = null)
