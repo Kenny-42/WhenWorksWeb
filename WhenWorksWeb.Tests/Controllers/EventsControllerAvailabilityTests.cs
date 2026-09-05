@@ -384,4 +384,165 @@ public class EventsControllerAvailabilityTests : EventsControllerTestFixture
         HubClients.Received(1).GroupExcept(EventHub.GroupName("BCDFGH"), Arg.Is<IReadOnlyList<string>>(ids => ids.Count == 0));
         Assert.NotNull(GetLastBroadcast(HubClientProxy));
     }
+
+    // ---- UpdateTimeZone (the calendar card header's timezone picker) ----
+
+    private static Task<IActionResult> UpdateTimeZoneAsync(EventsController controller, string code, string timeZoneId)
+        => controller.UpdateTimeZone(code, new EventUpdateTimeZoneViewModel { TimeZoneId = timeZoneId }, CancellationToken.None);
+
+    [Fact]
+    public async Task UpdateTimeZone_WithNonExistentEventCode_ReturnsEventNotFoundView()
+    {
+        var (controller, _) = CreateController();
+
+        var result = await UpdateTimeZoneAsync(controller, "ZZZZZZ", "America/New_York");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("~/Views/Shared/Error.cshtml", viewResult.ViewName);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithNoAccessCookie_RedirectsToSignIn()
+    {
+        await CreateEventAsync();
+        var (controller, _) = CreateController();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "America/New_York");
+
+        var redirect = Assert.IsType<RedirectToRouteResult>(result);
+        Assert.Equal("EventSignIn", redirect.RouteName);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WhenNotOrganizerAndAnotherOrganizerExists_ReturnsForbidAndDoesNotSave()
+    {
+        var evt = await CreateEventAsync();
+        var (organizer, _) = await SignInParticipantAsync(evt, "Organizer", "111111");
+        organizer.IsOrganizer = true;
+        await Db.SaveChangesAsync();
+
+        var (_, controller) = await SignInParticipantAsync(evt, "Alice", "ff66c4");
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "America/New_York");
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.Equal("UTC", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithSoleParticipantAndNoOrganizer_FallsOpenAndSucceeds()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "America/New_York");
+
+        Assert.IsType<RedirectToRouteResult>(result);
+        Assert.Equal("America/New_York", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithValidId_UpdatesTimeZoneIdAndLastActiveAtAndRedirectsToEventHome()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var lastActiveBefore = evt.LastActiveAt;
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "Europe/London");
+
+        var redirect = Assert.IsType<RedirectToRouteResult>(result);
+        Assert.Equal("EventHome", redirect.RouteName);
+        Assert.Equal("BCDFGH", redirect.RouteValues!["code"]);
+
+        var updated = await Db.Events.SingleAsync(e => e.Id == evt.Id);
+        Assert.Equal("Europe/London", updated.TimeZoneId);
+        Assert.True(updated.LastActiveAt > lastActiveBefore);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithEmptyId_ReturnsHomeViewWithModelErrorAndDoesNotSave()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Home", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal("UTC", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    /// <summary>
+    /// The regression case behind the IsValidTimeZoneId fix: a resolvable-but-non-IANA (Windows
+    /// style) id must be rejected here even though the BCL itself would resolve it, since
+    /// <see cref="Event.TimeZoneId"/> commits to storing IANA ids only.
+    /// </summary>
+    [Fact]
+    public async Task UpdateTimeZone_WithWindowsStyleId_ReturnsHomeViewWithModelErrorAndDoesNotSave()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "Eastern Standard Time");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Home", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal("UTC", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithGarbageId_ReturnsHomeViewWithModelErrorAndDoesNotSave()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "Not/A/Real/Zone");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Home", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal("UTC", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_WithIdOverMaxLength_ReturnsHomeViewWithModelErrorAndDoesNotSave()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var tooLong = "America/" + new string('a', WhenWorksWeb.Common.ModelConstants.EventTimeZoneIdMaxLength);
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", tooLong);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Home", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal("UTC", (await Db.Events.SingleAsync(e => e.Id == evt.Id)).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task UpdateTimeZone_OnFailure_RedisplaysHomeViewWithCurrentTimeZoneAndGroupedOptions()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        var result = await UpdateTimeZoneAsync(controller, "BCDFGH", "");
+
+        var model = Assert.IsType<EventHomeViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(evt.TimeZoneId, model.CurrentTimeZoneId);
+        Assert.NotEmpty(model.TimeZoneGroups);
+        Assert.True(model.CanManageEvent);
+    }
+
+    /// <summary>
+    /// This only relabels which zone existing <see cref="EventDate.Date"/> rows are read in — it
+    /// never moves/renames candidate dates already marked (see the feature spec's Design Decisions).
+    /// </summary>
+    [Fact]
+    public async Task UpdateTimeZone_WithExistingCandidateDates_DoesNotAlterThem()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        await controller.ToggleAvailability("BCDFGH", "2026-08-28", CancellationToken.None);
+        var eventDateBefore = await Db.EventDates.SingleAsync(d => d.EventId == evt.Id);
+
+        await UpdateTimeZoneAsync(controller, "BCDFGH", "Asia/Tokyo");
+
+        var eventDateAfter = await Db.EventDates.SingleAsync(d => d.EventId == evt.Id);
+        Assert.Equal(eventDateBefore.Date, eventDateAfter.Date);
+        Assert.Equal(eventDateBefore.Id, eventDateAfter.Id);
+    }
 }

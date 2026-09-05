@@ -47,6 +47,49 @@ public class EventsControllerTests : EventsControllerTestFixture
         Assert.Equal("Trimmed Title", savedEvent.Title);
     }
 
+    // ---- Create's browser-detected TimeZoneId (see IndexViewModel.TimeZoneId) ----
+
+    [Fact]
+    public async Task Create_WithValidBrowserDetectedTimeZoneId_UsesIt()
+    {
+        var (controller, _) = CreateController();
+        var model = new IndexViewModel { CreateEventName = "Board Game Night", TimeZoneId = "America/New_York" };
+
+        await controller.Create(model, CancellationToken.None);
+
+        Assert.Equal("America/New_York", Assert.Single(Db.Events).TimeZoneId);
+    }
+
+    [Fact]
+    public async Task Create_WithNullTimeZoneId_FallsBackToDefault()
+    {
+        var (controller, _) = CreateController();
+        var model = new IndexViewModel { CreateEventName = "Board Game Night", TimeZoneId = null };
+
+        await controller.Create(model, CancellationToken.None);
+
+        Assert.Equal("UTC", Assert.Single(Db.Events).TimeZoneId);
+    }
+
+    /// <summary>
+    /// The regression case behind the IsValidTimeZoneId fix: a resolvable-but-non-IANA (Windows
+    /// style) id from a browser that somehow reported one is rejected, same as a garbage string —
+    /// both fall back to the default rather than being stored as-is.
+    /// </summary>
+    [Theory]
+    [InlineData("Eastern Standard Time")]
+    [InlineData("Not/A/Real/Zone")]
+    [InlineData("")]
+    public async Task Create_WithInvalidTimeZoneId_FallsBackToDefault(string invalidTimeZoneId)
+    {
+        var (controller, _) = CreateController();
+        var model = new IndexViewModel { CreateEventName = "Board Game Night", TimeZoneId = invalidTimeZoneId };
+
+        await controller.Create(model, CancellationToken.None);
+
+        Assert.Equal("UTC", Assert.Single(Db.Events).TimeZoneId);
+    }
+
     /// <summary>
     /// An empty event name should fail validation and redisplay the Home/Index form without saving anything.
     /// </summary>
