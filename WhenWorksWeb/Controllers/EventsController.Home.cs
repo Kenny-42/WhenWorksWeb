@@ -70,6 +70,32 @@ public partial class EventsController
             })
             .ToListAsync(cancellationToken);
 
+        var (dates, finalDates) = await BuildEventCalendarDatesAsync(eventEntity, cancellationToken);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var initialMonth = new DateOnly(today.Year, today.Month, 1);
+
+        return new EventCalendarViewModel
+        {
+            InitialMonth = initialMonth,
+            WindowStartMonth = initialMonth.AddMonths(-CalendarMonthsBeforeToday),
+            WindowEndMonth = initialMonth.AddMonths(CalendarMonthsAfterToday),
+            CurrentParticipantId = currentParticipant.Id,
+            Participants = participants,
+            Dates = dates,
+            FinalDates = finalDates
+        };
+    }
+
+    /// <summary>
+    /// Queries just the candidate dates (with their availability marks) and final dates for an
+    /// event — the live-sync-able slice of <see cref="BuildEventCalendarAsync"/>'s data, factored
+    /// out so both it and <see cref="CalendarSnapshot"/> (the reconnect catch-up endpoint) share
+    /// one query rather than two copies that could drift apart.
+    /// </summary>
+    private async Task<(IReadOnlyList<EventCalendarDateViewModel> Dates, IReadOnlyList<EventFinalDateViewModel> FinalDates)> BuildEventCalendarDatesAsync(
+        Event eventEntity, CancellationToken cancellationToken)
+    {
         // Two round trips (dates, then their availability marks) rather than a nested collection
         // projection, so this stays portable to the SQLite provider the test suite runs against.
         var eventDates = await _db.EventDates
@@ -109,18 +135,33 @@ public partial class EventsController
             })
             .ToListAsync(cancellationToken);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var initialMonth = new DateOnly(today.Year, today.Month, 1);
+        return (dates, finalDates);
+    }
 
-        return new EventCalendarViewModel
+    /// <summary>
+    /// Reconnect catch-up snapshot: the current candidate dates + final dates, for the live-sync
+    /// connection (see <c>wwwroot/js/event-live-sync.js</c>) to reconcile against after a dropped
+    /// connection auto-reconnects, in case a broadcast was missed while it was down. Deliberately
+    /// scoped to just this calendar/final-dates slice (not the full <see cref="EventHomeViewModel"/>)
+    /// — see the feature spec's Design Decisions section.
+    /// </summary>
+    [HttpGet("/event/{code}/calendar-snapshot", Name = "EventCalendarSnapshot")]
+    public async Task<IActionResult> CalendarSnapshot(string code, CancellationToken cancellationToken)
+    {
+        var eventEntity = await GetEventAsync(code, cancellationToken);
+        if (eventEntity is null)
         {
-            InitialMonth = initialMonth,
-            WindowStartMonth = initialMonth.AddMonths(-CalendarMonthsBeforeToday),
-            WindowEndMonth = initialMonth.AddMonths(CalendarMonthsAfterToday),
-            CurrentParticipantId = currentParticipant.Id,
-            Participants = participants,
-            Dates = dates,
-            FinalDates = finalDates
-        };
+            return NotFound();
+        }
+
+        var participant = await GetCurrentParticipantAsync(eventEntity, currentUser: null, includeUserFallback: false, cancellationToken);
+        if (participant is null)
+        {
+            return Unauthorized();
+        }
+
+        var (dates, finalDates) = await BuildEventCalendarDatesAsync(eventEntity, cancellationToken);
+
+        return Json(new { dates, finalDates });
     }
 }

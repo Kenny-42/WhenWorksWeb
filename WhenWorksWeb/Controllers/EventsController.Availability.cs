@@ -1,7 +1,9 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Common;
+using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
 
 namespace WhenWorksWeb.Controllers;
@@ -21,10 +23,17 @@ public partial class EventsController
     /// works unchanged from every other POST in this controller — the calendar's JS reads the
     /// page's existing <c>@Html.AntiForgeryToken()</c> field and sends it the same way a normal
     /// form submit would, just via fetch instead of a full-page navigation.
+    ///
+    /// <paramref name="connectionId"/> is declared last (after <paramref name="cancellationToken"/>,
+    /// unlike the usual "CancellationToken last" convention) purely so it can default to null
+    /// without disturbing every existing positional call site's argument order — it's the caller's
+    /// own live-sync SignalR connection id (see <c>wwwroot/js/event-live-sync.js</c>), used only to
+    /// exclude that connection from the broadcast below (its own tab already applied the change
+    /// from this action's direct JSON response).
     /// </remarks>
     [HttpPost("/event/{code}/availability", Name = "EventToggleAvailability")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ToggleAvailability(string code, [FromForm] string date, CancellationToken cancellationToken)
+    public async Task<IActionResult> ToggleAvailability(string code, [FromForm] string date, CancellationToken cancellationToken, [FromForm] string? connectionId = null)
     {
         var eventEntity = await GetEventAsync(code, cancellationToken);
         if (eventEntity is null)
@@ -61,6 +70,13 @@ public partial class EventsController
         var utcDate = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
         var participantIds = await ToggleAvailabilityMarkAsync(eventEntity.Id, participant.Id, utcDate, cancellationToken);
+
+        // Same payload shape as the JSON response below, pushed to every other connected viewer
+        // of this event — the acting connection is excluded (when known) since its own tab
+        // already applied this update from the response it's about to receive.
+        IReadOnlyList<string> excludedConnectionIds = connectionId is null ? Array.Empty<string>() : new[] { connectionId };
+        await _hub.Clients.GroupExcept(EventHub.GroupName(code), excludedConnectionIds)
+            .SendAsync("AvailabilityChanged", new { date, participantIds }, cancellationToken);
 
         return Json(new { date, participantIds });
     }
