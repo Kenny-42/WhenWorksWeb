@@ -25,6 +25,37 @@
                 </button>
                 <div class="ww-calendar-title">
                     <h2 id="ww-calendar-month-label" class="font-display mb-0"></h2>
+
+                    <!-- Event timezone picker: shown to every participant (this is what the
+                         calendar's dates/today are interpreted in), but only submittable by an
+                         organizer -- disabled otherwise, same permission gate as the Settings tab's
+                         edit form (CanManageEventAsync), not just hidden client-side. Posts on its
+                         own to EventUpdateTimeZone, separately from the calendar's own fetch-based
+                         toggle, behind a plain-language confirmation dialog (see this page's
+                         script) since changing it never moves any already-picked date but is easy
+                         to get wrong intuitively otherwise -- see the event-timezone feature spec. -->
+                    <div class="ww-calendar-timezone">
+                        <form id="ww-timezone-form" asp-action="UpdateTimeZone" asp-controller="Events" asp-route-code="@Model.Header.Code" method="post">
+                            @Html.AntiForgeryToken()
+                            <label for="ww-calendar-timezone-select" class="visually-hidden">Event timezone</label>
+                            <select name="TimeZoneId"
+                                    id="ww-calendar-timezone-select"
+                                    class="form-select input-pill input-pill-blue select-arrow-inset ww-calendar-timezone-select"
+                                    aria-label="Event timezone"
+                                    disabled="@(!Model.CanManageEvent)">
+                                @foreach (var group in Model.TimeZoneGroups)
+                                {
+                                    <optgroup label="@group.GroupLabel">
+                                        @foreach (var option in group.Options)
+                                        {
+                                            <option value="@option.Id" selected="@(option.Id == Model.CurrentTimeZoneId)">@option.Label</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                        </form>
+                    </div>
+
                     <p class="ww-calendar-subtitle font-display mb-0 text-muted">Click a date to mark yourself available</p>
                 </div>
                 <button type="button" class="ww-calendar-nav-button" data-direction="1" aria-label="Next month">
@@ -91,6 +122,34 @@
     <form id="ww-availability-antiforgery-form" class="visually-hidden">
         @Html.AntiForgeryToken()
     </form>
+
+    <!-- Timezone-change confirmation dialog -- plain language, no timezone jargon, per the
+         feature spec's Design Decisions (this distinction, that changing the zone relabels rather
+         than moves any stored date, is easy to get wrong intuitively). Blue "confirm-modal-content"
+         chrome (see this page's script) rather than the red delete-modal-content styling, since
+         this isn't a destructive action. -->
+    <div class="modal fade" id="ww-timezone-confirm-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content confirm-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title font-display">Change the event's timezone?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">
+                        This changes which timezone the calendar's dates are shown in for everyone.
+                        It won't move or change any date anyone has already picked.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn modal-cancel-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn go-button" id="ww-timezone-confirm-submit" data-bs-dismiss="modal">
+                        Confirm <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -659,6 +718,63 @@
                     applyFinalDatesUpdate(data.finalDates, true);
                 },
                 onReconnected: reconcileFromSnapshot
+            });
+        })();
+    </script>
+
+    <!-- Timezone picker: a separate, self-contained IIFE from the calendar script above -- it
+         only touches the picker/confirmation dialog, not calendar rendering, and guards on its
+         own elements independently. -->
+    <script>
+        (function () {
+            "use strict";
+
+            var select = document.getElementById('ww-calendar-timezone-select');
+            var form = document.getElementById('ww-timezone-form');
+            var modalEl = document.getElementById('ww-timezone-confirm-modal');
+            var confirmButton = document.getElementById('ww-timezone-confirm-submit');
+
+            if (!select || !form || !modalEl || !confirmButton || !window.bootstrap) {
+                return;
+            }
+
+            // Disabled (non-organizer) selects can't be changed by the user in the first place,
+            // but skip wiring up the confirm flow entirely rather than relying on that alone.
+            if (select.disabled) {
+                return;
+            }
+
+            var modal = new bootstrap.Modal(modalEl);
+
+            // Captured on focus (before any change), not read fresh at change time -- change only
+            // fires after the value has already moved, so it can't tell us what to revert to.
+            var previousValue = select.value;
+            var confirmed = false;
+
+            select.addEventListener('focus', function () {
+                previousValue = select.value;
+            });
+
+            select.addEventListener('change', function () {
+                confirmed = false;
+                modal.show();
+            });
+
+            confirmButton.addEventListener('click', function () {
+                confirmed = true;
+            });
+
+            // Fires for every way the dialog can close -- Confirm, Cancel, the header's close
+            // button, a backdrop click, or Escape -- so every path but an explicit Confirm click
+            // reverts the select, matching "canceling leaves the previous zone in place" from the
+            // feature spec without needing a listener per dismissal path.
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                if (confirmed) {
+                    form.submit();
+                } else {
+                    select.value = previousValue;
+                }
+                confirmed = false;
             });
         })();
     </script>

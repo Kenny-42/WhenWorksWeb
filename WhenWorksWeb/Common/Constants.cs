@@ -103,6 +103,18 @@ public static class ModelConstants
     // real-world limit anyone should hit organizing an actual event.
     public const int EventFinalDateMaxCount = 40;
 
+    // The maximum length of Event.TimeZoneId (an IANA id, e.g. "America/Argentina/Buenos_Aires").
+    // Generous relative to the longest real IANA ids (~30 characters) since this is a sanity bound,
+    // not a real constraint on the value's shape -- that's enforced by validating the id against
+    // TimeZoneInfo.FindSystemTimeZoneById instead (see EventsController.Availability.cs's
+    // UpdateTimeZone and TimeZoneOptionsProvider).
+    public const int EventTimeZoneIdMaxLength = 50;
+
+    // The IANA id new events default to, and existing events are backfilled to on migration --
+    // matches the app's previous implicit UTC-only behavior, so nothing changes for them until an
+    // organizer explicitly repicks. See the event-timezone feature spec.
+    public const string DefaultEventTimeZoneId = "UTC";
+
     // Blocks C0/C1 control characters and common zero-width/invisible Unicode characters, while
     // still requiring at least one non-whitespace character somewhere in the value (closing the
     // gap where [Required] alone accepts an all-whitespace value -- see CODING_CONVENTIONS.md's

@@ -17,11 +17,35 @@
          .nav-link classes directly — same pattern as .navbar-toggler/.nav-link-logout already use to style a
          native button as one of these pills with no separate reset needed. -->
     <li class="nav-item">
-        <form asp-controller="Events" asp-action="Create" method="post" class="d-flex">
+        <form asp-controller="Events" asp-action="Create" method="post" class="d-flex" id="ww-navbar-create-event-form">
             @Html.AntiForgeryToken()
             <input type="hidden" name="CreateEventName" value="@WhenWorksWeb.Common.ModelConstants.DefaultEventTitle" />
+            <!-- Filled by the script below from the browser's own Intl API, same as Home/Index's own
+                 create form -- without it this shortcut always fell back to EventsController.Create's
+                 UTC default instead of the organizer's own zone. Left empty (same UTC fallback) if JS
+                 is unavailable. -->
+            <input type="hidden" name="TimeZoneId" id="ww-navbar-create-event-timezone" />
             <button type="submit" class="nav-link nav-link-newevent"><span class="ww-shiny-text"><i class="bi bi-plus-lg" aria-hidden="true"></i> New Event</span></button>
         </form>
+        <script>
+            // Same detection as Home/Index's own create form's script -- see its comment for why
+            // this runs at load rather than on submit, and why it's wrapped in try/catch.
+            (function () {
+                var timeZoneField = document.getElementById('ww-navbar-create-event-timezone');
+                if (!timeZoneField) {
+                    return;
+                }
+
+                try {
+                    var detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    if (detected) {
+                        timeZoneField.value = detected;
+                    }
+                } catch (e) {
+                    // Detection failed — leave the field empty, same as no-JS.
+                }
+            })();
+        </script>
     </li>
 
     <!-- Link to the authenticated user's joined events page -->

@@ -36,7 +36,14 @@
         <form asp-action="Create"
               asp-controller="Events"
               method="post"
+              id="ww-create-event-form"
               class="d-flex flex-column align-items-center gap-2 w-100">
+
+            <!-- Filled by the script below from the browser's own Intl API just before submit, so
+                 the new event's Event.TimeZoneId prefills to the organizer's own zone rather than
+                 always defaulting to UTC — see EventsController.Create and the event-timezone
+                 feature spec. Left empty (falls back to UTC server-side) if JS is unavailable. -->
+            <input asp-for="TimeZoneId" type="hidden" id="ww-create-event-timezone" />
 
             <div class="ww-pill-group ww-pill-group-yellow">
                 <input asp-for="CreateEventName"
@@ -52,6 +59,29 @@
             </div>
         </form>
     </div>
+
+    <script>
+        // Detects the organizer's browser timezone once at page load rather than at submit time —
+        // functionally equivalent for this hidden field, and avoids the detection call in a submit
+        // handler. Wrapped defensively since Intl.DateTimeFormat().resolvedOptions().timeZone can
+        // throw in a handful of older/locked-down browsers; the field is simply left empty then,
+        // and EventsController.Create falls back to UTC.
+        (function () {
+            var timeZoneField = document.getElementById('ww-create-event-timezone');
+            if (!timeZoneField) {
+                return;
+            }
+
+            try {
+                var detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (detected) {
+                    timeZoneField.value = detected;
+                }
+            } catch (e) {
+                // Detection failed — leave the field empty, same as no-JS.
+            }
+        })();
+    </script>
 
     <!-- Join Event section. Deliberately smaller/secondary, sitting inline beside its
          "or join with a code" tag rather than stacked with its own full heading. -->

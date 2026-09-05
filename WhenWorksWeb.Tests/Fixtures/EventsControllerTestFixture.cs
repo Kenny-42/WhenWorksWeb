@@ -75,7 +75,8 @@ public abstract class EventsControllerTestFixture : SqliteDbContextFixture
             new EventDateCleanupService(Db),
             Hub,
             TestUserManagerFactory.Create(Db),
-            _dataProtectionProvider);
+            _dataProtectionProvider,
+            new TimeZoneOptionsProvider());
 
         var httpContext = ControllerTestContext.AttachContext(controller, user, requestCookies);
 

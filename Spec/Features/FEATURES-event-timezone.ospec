@@ -1,0 +1,106 @@
+## Event timezone for the availability calendar
+
+### Status
+Proposed.
+
+### GitHub Issue
+#99
+
+### Summary
+Add a per-event IANA timezone so the availability calendar's "today" and candidate days are
+interpreted consistently and visibly, instead of implicitly in UTC with no indication to
+participants. EventDate values are stored as UTC-midnight of a calendar day with no time-of-day
+meaning; this timezone is used purely to decide which local day a stored value represents and
+where day-rollover falls for "today"/month-window calculations — no time-of-day slots exist to
+convert.
+
+### Motivation
+- Nothing today tells participants what timezone the calendar reflects, despite the app committing
+  everyone to shared whole-day availability — organizers and participants can't reliably know if
+  "the 12th" means their own local the 12th.
+- Concretely: `EventsController.Availability.cs`'s `today` is computed from `DateTime.UtcNow`, not
+  any event-specific zone, so for several hours around UTC midnight a participant's actual local
+  "today" can silently disagree with what the app enforces as the earliest selectable/valid day for
+  an event pinned to a non-UTC zone. The month-paging window bounds have the same issue.
+
+---
+
+### Design Decisions
+Worked out collaboratively before any code was written:
+- **Storage stays UTC.** `EventDate.Date` keeps being stored as UTC-midnight of the chosen day —
+  unchanged. The new `Event.TimeZoneId` (IANA id, e.g. `America/New_York`) is a display/
+  interpretation lens only, not a new storage format.
+- **Always changeable**, not locked in at creation. Editable anytime via the dropdown described
+  below, organizer-only.
+- **Changing the zone never moves existing dates.** A date stored as "Jan 12" stays "Jan 12" after
+  a zone change — it's a relabeling of which zone that day is interpreted in, not a UTC-instant
+  conversion that could shift it to Jan 11 or Jan 13. A plain-language confirmation dialog (no
+  timezone jargon) is shown before the change saves, since this distinction is easy to get wrong
+  intuitively; canceling leaves the previous zone in place.
+- **Default:** new events pre-fill the organizer's browser-detected zone (editable before create);
+  falls back to UTC if detection fails. Existing events are backfilled to UTC on migration — matches
+  today's implicit behavior, so nothing changes for them until an organizer explicitly repicks.
+- **Picker UI:** a plain grouped native `<select>` (`<optgroup>` per continent/area, options sorted
+  by UTC offset, labeled `(UTC−05:00) America/New_York`), populated server-side from
+  `TimeZoneInfo.GetSystemTimeZones()` — the full canonical IANA zone list. No new frontend
+  dependency: a JS typeahead/combobox was considered and deliberately deferred (see Out of Scope)
+  since the native grouped select is fully accessible and .NET's zone list needs no library to
+  render or keep current.
+- **Permission level:** gated the same as other event-detail edits (`CanManageEventAsync` via
+  `AuthorizeEventActionAsync`), not the stricter `CanManageOrganizers` tier.
+- **Folded-in bug fix:** "today" and the month-paging window bounds move from `DateTime.UtcNow` to
+  the event's timezone, since it's the same underlying day-interpretation concern.
+
+---
+
+### Proposed Changes
+
+#### Schema
+- New `Event.TimeZoneId` (string, IANA id) column + EF Core migration. Backfill existing rows to
+  `"UTC"`.
+
+#### Server
+- `EventsController.Availability.cs`: `today` and the boundary check use the event's `TimeZoneId`
+  (via `TimeZoneInfo.FindSystemTimeZoneById` + `TimeZoneInfo.ConvertTime`) instead of
+  `DateTime.UtcNow` directly.
+- `EventsController.Home.cs`: `InitialMonth`/`WindowStartMonth`/`WindowEndMonth` computed the same
+  way.
+- New organizer-gated endpoint (alongside `EventsController.Settings.cs`'s pattern) to update
+  `Event.TimeZoneId`, authorized via `AuthorizeEventActionAsync(code, CanManageEventAsync, ...)`.
+- A server-side helper builds the grouped, offset-sorted zone list from
+  `TimeZoneInfo.GetSystemTimeZones()` for the dropdown.
+
+#### Client
+- Dropdown added to the Availability tab's calendar card header (`ww-calendar-card` in
+  `Views/Events/Home.cshtml`), near the existing subtitle.
+- Browser timezone detection (`Intl.DateTimeFormat().resolvedOptions().timeZone`) pre-fills the
+  select on event creation.
+- Confirmation dialog (plain language, no jargon) on change, before submit; cancel reverts the
+  select to the previous value without saving.
+
+---
+
+### Acceptance Criteria
+- An event's calendar clearly displays its current timezone near the calendar, visible to every
+  participant (not just organizers).
+- Only a participant with organizer permissions (`CanManageEventAsync`) can change it; the control
+  is hidden or disabled for non-organizers.
+- The dropdown lists the full canonical IANA zone set, grouped by continent/area and sorted by UTC
+  offset, each option showing its current UTC offset alongside its id.
+- Creating a new event pre-fills the organizer's browser-detected zone; if detection fails, UTC.
+- Changing the zone shows a plain-language confirmation dialog before saving; canceling makes no
+  change. Confirming updates `Event.TimeZoneId` without altering any existing `EventDate` row's
+  stored day.
+- After a zone change, "today"/the selectable date range and month-paging window reflect the new
+  zone, not UTC.
+- Pre-existing events read as UTC immediately after migration, with no visible change until an
+  organizer explicitly picks a different zone.
+
+### Out of Scope
+- Chat message timestamps (`EventMessage.SentAt`) and `Event.CreatedAt`/`LastActiveAt` display —
+  chat has no controller actions/views yet, and neither is part of the day-picking flow.
+- A JS typeahead/combobox timezone picker — may be revisited later as an additive UX upgrade to the
+  same field; not needed for this pass.
+- Time-of-day availability slots — the calendar remains whole-day granularity; this issue only
+  fixes which day a stored value/`"today"` maps to.
+- Tests — per CLAUDE.md, added only on separate explicit request.
