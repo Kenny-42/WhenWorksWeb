@@ -2179,6 +2179,33 @@ body {
   font-family: var(--font-body);
 }
 
+/* Same chrome as .delete-modal-content, but the site's blue accent instead of red -- this
+   confirms a plain relabeling (the event timezone change), not a destructive action, so it
+   deliberately doesn't borrow the red "danger" treatment. Used by the Availability tab's
+   timezone-change confirmation dialog. */
+.modal-content.confirm-modal-content {
+  background-color: #fffaf1;
+  border: 3px solid var(--color-accent-blue-border);
+  border-radius: 1.75rem;
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+}
+
+.confirm-modal-content .modal-header {
+  border-bottom: 2px solid rgba(81, 76, 84, 0.15);
+}
+
+.confirm-modal-content .modal-title {
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.confirm-modal-content .modal-footer {
+  border-top: 2px solid rgba(81, 76, 84, 0.15);
+}
+
 .delete-modal-content .modal-header {
   border-bottom: 2px solid rgba(81, 76, 84, 0.15);
 }
@@ -2370,6 +2397,25 @@ body {
 }
 
 .delete-modal-content .modal-cancel-button:focus-visible {
+  box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
+}
+
+/* Same "unreadable against the cream card fill" fix as .delete-modal-content's own override
+   above, for the timezone-change confirmation dialog's Cancel button. */
+.confirm-modal-content .modal-cancel-button {
+  background-color: #6c757d;
+  border-color: #495057;
+  color: var(--color-text-on-gradient);
+}
+
+.confirm-modal-content .modal-cancel-button:hover,
+.confirm-modal-content .modal-cancel-button:active {
+  background-color: #495057 !important;
+  border-color: #495057 !important;
+  color: var(--color-text-on-gradient) !important;
+}
+
+.confirm-modal-content .modal-cancel-button:focus-visible {
   box-shadow: var(--shadow-hard), 0 0 0 3px var(--color-text-strong);
 }
 
@@ -3619,9 +3665,59 @@ label:has(+ .input-pill:disabled) {
 }
 
 /* Sized down from its old 0.85rem — Fredoka (.font-display, added alongside the status card's
-   own .ww-status-subheading) reads noticeably bigger than the body font at the same rem size. */
+   own .ww-status-subheading) reads noticeably bigger than the body font at the same rem size.
+   Extra margin-top so it doesn't sit squashed against the timezone picker directly above it. */
 .ww-calendar-subtitle {
   font-size: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+/* Wraps the event timezone picker under the month heading, centered like the rest of
+   .ww-calendar-title. */
+.ww-calendar-timezone {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+/* Sized well down from the organizer promote/demote dropdowns' full-width .input-pill (this sits
+   in a tight header row, not its own form section), same .input-pill-blue/.select-arrow-inset
+   base otherwise. Disabled (non-organizer) state falls through to Bootstrap's own
+   .form-select:disabled look -- no destructive/attention styling needed, it's just read-only. */
+.ww-calendar-timezone-select {
+  width: auto;
+  max-width: 14rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  padding-left: 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Hard-shadow pop/hover-lift/press-down bounce, restated here for the same reason as
+   .ww-organizers-card .select-arrow-inset above -- select-arrow-inset's own background-image
+   layers fight a later, unscoped redeclaration order, so this select needs the full state set
+   next to the rule that uses it rather than relying on load order. */
+.ww-calendar-timezone-select {
+  box-shadow: var(--shadow-hard);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ww-calendar-timezone-select:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hard-hover);
+}
+
+.ww-calendar-timezone-select:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.ww-calendar-timezone-select:focus,
+.ww-calendar-timezone-select:focus-visible {
+  outline: none !important;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hard-focus) !important;
 }
 
 /* Round prev/next month buttons — same hard-shadow/pill language as the rest of the page's
