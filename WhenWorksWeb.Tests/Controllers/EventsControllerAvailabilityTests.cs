@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using WhenWorksWeb.Controllers;
+using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
+using static WhenWorksWeb.Tests.Fixtures.HubBroadcastTestHelper;
 
 namespace WhenWorksWeb.Tests.Controllers;
 
@@ -344,5 +347,41 @@ public class EventsControllerAvailabilityTests : EventsControllerTestFixture
 
         // Exactly one EventDate for that day — the race must not have produced a duplicate.
         Assert.Single(Db.EventDates.Where(d => d.EventId == evt.Id && d.Date == utcDate));
+    }
+
+    // ---- Live-sync broadcast (see Hubs/EventHub.cs, EventsController.Availability.cs) ----
+
+    [Fact]
+    public async Task ToggleAvailability_BroadcastsAvailabilityChangedToEventGroupExcludingCallerConnection()
+    {
+        var (_, participant, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await controller.ToggleAvailability("BCDFGH", "2026-08-28", CancellationToken.None, connectionId: "conn-1");
+
+        HubClients.Received(1).GroupExcept(
+            EventHub.GroupName("BCDFGH"),
+            Arg.Is<IReadOnlyList<string>>(ids => ids.Count == 1 && ids[0] == "conn-1"));
+
+        var broadcast = GetLastBroadcast(HubClientProxy);
+        Assert.NotNull(broadcast);
+        Assert.Equal("AvailabilityChanged", broadcast!.Value.Method);
+        Assert.Equal("2026-08-28", GetPayloadProperty<string>(broadcast.Value.Payload, "date"));
+        var participantIds = GetPayloadProperty<IReadOnlyList<int>>(broadcast.Value.Payload, "participantIds");
+        Assert.Equal([participant.Id], participantIds);
+    }
+
+    /// <summary>
+    /// No <c>connectionId</c> given (the client's live-sync connection hasn't started yet) — the
+    /// broadcast still goes out, just with nothing excluded, rather than being skipped.
+    /// </summary>
+    [Fact]
+    public async Task ToggleAvailability_WithNoConnectionId_BroadcastsWithEmptyExclusionList()
+    {
+        var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await controller.ToggleAvailability("BCDFGH", "2026-08-28", CancellationToken.None);
+
+        HubClients.Received(1).GroupExcept(EventHub.GroupName("BCDFGH"), Arg.Is<IReadOnlyList<string>>(ids => ids.Count == 0));
+        Assert.NotNull(GetLastBroadcast(HubClientProxy));
     }
 }
