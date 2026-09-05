@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Data.Seed;
+using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Services;
 
@@ -39,6 +40,11 @@ builder.Services.AddScoped<EventDateCleanupService>();
 
 builder.Services.AddControllersWithViews();
 
+// Ships with ASP.NET Core's shared framework (no extra package) — powers the live-sync
+// EventHub (see Hubs/EventHub.cs) that pushes availability/final-date changes to every
+// connected viewer of an event's Home/Finalize page.
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -68,6 +74,8 @@ app.MapControllerRoute(
 
 app.MapRazorPages()
    .WithStaticAssets();
+
+app.MapHub<EventHub>("/hubs/event");
 
 using (var scope = app.Services.CreateScope())
 {

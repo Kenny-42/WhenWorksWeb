@@ -26,4 +26,12 @@ public sealed class EventAddFinalDateViewModel
     /// single-day entry.
     /// </summary>
     public string? EndDate { get; set; }
+
+    /// <summary>
+    /// The comma-separated set of <see cref="EventFinalDate"/> ids the client had at page-load —
+    /// posted back so the action can detect (and reject) a submit against a final-dates list that
+    /// changed server-side since then. See <c>EventsController.FinalDate.cs</c>'s
+    /// <c>FinalDatesAreStaleAsync</c>.
+    /// </summary>
+    public string? KnownFinalDateIds { get; set; }
 }

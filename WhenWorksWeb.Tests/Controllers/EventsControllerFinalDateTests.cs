@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using WhenWorksWeb.Controllers;
+using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
+using static WhenWorksWeb.Tests.Fixtures.HubBroadcastTestHelper;
 
 namespace WhenWorksWeb.Tests.Controllers;
 
@@ -173,8 +177,12 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
             Db.EventFinalDates.Add(new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 1, 1).AddDays(i) });
         }
         await Db.SaveChangesAsync();
+        var knownIds = string.Join(",", Db.EventFinalDates.Where(f => f.EventId == evt.Id).Select(f => f.Id));
 
-        var result = await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
+        var result = await controller.AddFinalDate(
+            "BCDFGH",
+            new EventAddFinalDateViewModel { StartDate = "2026-08-28", KnownFinalDateIds = knownIds },
+            CancellationToken.None);
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("Finalize", viewResult.ViewName);
@@ -241,7 +249,11 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
 
         await AddFinalDateAsync(controller, "BCDFGH", "2026-08-20", null);
-        await AddFinalDateAsync(controller, "BCDFGH", "2026-09-03", "2026-09-05");
+        var firstId = Db.EventFinalDates.Single(f => f.EventId == evt.Id).Id;
+        await controller.AddFinalDate(
+            "BCDFGH",
+            new EventAddFinalDateViewModel { StartDate = "2026-09-03", EndDate = "2026-09-05", KnownFinalDateIds = firstId.ToString() },
+            CancellationToken.None);
 
         Assert.Equal(2, Db.EventFinalDates.Count(f => f.EventId == evt.Id));
     }
@@ -297,7 +309,7 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         Db.EventFinalDates.Add(finalDate);
         await Db.SaveChangesAsync();
 
-        var result = await controller.RemoveFinalDate("BCDFGH", finalDate.Id, CancellationToken.None);
+        var result = await controller.RemoveFinalDate("BCDFGH", finalDate.Id, CancellationToken.None, knownFinalDateIds: finalDate.Id.ToString());
 
         var redirect = Assert.IsType<RedirectToRouteResult>(result);
         Assert.Equal("EventFinalize", redirect.RouteName);
@@ -334,5 +346,112 @@ public class EventsControllerFinalDateTests : EventsControllerTestFixture
         Assert.IsType<RedirectToRouteResult>(result);
         Assert.Single(Db.EventFinalDates);
         Assert.NotNull(await Db.EventFinalDates.FindAsync(otherEventFinalDate.Id));
+    }
+
+    // ---- Final-dates concurrency check (see FinalDatesAreStaleAsync in EventsController.FinalDate.cs) ----
+
+    [Fact]
+    public async Task AddFinalDate_WithStaleKnownFinalDateIds_ReturnsFinalizeViewWithModelErrorAndDoesNotAdd()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        Db.EventFinalDates.Add(new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 1, 1) });
+        await Db.SaveChangesAsync();
+
+        // KnownFinalDateIds left null/empty — doesn't match the event's actual one final date.
+        var result = await controller.AddFinalDate(
+            "BCDFGH", new EventAddFinalDateViewModel { StartDate = "2026-08-28" }, CancellationToken.None);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Single(Db.EventFinalDates.Where(f => f.EventId == evt.Id));
+        HubClients.DidNotReceiveWithAnyArgs().Group(default!);
+    }
+
+    [Fact]
+    public async Task AddFinalDate_WithCurrentKnownFinalDateIds_Succeeds()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var existing = new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 1, 1) };
+        Db.EventFinalDates.Add(existing);
+        await Db.SaveChangesAsync();
+
+        var result = await controller.AddFinalDate(
+            "BCDFGH",
+            new EventAddFinalDateViewModel { StartDate = "2026-08-28", KnownFinalDateIds = existing.Id.ToString() },
+            CancellationToken.None);
+
+        Assert.IsType<RedirectToRouteResult>(result);
+        Assert.Equal(2, Db.EventFinalDates.Count(f => f.EventId == evt.Id));
+    }
+
+    [Fact]
+    public async Task RemoveFinalDate_WithStaleKnownFinalDateIds_ReturnsFinalizeViewWithModelErrorAndDoesNotRemove()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var finalDate = new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 8, 28) };
+        Db.EventFinalDates.Add(finalDate);
+        await Db.SaveChangesAsync();
+
+        // A second final date was added server-side after this client's knownFinalDateIds (just
+        // finalDate.Id) was rendered — the set no longer matches.
+        var otherFinalDate = new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 9, 1) };
+        Db.EventFinalDates.Add(otherFinalDate);
+        await Db.SaveChangesAsync();
+
+        var result = await controller.RemoveFinalDate("BCDFGH", finalDate.Id, CancellationToken.None, knownFinalDateIds: finalDate.Id.ToString());
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Finalize", viewResult.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(2, Db.EventFinalDates.Count(f => f.EventId == evt.Id));
+    }
+
+    // ---- Live-sync broadcast (see Hubs/EventHub.cs) ----
+
+    [Fact]
+    public async Task AddFinalDate_BroadcastsFinalDatesChangedToEventGroup()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await AddFinalDateAsync(controller, "BCDFGH", "2026-08-28", null);
+
+        HubClients.Received(1).Group(EventHub.GroupName("BCDFGH"));
+
+        var broadcast = GetLastBroadcast(HubClientProxy);
+        Assert.NotNull(broadcast);
+        Assert.Equal("FinalDatesChanged", broadcast!.Value.Method);
+        var finalDates = GetPayloadProperty<IReadOnlyList<EventFinalDateViewModel>>(broadcast.Value.Payload, "finalDates");
+        var finalDate = Assert.Single(finalDates);
+        Assert.Equal(new DateOnly(2026, 8, 28), finalDate.StartDate);
+    }
+
+    [Fact]
+    public async Task RemoveFinalDate_BroadcastsFinalDatesChangedToEventGroup()
+    {
+        var (evt, _, controller) = await CreateEventWithSignedInParticipantAsync();
+        var finalDate = new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 8, 28) };
+        Db.EventFinalDates.Add(finalDate);
+        await Db.SaveChangesAsync();
+
+        await controller.RemoveFinalDate("BCDFGH", finalDate.Id, CancellationToken.None, knownFinalDateIds: finalDate.Id.ToString());
+
+        HubClients.Received(1).Group(EventHub.GroupName("BCDFGH"));
+
+        var broadcast = GetLastBroadcast(HubClientProxy);
+        Assert.NotNull(broadcast);
+        Assert.Equal("FinalDatesChanged", broadcast!.Value.Method);
+        var finalDates = GetPayloadProperty<IReadOnlyList<EventFinalDateViewModel>>(broadcast.Value.Payload, "finalDates");
+        Assert.Empty(finalDates);
+    }
+
+    [Fact]
+    public async Task RemoveFinalDate_WithNonExistentId_DoesNotBroadcast()
+    {
+        var (_, _, controller) = await CreateEventWithSignedInParticipantAsync();
+
+        await controller.RemoveFinalDate("BCDFGH", 999999, CancellationToken.None);
+
+        HubClients.DidNotReceiveWithAnyArgs().Group(default!);
     }
 }

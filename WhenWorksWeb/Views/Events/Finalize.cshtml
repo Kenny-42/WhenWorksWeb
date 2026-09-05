@@ -32,7 +32,9 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/event-best-bets.js"></script>
+    <script src="~/js/event-live-sync.js"></script>
     <script>
         (function () {
             "use strict";
@@ -44,6 +46,10 @@
             // The same parsed calendar also feeds "Final dates" further down (see below) — the
             // per-date "N of M available" counts it shows only exist as a client-side computation
             // over this JSON, with no server-side equivalent to render them from directly.
+            //
+            // Deliberately never touched by a live broadcast (see renderFinalDatesCard below,
+            // which is): an organizer actively filling out the add-date form below shouldn't have
+            // Suggestions change under them mid-edit.
             var suggestionsEl = document.getElementById('ww-final-date-suggestions');
             if (suggestionsEl) {
                 var calendar = JSON.parse(suggestionsEl.dataset.calendar);
@@ -76,39 +82,85 @@
                 // remove control is a real <form> POSTing to EventRemoveFinalDate's route (built
                 // by hand — asp-route is a server-side tag helper, unavailable to this client-side
                 // render), reusing the antiforgery token off the dedicated hidden form the markup
-                // above renders only when Model.CanManageEvent.
+                // above renders whenever Model.CanManageEvent (regardless of whether any final
+                // date exists yet — see _FinalizeFinalDatesCard.cshtml).
+                //
+                // Pulled out into a named function (rather than run once inline) so it can also be
+                // re-invoked from a live FinalDatesChanged broadcast, with a fresh finalDates list,
+                // further down — this is the one part of the Finalize tab that does live-update.
                 var finalDatesEl = document.getElementById('ww-final-dates-list');
-                if (finalDatesEl) {
-                    var removeAntiforgeryInput = document.querySelector('#ww-final-date-remove-antiforgery-form input[name="__RequestVerificationToken"]');
+                var finalDatesEmptyTextEl = document.getElementById('ww-final-dates-empty-text');
+                var removeAntiforgeryInput = document.querySelector('#ww-final-date-remove-antiforgery-form input[name="__RequestVerificationToken"]');
 
-                    WWBestBets.renderFinalDatesList(finalDatesEl, calendar.finalDates, datesByKey, participantsById, calendar.participants.length, {
-                        renderRemoveControl: removeAntiforgeryInput
-                            ? function (finalDate) {
-                                var form = document.createElement('form');
-                                form.method = 'post';
-                                form.action = '/event/' + code + '/finalize/final-dates/' + finalDate.id + '/remove';
+                var renderFinalDatesCard = finalDatesEl
+                    ? function (finalDates) {
+                        calendar.finalDates = finalDates;
 
-                                var tokenInput = document.createElement('input');
-                                tokenInput.type = 'hidden';
-                                tokenInput.name = '__RequestVerificationToken';
-                                tokenInput.value = removeAntiforgeryInput.value;
-                                form.appendChild(tokenInput);
+                        if (finalDatesEmptyTextEl) {
+                            finalDatesEmptyTextEl.hidden = finalDates.length > 0;
+                        }
+                        finalDatesEl.hidden = finalDates.length === 0;
 
-                                var button = document.createElement('button');
-                                button.type = 'submit';
-                                button.className = 'ww-final-date-remove-button';
-                                button.setAttribute('aria-label', 'Remove this final date');
-                                var icon = document.createElement('i');
-                                icon.className = 'bi bi-x-lg';
-                                icon.setAttribute('aria-hidden', 'true');
-                                button.appendChild(icon);
-                                form.appendChild(button);
+                        var knownFinalDateIds = finalDates.map(function (f) { return f.id; }).join(',');
 
-                                return form;
-                            }
-                            : undefined
-                    });
-                }
+                        WWBestBets.renderFinalDatesList(finalDatesEl, finalDates, datesByKey, participantsById, calendar.participants.length, {
+                            renderRemoveControl: removeAntiforgeryInput
+                                ? function (finalDate) {
+                                    var form = document.createElement('form');
+                                    form.method = 'post';
+                                    form.action = '/event/' + code + '/finalize/final-dates/' + finalDate.id + '/remove';
+
+                                    var tokenInput = document.createElement('input');
+                                    tokenInput.type = 'hidden';
+                                    tokenInput.name = '__RequestVerificationToken';
+                                    tokenInput.value = removeAntiforgeryInput.value;
+                                    form.appendChild(tokenInput);
+
+                                    // The full set of final-date ids as of this render — see
+                                    // EventsController.FinalDate.cs's FinalDatesAreStaleAsync.
+                                    var knownIdsInput = document.createElement('input');
+                                    knownIdsInput.type = 'hidden';
+                                    knownIdsInput.name = 'knownFinalDateIds';
+                                    knownIdsInput.value = knownFinalDateIds;
+                                    form.appendChild(knownIdsInput);
+
+                                    var button = document.createElement('button');
+                                    button.type = 'submit';
+                                    button.className = 'ww-final-date-remove-button';
+                                    button.setAttribute('aria-label', 'Remove this final date');
+                                    var icon = document.createElement('i');
+                                    icon.className = 'bi bi-x-lg';
+                                    icon.setAttribute('aria-hidden', 'true');
+                                    button.appendChild(icon);
+                                    form.appendChild(button);
+
+                                    return form;
+                                }
+                                : undefined
+                        });
+                    }
+                    : function () { };
+
+                renderFinalDatesCard(calendar.finalDates);
+
+                // Live-sync: only FinalDatesChanged is wired (no onAvailabilityChanged — see the
+                // comment on suggestionsEl above). onReconnected re-fetches the snapshot and
+                // refreshes only the final-dates card, for the same reason.
+                WWLiveSync.connect(code, {
+                    onFinalDatesChanged: function (data) {
+                        renderFinalDatesCard(data.finalDates);
+                    },
+                    onReconnected: function () {
+                        WWLiveSync.fetchSnapshot(code)
+                            .then(function (snapshot) {
+                                renderFinalDatesCard(snapshot.finalDates);
+                            })
+                            .catch(function () {
+                                // Best-effort only — state simply stays as of the last successful
+                                // update until the next broadcast, reconnect, or manual refresh.
+                            });
+                    }
+                });
             }
 
             // Cross-constrain the add-date range so the native picker itself grays out/blocks an

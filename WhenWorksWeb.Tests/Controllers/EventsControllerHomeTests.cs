@@ -270,4 +270,70 @@ public class EventsControllerHomeTests : EventsControllerTestFixture
             model.Calendar.FinalDates.Select(f => f.StartDate));
         Assert.Equal(new DateOnly(2026, 8, 30), model.Calendar.FinalDates[0].EndDate);
     }
+
+    // ---- CalendarSnapshot (reconnect catch-up endpoint for live-sync — see event-live-sync.js) ----
+
+    [Fact]
+    public async Task CalendarSnapshot_WithNonExistentEventCode_ReturnsNotFound()
+    {
+        var (controller, _) = CreateController();
+
+        var result = await controller.CalendarSnapshot("ZZZZZZ", CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CalendarSnapshot_WithNoAccessCookie_ReturnsUnauthorized()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController();
+
+        var result = await controller.CalendarSnapshot("BCDFGH", CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    /// <summary>
+    /// Returns the same current dates/final-dates shape Home's own calendar carries — the
+    /// reconnected client reconciles its local state against this rather than a full page reload.
+    /// </summary>
+    [Fact]
+    public async Task CalendarSnapshot_WithSignedInParticipant_ReturnsCurrentDatesAndFinalDates()
+    {
+        var evt = new EventBuilder().WithCode("BCDFGH").Build();
+        Db.Events.Add(evt);
+        await Db.SaveChangesAsync();
+
+        var (signInController, signInHttpContext) = CreateController();
+        await signInController.SignIn("BCDFGH", new EventSignInViewModel { Code = "BCDFGH", DisplayName = "Alice", Color = "ff66c4" }, CancellationToken.None);
+        var cookieValue = ControllerTestContext.GetResponseCookieValue(signInHttpContext, "WhenWorksWeb.EventAccess.BCDFGH")!;
+        var alice = await Db.Participants.SingleAsync(p => p.DisplayName == "Alice");
+
+        var pickedDate = new EventDateBuilder().ForEvent(evt).WithDate(new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero)).Build();
+        Db.EventDates.Add(pickedDate);
+        await Db.SaveChangesAsync();
+        Db.ParticipantAvailabilities.Add(new ParticipantAvailability { ParticipantId = alice.Id, EventDateId = pickedDate.Id });
+        Db.EventFinalDates.Add(new EventFinalDate { EventId = evt.Id, StartDate = new DateOnly(2026, 9, 1) });
+        await Db.SaveChangesAsync();
+
+        var (controller, _) = CreateController(requestCookies: new Dictionary<string, string> { ["WhenWorksWeb.EventAccess.BCDFGH"] = cookieValue });
+
+        var result = await controller.CalendarSnapshot("BCDFGH", CancellationToken.None);
+
+        var json = Assert.IsType<JsonResult>(result);
+        var value = json.Value!;
+        var dates = (IReadOnlyList<EventCalendarDateViewModel>)value.GetType().GetProperty("dates")!.GetValue(value)!;
+        var finalDates = (IReadOnlyList<EventFinalDateViewModel>)value.GetType().GetProperty("finalDates")!.GetValue(value)!;
+
+        var onlyDate = Assert.Single(dates);
+        Assert.Equal(new DateOnly(2026, 8, 28), onlyDate.Date);
+        Assert.Equal([alice.Id], onlyDate.ParticipantIds);
+
+        var onlyFinalDate = Assert.Single(finalDates);
+        Assert.Equal(new DateOnly(2026, 9, 1), onlyFinalDate.StartDate);
+    }
 }

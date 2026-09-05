@@ -1,0 +1,145 @@
+## Live-sync the availability calendar
+
+### Status
+Not started.
+
+### GitHub Issue
+#91
+
+### Summary
+Add real-time sync (via ASP.NET Core SignalR) so every connected viewer of an event's Home page
+sees availability toggles, celebrations, and final-date changes live, without a manual refresh —
+and so the Finalize page's Final Dates card stays live-synced too. Today the calendar (grid cells,
+legend, Best Bets card, Status card, Final Dates card) only ever updates from the current browser's
+own fetch responses; nothing pushes a change to any other participant viewing the same event.
+
+### Motivation
+Two visible symptoms today:
+- When a date's toggled to "everyone's in," the confetti/pop celebration only plays for whoever
+  just clicked — anyone else viewing the page never sees it.
+- When an organizer chooses a final date (from the Finalize page), it doesn't appear on anyone
+  else's Home page — including the organizer's own, on a different tab — until they manually
+  refresh. And when it does appear, it should be exactly as celebratory as a date completing —
+  an organizer choosing the date is as much a "we're locking this in" moment as the group finishing
+  it themselves — but today nothing plays for it at all.
+
+---
+
+### Design Decisions
+These were worked out collaboratively before any code was written (see conversation on this spec's
+creation date):
+
+- **Transport:** SignalR, ships with ASP.NET Core, no new package. One hub, one group per event,
+  keyed by the event's **code** (matches the URL/route already; no extra id lookup needed
+  client-side).
+- **Trust model:** Same as the rest of the app today — no new auth layer. Anyone who can load the
+  event Home/Finalize page (i.e. anyone with the code) can join its SignalR group, consistent with
+  how joining/viewing already works. Participants are not ASP.NET Identity-authenticated users.
+- **Live delivery — broadcasts carry the actual data, not just a "go refetch" signal.** The
+  existing client (`Views/Events/Home.cshtml`) already renders entirely off a local JS `calendar`
+  object mutated in place (`datesByKey`, `renderBestBets()`, `renderStatus()`, `renderFinalDates()`,
+  `celebrateDate()`); `ToggleAvailability` already returns the exact `{date, participantIds}` shape
+  needed. `AddFinalDate`/`RemoveFinalDate` currently `RedirectToRoute` with no JSON response at
+  all, so their broadcast necessarily carries the updated final-dates data too. This reuses
+  existing payload shapes almost as-is instead of adding a new "signal only" endpoint that every
+  viewer would have to round-trip against.
+- **Self-echo:** The server excludes the acting connection from its own broadcast
+  (`Clients.GroupExcept(callerConnectionId)`). The acting tab already applied the update from its
+  own direct response; that same participant's *other* open tabs still receive it live via the
+  broadcast.
+- **No attribution.** Broadcasts/UI never say who made a change — silent state updates only, per
+  the issue's original scope.
+- **Reconnect/catch-up:** SignalR's built-in `withAutomaticReconnect`, plus one snapshot refetch on
+  reconnect via a small JSON endpoint. Scoped to calendar/final-dates state for this pass, but
+  intentionally shaped as a reusable pattern (a snapshot endpoint for catch-up, separate from the
+  live-broadcast path) for the chat system's eventual live-sync, not built now.
+- **Per-page/per-element scope:**
+  - Home page: every calendar-driven piece live-updates — grid cells (wedges, pink/blue borders),
+    legend, Best Bets card, Status card, Final Dates card, and the confetti/pop celebration, for
+    every connected viewer. The celebration plays for both triggers: a date's availability
+    reaching "everyone's in", and a date newly becoming final — each viewer's own reconnect
+    catch-up snapshot (see below) never replays it, same as it never does for availability.
+  - Finalize page: **only** `_FinalizeFinalDatesCard.cshtml` live-updates.
+    `_FinalizeCallTheDateCard.cshtml` (the date-range picker/form) is never touched by a broadcast
+    — an organizer actively filling out that form shouldn't have it change under them.
+  - Both Home and Finalize open a hub connection and join the event's group.
+- **Final-date conflict detection (new, folded into this issue):** `AddFinalDate`/`RemoveFinalDate`
+  gain a concurrency check. An organizer's submit is rejected with a clear error (Finalize
+  redisplayed with a ModelState error, e.g. "Final dates changed — review and try again") if the
+  final-dates list changed server-side since their page loaded, rather than silently overwriting.
+  Scoped narrowly: the client submits the set of final-date ids it was showing at load time (a
+  hidden field), and the server rejects if the DB's current id set differs at save time — **no new
+  column, no migration.** This is deliberately not the general "track event last-active" concept
+  the developer is separately planning as its own future issue; that stays out of scope here, and
+  this narrow mechanism is not assumed to be its foundation.
+- **Rollout:** One pass — everything above ships together, not staged.
+
+---
+
+### Proposed Changes
+
+#### Hub
+- New `EventHub : Hub` (suggested location: `Hubs/EventHub.cs`, new folder — small, single
+  purpose, matches `Services/`' precedent of focused files).
+- `JoinEvent(string code)` / connection group management: adds the caller's connection to a group
+  named after the event code on connect; SignalR handles per-connection cleanup on disconnect.
+- No custom authorization — same trust model as the rest of the app (see Design Decisions).
+
+#### Server-side broadcasts
+- `EventsController.Availability.cs`'s `ToggleAvailability`: after `SaveChangesAsync`, broadcasts
+  `{date, participantIds}` to the event's group, excluding the caller's own connection.
+- `EventsController.FinalDate.cs`'s `AddFinalDate`/`RemoveFinalDate`: after `SaveChangesAsync`,
+  broadcast the updated final-dates list to the event's group (no exclusion needed here in the same
+  way, since the actor's own page reloads via the existing redirect regardless).
+- Both actions gain the id-set concurrency check described above before applying the write.
+
+#### Snapshot endpoint (reconnect catch-up)
+- New lightweight JSON endpoint returning current calendar/final-dates state, called once by the
+  client on reconnect (not used for the live-update path itself).
+
+#### Client (`Home.cshtml`, `Finalize.cshtml` / `_FinalizeFinalDatesCard.cshtml`)
+- Establish a SignalR connection on page load, join the event's group, `withAutomaticReconnect`.
+- On reconnect, call the snapshot endpoint once and reconcile local state.
+- Home: wire the hub's broadcast handlers into the existing `datesByKey` mutation +
+  `applyWedges()`/`updateCellCompletion()`/`celebrateDate()`/`renderBestBets()`/`renderStatus()`/
+  `renderFinalDates()` functions — the same code path `toggleDate()`'s own fetch response already
+  uses. The `FinalDatesChanged` handler also calls `celebrateDate()` for any date newly present in
+  the broadcast's final-dates list (diffed against the previous list), so finalizing a date
+  celebrates on every connected Home viewer the same way completing one does.
+- Finalize: wire only a handler that re-renders `_FinalizeFinalDatesCard`'s content from the
+  broadcast payload; the Call-the-Date card's form/state is left untouched by any broadcast.
+- `AddFinalDate`/`RemoveFinalDate` forms gain a hidden field carrying the final-date id set the
+  page was showing at load, for the concurrency check.
+
+---
+
+### Acceptance Criteria
+- Two browsers viewing the same event's Home page: toggling a date in one shows the updated
+  wedge/border, legend, Best Bets, and Status card in the other without a manual refresh.
+- When a date becomes "everyone's in" from one viewer's toggle, the confetti/pop celebration plays
+  for every connected viewer, not just the one who clicked.
+- An organizer adding or removing a final date (from Finalize) live-updates the Final Dates card on
+  every connected viewer's Home page and every connected Finalize page — including the organizer's
+  own other open tab — without a refresh. The Finalize page's Call-the-Date card never changes as a
+  result of a broadcast.
+- When an organizer adds a final date, the confetti/pop celebration plays on that date's cell for
+  every connected Home viewer, the same as an "everyone's in" availability completion. Removing a
+  final date plays no celebration. A viewer's reconnect catch-up never replays a celebration for a
+  final date that became final while they were disconnected.
+- A participant's own acting tab does not receive/re-apply its own change as a redundant broadcast;
+  that participant's other open tabs do.
+- A dropped-then-restored connection auto-reconnects and reconciles via one snapshot fetch, without
+  requiring a manual page refresh to catch up on missed changes.
+- Submitting an Add/Remove Final Date action against a stale final-dates list (changed server-side
+  since page load) is rejected with a clear on-page error rather than silently applied; a submit
+  against a current list succeeds normally.
+- No broadcast or UI surface reveals which participant made a change.
+
+### Out of Scope
+- The general "track event last-active" concept (e.g. an `Event.LastActiveUtc`-style column) —
+  stays a separate future issue, not built or assumed here.
+- Chat system live-sync (`EventMessage` has no controller actions/views yet at all) — this issue
+  only shapes the snapshot-endpoint pattern to be reusable later, it doesn't build chat's version.
+- Attribution/toasts naming who made a change.
+- A SignalR scale-out backplane (e.g. Redis) — single-server assumption, matches current hosting.
+- Tests — per CLAUDE.md, added only on separate explicit request.

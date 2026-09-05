@@ -58,25 +58,23 @@
              recolored-outline treatment as the status card below (pink instead of the sitewide
              yellow) — deliberately opted out of the .ww-feature-card proximity-glow/spotlight-
              tint/hover-confetti system Home's marketing cards use. -->
+        <!-- Both the "Final dates" and status cards always render (rather than one or the other
+             via a server @@if), with whichever doesn't apply yet marked hidden — a live
+             FinalDatesChanged broadcast (see the script below) can then swap which one shows for
+             every connected viewer, since the DOM for both is already present to toggle. -->
         <div class="ww-availability-sidebar">
-            @if (Model.Calendar.FinalDates.Count > 0)
-            {
-                <div class="ww-event-card ww-final-dates-card" id="ww-final-dates-card">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="font-display mb-0">Final dates</h3>
-                        <i class="bi bi-calendar-check" aria-hidden="true"></i>
-                    </div>
-                    <div id="ww-final-dates-list"></div>
-                    @if (Model.CanManageEvent)
-                    {
-                        <a asp-route="EventFinalize" asp-route-code="@Model.Header.Code" class="btn ww-status-button mt-2">Choose another date</a>
-                    }
+            <div class="ww-event-card ww-final-dates-card" id="ww-final-dates-card" hidden="@(Model.Calendar.FinalDates.Count == 0)">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h3 class="font-display mb-0">Final dates</h3>
+                    <i class="bi bi-calendar-check" aria-hidden="true"></i>
                 </div>
-            }
-            else
-            {
-                <div class="ww-event-card" id="ww-status-card"></div>
-            }
+                <div id="ww-final-dates-list"></div>
+                @if (Model.CanManageEvent)
+                {
+                    <a asp-route="EventFinalize" asp-route-code="@Model.Header.Code" class="btn ww-status-button mt-2">Choose another date</a>
+                }
+            </div>
+            <div class="ww-event-card" id="ww-status-card" hidden="@(Model.Calendar.FinalDates.Count > 0)"></div>
 
             <div class="ww-event-card">
                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -96,7 +94,9 @@
 </div>
 
 @section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/event-best-bets.js"></script>
+    <script src="~/js/event-live-sync.js"></script>
     <script>
         (function () {
             "use strict";
@@ -114,6 +114,7 @@
             var legendEl = document.getElementById('ww-calendar-legend');
             var bestBetsEl = document.getElementById('ww-best-bets-list');
             var statusEl = document.getElementById('ww-status-card');
+            var finalDatesCardEl = document.getElementById('ww-final-dates-card');
             var finalDatesEl = document.getElementById('ww-final-dates-list');
             var prevButton = document.querySelector('.ww-calendar-nav-button[data-direction="-1"]');
             var nextButton = document.querySelector('.ww-calendar-nav-button[data-direction="1"]');
@@ -418,6 +419,35 @@
                 cell.classList.toggle('ww-calendar-cell-picked', participantIds.indexOf(calendar.currentParticipantId) !== -1);
             }
 
+            // Applies a {date, participantIds} availability update — whether from this tab's own
+            // toggleDate() response or another connected viewer's AvailabilityChanged broadcast —
+            // to datesByKey, the matching grid cell (if it's in the currently displayed month),
+            // and every dependent card. The one shared code path both sources run through, so a
+            // live broadcast can't drift from what a local toggle already does.
+            function applyAvailabilityUpdate(dateKey, participantIds) {
+                var wasComplete = isDateComplete(datesByKey[dateKey] || []);
+
+                if (participantIds.length === 0) {
+                    delete datesByKey[dateKey];
+                } else {
+                    datesByKey[dateKey] = participantIds;
+                }
+
+                var cell = gridEl.querySelector('[data-date="' + dateKey + '"]');
+                if (cell) {
+                    applyWedges(cell, participantIds);
+                    updateCellCompletion(cell, participantIds);
+
+                    if (!wasComplete && isDateComplete(participantIds)) {
+                        celebrateDate(cell);
+                    }
+                }
+
+                renderBestBets();
+                renderStatus();
+                renderFinalDates();
+            }
+
             function toggleDate(key, cell) {
                 if (cell.disabled) {
                     return;
@@ -427,6 +457,7 @@
                 var body = new URLSearchParams();
                 body.set('date', key);
                 body.set('__RequestVerificationToken', tokenInput ? tokenInput.value : '');
+                body.set('connectionId', (liveSyncConnection && liveSyncConnection.connectionId) || '');
 
                 fetch('/event/' + code + '/availability', {
                     method: 'POST',
@@ -440,23 +471,7 @@
                         return response.json();
                     })
                     .then(function (data) {
-                        var wasComplete = isDateComplete(datesByKey[data.date] || []);
-
-                        if (data.participantIds.length === 0) {
-                            delete datesByKey[data.date];
-                        } else {
-                            datesByKey[data.date] = data.participantIds;
-                        }
-                        applyWedges(cell, data.participantIds);
-                        updateCellCompletion(cell, data.participantIds);
-
-                        if (!wasComplete && isDateComplete(data.participantIds)) {
-                            celebrateDate(cell);
-                        }
-
-                        renderBestBets();
-                        renderStatus();
-                        renderFinalDates();
+                        applyAvailabilityUpdate(data.date, data.participantIds);
                     })
                     .catch(function () {
                         // No dedicated error UI for this pass — the cell simply stays in its
@@ -500,6 +515,58 @@
                 WWBestBets.renderFinalDatesList(finalDatesEl, calendar.finalDates, datesByKey, participantsById, calendar.participants.length);
             }
 
+            // Swaps which of the two always-rendered sidebar cards (see Home.cshtml's markup
+            // comment) is visible — the "Final dates" card once at least one exists, the status
+            // card otherwise. Only called from applyFinalDatesUpdate (a live broadcast or
+            // reconnect snapshot) — initial visibility is set by the server-rendered `hidden`
+            // attribute in the markup, not by this function.
+            function showFinalDatesCard(show) {
+                if (finalDatesCardEl) {
+                    finalDatesCardEl.hidden = !show;
+                }
+                if (statusEl) {
+                    statusEl.hidden = show;
+                }
+            }
+
+            // Applies a fresh final-dates list — from a FinalDatesChanged broadcast or a reconnect
+            // snapshot — the same way for both: cell final-markers are only computed at cell-build
+            // time (see buildCell), so a full renderCalendar() is the simplest way to keep every
+            // cell in the currently displayed month consistent with the new list.
+            //
+            // `celebrate` plays the same confetti/pop celebration used for an "everyone's in"
+            // availability date on every date that's newly final (present in the new list, absent
+            // from the old one) — an organizer choosing a date is exactly as celebration-worthy as
+            // the group completing one. Only ever passed true for a live FinalDatesChanged
+            // broadcast; the reconnect catch-up path (reconcileFromSnapshot) omits it, same
+            // "don't replay missed celebrations" precedent as applyAvailabilityUpdate's own
+            // reconcile path.
+            function applyFinalDatesUpdate(newFinalDates, celebrate) {
+                var previousFinalDateKeys = finalDateKeys;
+
+                calendar.finalDates = newFinalDates;
+                finalDateKeys = WWBestBets.getFinalDateKeys(calendar.finalDates);
+                renderCalendar();
+                renderFinalDates();
+                showFinalDatesCard(calendar.finalDates.length > 0);
+
+                if (celebrate) {
+                    Object.keys(finalDateKeys).forEach(function (key) {
+                        if (previousFinalDateKeys[key]) {
+                            return;
+                        }
+
+                        // Not found for a day outside the currently displayed month — same
+                        // "silently skip, datesByKey/finalDateKeys already hold the truth for
+                        // whenever the viewer pages there" precedent as applyAvailabilityUpdate.
+                        var cell = gridEl.querySelector('[data-date="' + key + '"]');
+                        if (cell) {
+                            celebrateDate(cell);
+                        }
+                    });
+                }
+            }
+
             function renderStatus() {
                 if (!statusEl) {
                     return;
@@ -537,6 +604,27 @@
                 statusEl.appendChild(button);
             }
 
+            // Re-fetches the current dates/final-dates from the server and reconciles local state
+            // wholesale — the catch-up path for whatever broadcasts this tab may have missed while
+            // its connection was dropped (see event-live-sync.js's onreconnected wiring).
+            function reconcileFromSnapshot() {
+                WWLiveSync.fetchSnapshot(code)
+                    .then(function (snapshot) {
+                        datesByKey = {};
+                        snapshot.dates.forEach(function (d) {
+                            datesByKey[d.date] = d.participantIds.slice();
+                        });
+
+                        applyFinalDatesUpdate(snapshot.finalDates);
+                        renderBestBets();
+                        renderStatus();
+                    })
+                    .catch(function () {
+                        // Best-effort only — state simply stays as of the last successful update
+                        // until the next broadcast, reconnect, or manual refresh catches it up.
+                    });
+            }
+
             prevButton.addEventListener('click', function () {
                 if (prevButton.disabled) {
                     return;
@@ -558,6 +646,20 @@
             renderBestBets();
             renderStatus();
             renderFinalDates();
+
+            // Opens the live-sync connection last, once the initial render is up — toggleDate()
+            // reads liveSyncConnection.connectionId (declared above, assigned here) to exclude
+            // this tab from its own broadcast; it degrades to sending an empty connectionId (no
+            // exclusion, harmless — see ToggleAvailability) until the connection is ready.
+            var liveSyncConnection = WWLiveSync.connect(code, {
+                onAvailabilityChanged: function (data) {
+                    applyAvailabilityUpdate(data.date, data.participantIds);
+                },
+                onFinalDatesChanged: function (data) {
+                    applyFinalDatesUpdate(data.finalDates, true);
+                },
+                onReconnected: reconcileFromSnapshot
+            });
         })();
     </script>
 }
