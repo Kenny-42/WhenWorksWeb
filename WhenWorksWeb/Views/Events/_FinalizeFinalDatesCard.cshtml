@@ -12,21 +12,25 @@
    per-date "N of M available" counts it shows only exist as a client-side computation over the
    calendar JSON _FinalizeCallTheDateCard loads for Suggestions, with no server-side equivalent to
    render this from directly. options.renderRemoveControl (organizer-only) adds the "x" button a
-   plain Availability-tab row doesn't have. *@
+   plain Availability-tab row doesn't have.
+
+   The empty-text paragraph and the list container both always render (rather than one or the
+   other via a server @if), with whichever doesn't apply yet marked hidden, and the antiforgery
+   form always renders when Model.CanManageEvent regardless of Model.FinalDates.Count — so a
+   FinalDatesChanged broadcast (see Finalize.cshtml's script) that live-adds this event's first
+   final date has a token ready to build a remove form against without a refresh. *@
 <div class="ww-event-card mb-4">
     <h3 class="font-display mb-3">Final dates</h3>
-    @if (Model.FinalDates.Count == 0)
+    @* Anchored to RemoveFinalDateError (a display-only property, never bound from a form) so a
+       stale RemoveFinalDate submission's error shows up here, next to the remove control the
+       organizer clicked, instead of only in _FinalizeCallTheDateCard's add-date form summary. *@
+    <span asp-validation-for="RemoveFinalDateError" class="text-danger d-block mb-2"></span>
+    <p class="ww-people-subtitle mb-0" id="ww-final-dates-empty-text" hidden="@(Model.FinalDates.Count > 0)">No final date set yet.</p>
+    <div id="ww-final-dates-list" hidden="@(Model.FinalDates.Count == 0)"></div>
+    @if (Model.CanManageEvent)
     {
-        <p class="ww-people-subtitle mb-0">No final date set yet.</p>
-    }
-    else
-    {
-        <div id="ww-final-dates-list"></div>
-        @if (Model.CanManageEvent)
-        {
-            <form id="ww-final-date-remove-antiforgery-form" class="visually-hidden">
-                @Html.AntiForgeryToken()
-            </form>
-        }
+        <form id="ww-final-date-remove-antiforgery-form" class="visually-hidden">
+            @Html.AntiForgeryToken()
+        </form>
     }
 </div>

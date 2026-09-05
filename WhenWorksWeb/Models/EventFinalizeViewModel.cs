@@ -48,4 +48,11 @@ public sealed class EventFinalizeViewModel
     /// The organizer's current final date entries, ordered by start date.
     /// </summary>
     public required IReadOnlyList<EventFinalDateViewModel> FinalDates { get; init; }
+
+    /// <summary>
+    /// Validation-anchor only, never assigned a value — lets RemoveFinalDate's stale-submission
+    /// error render via asp-validation-for next to the "Final dates" card's remove control,
+    /// instead of only in _FinalizeCallTheDateCard's summary further down the page.
+    /// </summary>
+    public string? RemoveFinalDateError { get; init; }
 }

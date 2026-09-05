@@ -1,3 +1,4 @@
+@using System.Linq
 @using System.Text.Json
 @model WhenWorksWeb.Models.EventFinalizeViewModel
 
@@ -35,6 +36,12 @@
     {
         <form asp-route="EventAddFinalDate" asp-route-code="@Model.Header.Code" method="post" class="ww-settings-add-date-form mb-3">
             @Html.AntiForgeryToken()
+            @* The final-date id set as of this render — posted back so the action can detect a
+               final-dates list that changed server-side since this form was loaded (e.g. via a
+               live broadcast this deliberately-never-live-updated card doesn't react to) and
+               reject the submit instead of silently overwriting it. See
+               EventsController.FinalDate.cs's FinalDatesAreStaleAsync. *@
+            <input type="hidden" name="knownFinalDateIds" value="@string.Join(",", Model.FinalDates.Select(f => f.Id))" />
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="mb-2">
                 <div class="d-flex align-items-center justify-content-between">

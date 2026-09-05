@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WhenWorksWeb.Data;
+using WhenWorksWeb.Hubs;
 using WhenWorksWeb.Models;
 using WhenWorksWeb.Services;
 
@@ -41,6 +43,12 @@ public partial class EventsController : Controller
     private readonly EventDateCleanupService _eventDateCleanup;
 
     /// <summary>
+    /// Broadcasts availability/final-date changes to every connected viewer of an event's
+    /// Home/Finalize page, via <see cref="EventHub"/>'s per-event groups.
+    /// </summary>
+    private readonly IHubContext<EventHub> _hub;
+
+    /// <summary>
     /// Resolves the currently signed-in application user, if any.
     /// </summary>
     private readonly UserManager<ApplicationUser> _userManager;
@@ -67,12 +75,14 @@ public partial class EventsController : Controller
         ApplicationDbContext db,
         UniqueCodeGenerator codeGenerator,
         EventDateCleanupService eventDateCleanup,
+        IHubContext<EventHub> hub,
         UserManager<ApplicationUser> userManager,
         IDataProtectionProvider dataProtectionProvider)
     {
         _db = db;
         _codeGenerator = codeGenerator;
         _eventDateCleanup = eventDateCleanup;
+        _hub = hub;
         _userManager = userManager;
         // Create a data protector specifically for event access operations, using a unique purpose string to ensure that the
         // protected data is isolated from other uses of data protection in the application.
