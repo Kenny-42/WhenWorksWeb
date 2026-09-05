@@ -70,7 +70,8 @@ public sealed class DevelopmentDataSeeder(
             Title = "Team Lunch Poll",
             CreatedByUserId = alice.Id,
             CreatedAt = eventCreatedAt,
-            LastActiveAt = eventLastActiveAt
+            LastActiveAt = eventLastActiveAt,
+            TimeZoneId = ModelConstants.DefaultEventTimeZoneId
         };
 
         var tripEvent = new Event
@@ -79,7 +80,8 @@ public sealed class DevelopmentDataSeeder(
             Title = "Weekend Trip",
             CreatedByUserId = ben.Id,
             CreatedAt = eventCreatedAt,
-            LastActiveAt = eventLastActiveAt
+            LastActiveAt = eventLastActiveAt,
+            TimeZoneId = ModelConstants.DefaultEventTimeZoneId
         };
 
         var planningEvent = new Event
@@ -88,7 +90,8 @@ public sealed class DevelopmentDataSeeder(
             Title = "Sprint Planning",
             CreatedByUserId = null,
             CreatedAt = eventCreatedAt,
-            LastActiveAt = eventLastActiveAt
+            LastActiveAt = eventLastActiveAt,
+            TimeZoneId = ModelConstants.DefaultEventTimeZoneId
         };
 
         // Set CreatedAt and LastActiveAt to now for all events and save to generate IDs for participants

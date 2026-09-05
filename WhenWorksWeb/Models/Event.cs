@@ -19,6 +19,9 @@ public class Event
     /// <summary>The required length of <see cref="Code"/>.</summary>
     private const int CodeLength = ModelConstants.UniqueCodeLength;
 
+    /// <summary>The maximum length of <see cref="TimeZoneId"/>.</summary>
+    private const int TimeZoneIdMaxLength = ModelConstants.EventTimeZoneIdMaxLength;
+
     /// <summary>
     /// The database id for the event.
     /// </summary>
@@ -47,6 +50,20 @@ public class Event
     /// </summary>
     [StringLength(UserIdMaxLength)]
     public string? CreatedByUserId { get; set; }
+
+    /// <summary>
+    /// The IANA timezone id (e.g. <c>"America/New_York"</c>) this event's calendar is interpreted
+    /// in -- a display/interpretation lens only, not a storage format change. <see cref="EventDate.Date"/>
+    /// always stays stored as UTC-midnight of the chosen calendar day regardless of this value; this
+    /// id only decides which local day that UTC-midnight instant represents, and where "today"/the
+    /// Availability tab's month-paging window rolls over (see <c>EventsController.Availability.cs</c>
+    /// and <c>EventsController.Home.cs</c>). Changing it never moves any existing <see cref="EventDate"/>
+    /// row -- it relabels which zone the stored day is read in, it does not convert a UTC instant.
+    /// Editable anytime by an organizer (see <c>EventsController.Availability.cs</c>'s
+    /// <c>UpdateTimeZone</c>), not locked in at creation.
+    /// </summary>
+    [StringLength(TimeZoneIdMaxLength)]
+    public required string TimeZoneId { get; set; }
 
     /// <summary>
     /// The date and time when the event was created.
@@ -101,13 +118,19 @@ public class Event
     /// <param name="code">The unique event code.</param>
     /// <param name="title">The event title.</param>
     /// <param name="createdByUserId">The id of the user creating the event, or null for a guest-created event.</param>
-    public static Event Create(string code, string title, string? createdByUserId = null)
+    /// <param name="timeZoneId">
+    /// The event's initial IANA timezone id -- the organizer's browser-detected zone at create time,
+    /// or <see cref="ModelConstants.DefaultEventTimeZoneId"/> if none was supplied/detection failed.
+    /// See <see cref="TimeZoneId"/>.
+    /// </param>
+    public static Event Create(string code, string title, string? createdByUserId = null, string? timeZoneId = null)
     {
         return new Event
         {
             Code = code,
             Title = title,
-            CreatedByUserId = createdByUserId
+            CreatedByUserId = createdByUserId,
+            TimeZoneId = timeZoneId ?? ModelConstants.DefaultEventTimeZoneId
         };
     }
 }

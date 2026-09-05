@@ -76,6 +76,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasMaxLength(ModelConstants.UniqueCodeLength)
                 .UseCollation("SQL_Latin1_General_CP1_CI_AS");
 
+            // A SQL-level default (rather than only the C#-side default in Event.Create) so the
+            // migration that adds this column backfills every pre-existing row to "UTC" -- matching
+            // the app's previous implicit UTC-only behavior -- instead of leaving it null.
+            entity.Property(e => e.TimeZoneId)
+                .HasMaxLength(ModelConstants.EventTimeZoneIdMaxLength)
+                .HasDefaultValue(ModelConstants.DefaultEventTimeZoneId);
+
             entity.HasOne(e => e.CreatedByUser)
                 .WithMany(u => u.CreatedEvents)
                 .HasForeignKey(e => e.CreatedByUserId)
