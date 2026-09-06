@@ -1,0 +1,86 @@
+## Two-factor authentication
+
+### Status
+Not started.
+
+### GitHub Issue
+#80
+
+### Summary
+Add optional two-factor authentication (2FA) via an authenticator app (Google Authenticator,
+Authy, etc. — any app speaking standard TOTP), using ASP.NET Core Identity's built-in TOTP
+support. `AddDefaultIdentity<ApplicationUser>` (`Program.cs`) already registers Identity's
+default token providers, so no `Program.cs` change is needed to enable TOTP itself.
+
+### Motivation
+Accounts currently authenticate with just a username/password. The Identity scaffolding here
+is minimal, so most 2FA pages don't exist yet, though some plumbing already expects them:
+`_ManageNav.cshtml` links to a `TwoFactorAuthentication` page (currently 404s), and
+`Login.cshtml.cs` already redirects to `./LoginWith2fa` on `RequiresTwoFactor` — a dead path
+today. This adds the missing pages.
+
+### Proposed Changes
+1. Add the missing scaffolded Identity pages under `Areas/Identity/Pages/Account/Manage/` and
+   `Areas/Identity/Pages/Account/`:
+   - `TwoFactorAuthentication` (Manage) — shows current 2FA status (enabled/disabled, recovery
+     codes remaining) and links to enable/disable/regenerate-codes actions.
+   - `EnableAuthenticator` (Manage) — displays the shared key and a QR code, and confirms
+     enabling by validating a submitted TOTP code.
+   - `GenerateRecoveryCodes` / `ShowRecoveryCodes` (Manage) — regenerates and displays the
+     10-code set once; regenerating invalidates the old set.
+   - `ResetAuthenticator` (Manage) — disables 2FA and clears the stored authenticator key, so
+     re-enabling requires a fresh QR scan.
+   - `Disable2fa` (Manage) — disables 2FA without clearing the key.
+   - `LoginWith2fa` / `LoginWithRecoveryCode` (Account) — post-password TOTP/recovery-code
+     challenge, completing the redirect `Login.cshtml.cs` already issues on `RequiresTwoFactor`.
+2. **QR code generation is server-side**, via the `QRCoder` NuGet package: render the
+   `otpauth://` URI (built from `UserManager.GetAuthenticatorKeyAsync`) to a PNG/SVG and embed
+   it as a `data:` URI directly in `EnableAuthenticator.cshtml` — no client-side JS QR library,
+   keeping the shared secret out of any third-party JS's reach and avoiding the site's first
+   runtime JS dependency. This is a new NuGet package addition — flagged per CLAUDE.md's
+   package-introduction rule; `QRCoder` is a small, widely-used, dependency-free QR renderer
+   with no external service calls (fully offline/server-side).
+3. Issuer label shown in the authenticator app: `"WhenWorks"` (e.g. `WhenWorks:user@example.com`).
+4. **Admin role requires 2FA** (scope addition beyond the original issue text, confirmed with
+   the developer): granting the `Admin` role no longer requires 2FA to already be enabled —
+   instead, `[Authorize(Roles = "Admin")]` pages redirect an Admin-role account without 2FA
+   enabled to the `EnableAuthenticator` setup page until they complete it. This applies to any
+   Admin-role account, including the hardcoded root admin (`kenny@mail.com`) once they choose
+   to enable it — the root admin's protection from demotion is unaffected and unrelated.
+   - Needs a small enforcement mechanism (e.g. a Razor Page filter/base check in the `Admin`
+     area, or a check added to `ManageUsersModel`'s pages) — exact placement to be decided
+     during implementation, consistent with "not modifying `Areas/Identity` beyond what's
+     already scoped here."
+5. Recovery codes: enabling 2FA generates 10 recovery codes, shown once; a lost-device sign-in
+   can use one instead (`LoginWithRecoveryCode`).
+6. **Close the Google sign-in 2FA bypass.** Google sign-in (#79) is implemented, and
+   `ExternalLogin.cshtml.cs`'s `OnGetCallbackAsync` currently calls
+   `_signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey,
+   isPersistent: false, bypassTwoFactor: true)` — a 2FA-enabled account signing in via Google
+   skips the TOTP challenge entirely today. Change `bypassTwoFactor` to `false` there so a
+   returning Google-linked account with 2FA enabled gets redirected through `LoginWith2fa` the
+   same as a local password sign-in, instead of silently bypassing it. This is required for the
+   Admin-must-have-2FA rule (below) to mean anything for an admin who signs in via Google.
+
+### Acceptance Criteria
+- A user can enable 2FA by scanning a server-rendered QR code (or entering the setup key
+  manually) and confirming a generated TOTP code.
+- Once enabled, sign-in requires a valid TOTP code after a correct password.
+- Enabling 2FA generates and displays 10 recovery codes once; regenerating invalidates the old
+  set; a recovery code can be used in place of a TOTP code at sign-in.
+- The Manage "Two-factor authentication" page shows accurate enabled/disabled status and
+  recovery codes remaining, and lets a user disable 2FA.
+- Disabling via `ResetAuthenticator` clears the stored key, requiring a fresh QR scan to
+  re-enable.
+- An Admin-role account without 2FA enabled is redirected to set it up before it can use any
+  `[Authorize(Roles = "Admin")]` page; once enabled, it can use those pages normally.
+- A 2FA-enabled account signing in via Google is challenged for a TOTP/recovery code the same
+  as a local password sign-in — `bypassTwoFactor` no longer silently skips it.
+- No schema changes (`ApplicationUser`/Identity already has the necessary TOTP columns via
+  `IdentityUser`'s base schema — verify no migration is actually needed once implementation
+  starts, since 2FA fields are part of the standard Identity table set already in place).
+
+### Out of Scope
+- SMS-based 2FA (needs phone verification + an SMS provider — its own future issue).
+- A "linked login requires re-auth" or per-provider 2FA policy — the fix above is a single
+  global flag flip (`bypassTwoFactor: false`), not a configurable per-provider rule.

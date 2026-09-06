@@ -1,0 +1,60 @@
+@page
+@model EnableAuthenticatorModel
+@{
+    ViewData["Title"] = "Configure authenticator app";
+    ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
+}
+
+<h2 class="h4 font-display text-on-gradient mb-2">@ViewData["Title"]</h2>
+<hr class="account-divider w-100 mb-3" />
+
+<div class="text-on-gradient">
+    <p>To use an authenticator app go through the following steps:</p>
+    <ol class="text-start">
+        <li>
+            <p>
+                Download a two-factor authenticator app, such as Google Authenticator or Authy,
+                for Android and iOS.
+            </p>
+        </li>
+        <li>
+            <p>Scan the QR Code or enter this key into your two factor authenticator app. Spaces and casing do not matter.</p>
+            <div class="d-flex flex-column align-items-center gap-2 mb-3">
+                <div class="ww-qr-code-frame">
+                    <img src="@Model.QrCodeDataUri" alt="QR code for two-factor authenticator setup" width="200" height="200" />
+                </div>
+                <kbd id="manual-auth-key" class="ww-manual-auth-key">@Model.SharedKey</kbd>
+            </div>
+        </li>
+        <li>
+            <p>
+                Once you have scanned the QR code or input the key above, your two factor authentication app will provide you
+                with a unique code. Enter the code in the confirmation box below.
+            </p>
+            <div class="row">
+                <div class="col-md-6">
+                    <form id="send-code" method="post" class="d-flex flex-column align-items-center gap-2">
+                        <input type="hidden" asp-for="ReturnUrl" />
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                        <div>
+                            <label asp-for="Input.Code" class="text-on-gradient fw-bold mb-1 d-block">Verification Code</label>
+                            <input asp-for="Input.Code"
+                                   class="form-control input-pill input-pill-blue mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="off"
+                                   inputmode="numeric"
+                                   aria-required="true"
+                                   placeholder="123456" />
+                            <span asp-validation-for="Input.Code" class="text-danger d-block mt-1"></span>
+                        </div>
+                        <button type="submit" class="btn enter-button mt-2"><span class="ww-shiny-text">VERIFY</span></button>
+                    </form>
+                </div>
+            </div>
+        </li>
+    </ol>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
