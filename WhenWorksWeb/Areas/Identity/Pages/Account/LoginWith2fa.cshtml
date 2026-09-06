@@ -1,0 +1,58 @@
+@page
+@model LoginWith2faModel
+@{
+    ViewData["Title"] = "Two-factor authentication";
+}
+
+<!-- Two-factor challenge page container, same shape as Login.cshtml's single-card layout -->
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">TWO-FACTOR AUTHENTICATION</h1>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5 mx-auto">
+            <section>
+                <div class="ww-account-card ww-account-card-yellow">
+                    <div class="account-column-heading">
+                        <h2 class="h4 font-display text-on-gradient mb-2">ENTER YOUR CODE</h2>
+                    </div>
+                    <hr class="account-divider w-100" />
+                    <p class="text-on-gradient">
+                        Your login is protected with an authenticator app. Enter the code from your
+                        authenticator app below.
+                    </p>
+
+                    <form method="post" asp-route-rememberMe="@Model.RememberMe" asp-route-returnUrl="@Model.ReturnUrl" class="d-flex flex-column align-items-center gap-2">
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+                        <div>
+                            <label asp-for="Input.TwoFactorCode" class="visually-hidden"></label>
+                            <input asp-for="Input.TwoFactorCode"
+                                   class="form-control input-pill input-pill-blue mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="off"
+                                   inputmode="numeric"
+                                   aria-required="true"
+                                   placeholder="123456" />
+                            <span asp-validation-for="Input.TwoFactorCode" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" asp-for="Input.RememberMachine" />
+                            <label asp-for="Input.RememberMachine" class="form-check-label text-on-gradient fw-semibold">
+                                @Html.DisplayNameFor(m => m.Input.RememberMachine)
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn enter-button mt-3"><span class="ww-shiny-text">LOG IN</span></button>
+
+                        <a id="recovery-code-login" class="text-on-gradient text-link fw-semibold mt-2" asp-page="./LoginWithRecoveryCode" asp-route-returnUrl="@Model.ReturnUrl">Log in with a recovery code</a>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -157,11 +157,18 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             }
 
             // Sign in the user with this external login provider if the user already has a linked account.
-            var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
+            // bypassTwoFactor is deliberately false -- a 2FA-enabled account signing in via Google must be
+            // challenged for a TOTP/recovery code the same as a local password sign-in (see
+            // Spec/Features/FEATURES-two-factor-authentication.ospec), not silently waved through.
+            var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: false);
             if (result.Succeeded)
             {
                 _logger.LogInformation("{Name} logged in with {LoginProvider} provider.", info.Principal.Identity?.Name, info.LoginProvider);
                 return LocalRedirect(returnUrl);
+            }
+            if (result.RequiresTwoFactor)
+            {
+                return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl });
             }
             if (result.IsLockedOut)
             {

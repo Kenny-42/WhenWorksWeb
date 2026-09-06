@@ -1,0 +1,48 @@
+@page
+@model LoginWithRecoveryCodeModel
+@{
+    ViewData["Title"] = "Recovery code verification";
+}
+
+<!-- Recovery-code fallback page container, same shape as LoginWith2fa.cshtml -->
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">RECOVERY CODE</h1>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5 mx-auto">
+            <section>
+                <div class="ww-account-card ww-account-card-yellow">
+                    <div class="account-column-heading">
+                        <h2 class="h4 font-display text-on-gradient mb-2">ENTER A RECOVERY CODE</h2>
+                    </div>
+                    <hr class="account-divider w-100" />
+                    <p class="text-on-gradient">
+                        You have requested to log in with a recovery code. This login will not be remembered
+                        until you provide an authenticator app code at login or disable 2FA and log in again.
+                    </p>
+
+                    <form method="post" asp-route-returnUrl="@Model.ReturnUrl" class="d-flex flex-column align-items-center gap-2">
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+                        <div>
+                            <label asp-for="Input.RecoveryCode" class="visually-hidden"></label>
+                            <input asp-for="Input.RecoveryCode"
+                                   class="form-control input-pill input-pill-blue mx-auto"
+                                   style="width: 100%; max-width: 16rem;"
+                                   autocomplete="off"
+                                   aria-required="true"
+                                   placeholder="Recovery code" />
+                            <span asp-validation-for="Input.RecoveryCode" class="text-danger d-block mt-1"></span>
+                        </div>
+
+                        <button type="submit" class="btn enter-button mt-3"><span class="ww-shiny-text">LOG IN</span></button>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
