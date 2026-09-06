@@ -131,4 +131,18 @@ public static class ModelConstants
     // unobtrusive adapter doesn't set), so a plain ".*[bad chars]" lookahead would silently stop
     // scanning at the first newline and miss a bad character placed on a later line.
     public const string DescriptionContentPattern = @"^(?![\s\S]*[\x00-\x09\x0B\x0C\x0E-\x1F\x7F-\x9F\u200B\u200C\u200D\u200E\u200F\uFEFF])[\s\S]*\S[\s\S]*$";
+
+    // The length of the TOTP code an authenticator app displays (Identity's default
+    // AuthenticatorTokenProvider generates 6-digit codes), used by LoginWith2fa/
+    // EnableAuthenticator's InputModel.
+    public const int TwoFactorCodeLength = 6;
+
+    // The regular expression pattern for validating a submitted TOTP code: exactly 6 digits.
+    public const string TwoFactorCodePattern = @"^[0-9]{6}$";
+
+    // A generous sanity upper bound for a pasted recovery code (Identity's default
+    // RecoveryCodeTokenProvider generates 10-character codes split by a hyphen, e.g.
+    // "abcde-12345") -- not a strict format check, since the code is validated for real by
+    // UserManager.RedeemTwoFactorRecoveryCodeAsync, not by this attribute.
+    public const int RecoveryCodeMaxLength = 20;
 }

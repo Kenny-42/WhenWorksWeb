@@ -44,6 +44,12 @@ public class AdminAuthorizationTests : IClassFixture<CustomWebApplicationFactory
         {
             var roleResult = await userManager.AddToRoleAsync(user, "Admin");
             Assert.True(roleResult.Succeeded, string.Join("; ", roleResult.Errors.Select(e => e.Description)));
+
+            // RequireTwoFactorPageFilter (see Spec/Features/FEATURES-two-factor-authentication.ospec)
+            // now redirects any Admin-role account without 2FA enabled before it reaches the page --
+            // enabled here so this class's own tests keep exercising the [Authorize(Roles = "Admin")]
+            // boundary itself, not that separate gate (covered by RequireTwoFactorPageFilterTests).
+            await userManager.SetTwoFactorEnabledAsync(user, true);
         }
 
         return user;

@@ -805,3 +805,67 @@
 
   $.validator.unobtrusive.adapters.addBool("grapheme");
 })();
+
+// Generic "copy this text to the clipboard" button, driven entirely by data attributes so any
+// page can opt in without its own script -- currently just ShowRecoveryCodes.cshtml's "COPY
+// CODES" button, which copies the freshly generated 2FA recovery codes as one newline-separated
+// block so a user can paste the whole set into a password manager instead of transcribing them
+// by hand.
+(function () {
+  "use strict";
+
+  document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+    var target = document.querySelector(button.getAttribute("data-copy-target"));
+    var label = button.querySelector(".ww-shiny-text");
+    if (!target || !label) {
+      return;
+    }
+
+    var idleText = button.getAttribute("data-copy-label") || label.textContent;
+    var copiedText = button.getAttribute("data-copied-label") || "COPIED!";
+    var resetTimeoutId = null;
+
+    button.addEventListener("click", function () {
+      // One code per line, matching how they're meant to be stored/pasted elsewhere -- not the
+      // grid's visual left-to-right, top-to-bottom reading order.
+      var codes = Array.from(target.querySelectorAll("code"))
+        .map(function (codeEl) { return codeEl.textContent.trim(); })
+        .join("\n");
+
+      var showCopied = function () {
+        window.clearTimeout(resetTimeoutId);
+        label.textContent = copiedText;
+        resetTimeoutId = window.setTimeout(function () {
+          label.textContent = idleText;
+        }, 2000);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(codes).then(showCopied, function () {
+          // Clipboard permission denied/unavailable -- leave the button's label alone rather
+          // than falsely claiming success.
+        });
+        return;
+      }
+
+      // Fallback for a browser without the async Clipboard API: a hidden, offscreen textarea
+      // plus the older synchronous execCommand copy.
+      var textarea = document.createElement("textarea");
+      textarea.value = codes;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        if (document.execCommand("copy")) {
+          showCopied();
+        }
+      } catch (err) {
+        // Copy unsupported -- leave the button's label alone rather than falsely claiming
+        // success.
+      }
+      document.body.removeChild(textarea);
+    });
+  });
+})();

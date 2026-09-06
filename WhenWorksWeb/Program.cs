@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using WhenWorksWeb.Areas.Admin;
 using WhenWorksWeb.Data;
 using WhenWorksWeb.Data.Seed;
 using WhenWorksWeb.Hubs;
@@ -42,6 +43,13 @@ builder.Services.AddScoped<EventDateCleanupService>();
 builder.Services.AddSingleton<TimeZoneOptionsProvider>();
 
 builder.Services.AddControllersWithViews();
+
+// Requires every Admin-role account to have 2FA enabled before it can use any Areas/Admin page --
+// applied once here via a folder convention (see RequireTwoFactorPageFilter's own remarks) rather
+// than on each Admin page individually, so it automatically covers future ones too.
+builder.Services.AddRazorPages(options =>
+    options.Conventions.AddAreaFolderApplicationModelConvention("Admin", "/", model =>
+        model.Filters.Add(new RequireTwoFactorPageFilterFactory())));
 
 // Ships with ASP.NET Core's shared framework (no extra package) — powers the live-sync
 // EventHub (see Hubs/EventHub.cs) that pushes availability/final-date changes to every

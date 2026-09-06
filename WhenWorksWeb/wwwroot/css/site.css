@@ -2710,6 +2710,56 @@ label:has(+ .input-pill:disabled) {
   background-color: var(--color-accent-green-border);
 }
 
+/* Frame around the server-rendered QR code on EnableAuthenticator.cshtml — a plain
+   white card so the QR code (which needs strong black-on-white contrast to scan
+   reliably) doesn't sit directly on the page's yellow gradient/account-card tint.
+   Static/non-interactive, so no hover/focus states apply. */
+.ww-qr-code-frame {
+  background-color: #fff;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: var(--shadow-hard);
+  display: inline-flex;
+}
+
+.ww-qr-code-frame img {
+  display: block;
+}
+
+/* Manual-entry authenticator key, shown under the QR code as a fallback. Reuses
+   <kbd>'s "key" semantics but restyled to match the account card's dark-on-light
+   pill language instead of the browser-default monospace-on-grey <kbd> look. */
+.ww-manual-auth-key {
+  background-color: #fff;
+  color: var(--color-text-strong);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-hard);
+}
+
+/* Recovery code grid on ShowRecoveryCodes.cshtml -- a static, copy-by-hand list (not
+   interactive), so styled for legibility only: monospace, high-contrast tiles on the
+   account card's cream fill. */
+.ww-recovery-codes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-width: 20rem;
+  margin: 0 auto;
+}
+
+.ww-recovery-code {
+  background-color: #fff;
+  color: var(--color-text-strong);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+  box-shadow: var(--shadow-hard);
+}
+
 /* ==========================================================================
    Home page card glow + ambient spotlight. Concept borrowed from the
    reactbits.dev "Magic Bento" component (a cursor-following spotlight, plus
