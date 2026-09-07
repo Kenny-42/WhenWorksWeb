@@ -4,23 +4,13 @@ using WhenWorksWeb.Areas.Identity.Pages.Account.Manage;
 namespace WhenWorksWeb.Tests.Areas.Identity.Pages.Account.Manage;
 
 /// <summary>
-/// Tier 1 unit tests for <see cref="IndexModel.InputModel.PhoneNumber"/> and
-/// <see cref="IndexModel.InputModel.DisplayName"/>'s validation attributes, added by
-/// Spec/Features/FEATURES-tighten-account-validation.ospec (Issue #81). Uses
+/// Tier 1 unit tests for <see cref="IndexModel.InputModel.DisplayName"/>'s validation attributes,
+/// added by Spec/Features/FEATURES-tighten-account-validation.ospec (Issue #81). Uses
 /// <see cref="Validator.TryValidateProperty"/> to run the actual production validation attributes,
 /// matching the pattern in <c>IndexViewModelTests</c>/<c>ParticipantTests</c>.
 /// </summary>
 public class IndexModelInputTests
 {
-    private static bool IsPhoneNumberValid(string? candidate)
-    {
-        var model = new IndexModel.InputModel { DisplayName = "placeholder", Color = "ff66c4" };
-        var context = new ValidationContext(model) { MemberName = nameof(IndexModel.InputModel.PhoneNumber) };
-        var results = new List<ValidationResult>();
-
-        return Validator.TryValidateProperty(candidate, context, results);
-    }
-
     private static bool IsDisplayNameValid(string? candidate)
     {
         var model = new IndexModel.InputModel { Color = "ff66c4" };
@@ -28,32 +18,6 @@ public class IndexModelInputTests
         var results = new List<ValidationResult>();
 
         return Validator.TryValidateProperty(candidate, context, results);
-    }
-
-    [Theory]
-    [InlineData(null)] // optional field -- missing is valid
-    [InlineData("")] // optional field -- empty is valid
-    [InlineData("5551234567")] // 10 digits, no '+'
-    [InlineData("+15551234567")] // '+' plus country code
-    [InlineData("1234567")] // shortest allowed (7 digits)
-    [InlineData("123456789012345")] // longest allowed (15 digits)
-    public void PhoneNumber_AcceptsValidNumbers(string? phoneNumber)
-    {
-        Assert.True(IsPhoneNumberValid(phoneNumber));
-    }
-
-    [Theory]
-    [InlineData("123456")] // one digit short of the 7-digit minimum
-    [InlineData("1234567890123456")] // one digit past the 15-digit maximum
-    [InlineData("555-123-4567")] // dashes not allowed
-    [InlineData("(555) 123-4567")] // parentheses/spaces not allowed
-    [InlineData("+1 555 123 4567")] // embedded spaces not allowed
-    [InlineData("++15551234567")] // more than one leading '+'
-    [InlineData("555123abcd")] // letters not allowed
-    [InlineData("5551234-567")] // embedded punctuation
-    public void PhoneNumber_RejectsInvalidNumbers(string phoneNumber)
-    {
-        Assert.False(IsPhoneNumberValid(phoneNumber));
     }
 
     [Theory]

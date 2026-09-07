@@ -55,14 +55,6 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
         public class InputModel
         {
             /// <summary>
-            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-            ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
-            [RegularExpression(ModelConstants.PhoneNumberPattern, ErrorMessage = "Phone number must be entered in international format: an optional leading '+' followed by 7-15 digits, with no spaces, dashes, or other characters.")]
-            [Display(Name = "Phone number")]
-            public string PhoneNumber { get; set; }
-
-            /// <summary>
             /// The user's preferred display name for use in events, editable here since it's collected at
             /// registration alongside the account itself (see <see cref="ApplicationUser.DisplayName"/>).
             /// </summary>
@@ -86,13 +78,11 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
         private async Task LoadAsync(ApplicationUser user)
         {
             var userName = await _userManager.GetUserNameAsync(user);
-            var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
 
             Username = userName;
 
             Input = new InputModel
             {
-                PhoneNumber = phoneNumber,
                 DisplayName = user.DisplayName,
                 Color = user.Color
             };
@@ -122,17 +112,6 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
             {
                 await LoadAsync(user);
                 return Page();
-            }
-
-            var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
-            if (Input.PhoneNumber != phoneNumber)
-            {
-                var setPhoneResult = await _userManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
-                if (!setPhoneResult.Succeeded)
-                {
-                    StatusMessage = "Unexpected error when trying to set phone number.";
-                    return RedirectToPage();
-                }
             }
 
             // Trimmed and NFC-normalized here (not just validated) so leading/trailing whitespace
