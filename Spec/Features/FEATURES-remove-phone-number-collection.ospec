@@ -1,0 +1,46 @@
+## Stop collecting and storing phone numbers
+
+### Status
+Implemented.
+
+### GitHub Issue
+#102
+
+### Summary
+Phone-based 2FA has been deferred (SMS cost), and 2FA is already implemented via
+authenticator apps (TOTP) instead — the `PhoneNumber` field collected on the Profile page
+isn't used by any code path (2FA or otherwise). We shouldn't be collecting or retaining a
+phone number we have no use for, so remove it from the app and clear out any values
+already stored.
+
+### Motivation
+Storing user phone numbers with no functional use is an unnecessary privacy/data liability.
+Removing collection now avoids accumulating more of it while the SMS-based 2FA option
+remains out of scope for launch.
+
+### Proposed Changes
+1. Remove the phone number input, label, and validation from the Profile page
+   (`Index.cshtml`).
+2. Remove `InputModel.PhoneNumber` and its `[RegularExpression]` validation, and the
+   `GetPhoneNumberAsync`/`SetPhoneNumberAsync` calls, from `Index.cshtml.cs`.
+3. Remove `ModelConstants.PhoneNumberPattern` from `Constants.cs` once nothing references
+   it.
+4. Add an EF Core migration that sets `PhoneNumber` (and `PhoneNumberConfirmed`) to
+   `NULL`/`false` for all existing `AspNetUsers` rows.
+5. Update/remove the phone number test cases in `IndexModelInputTests.cs`, since
+   `InputModel.PhoneNumber` will no longer exist.
+
+### Acceptance Criteria
+- The Profile page no longer shows or accepts a phone number.
+- No code path reads or writes `ApplicationUser`/`IdentityUser.PhoneNumber` via
+  `UserManager`.
+- All existing `AspNetUsers.PhoneNumber` values are nulled out (and
+  `PhoneNumberConfirmed` reset to `false`) via an EF Core migration.
+- `ModelConstants.PhoneNumberPattern` is removed once unused.
+
+### Out of Scope
+- Dropping the `PhoneNumber` column from the `AspNetUsers` schema entirely — it's part of
+  ASP.NET Identity's base schema (not a custom `ApplicationUser` field), and fully removing
+  it would require `builder.Ignore(...)` in `ApplicationDbContext`. Deferred in case
+  phone-based 2FA is revisited later; if that happens, this decision should be revisited
+  too.

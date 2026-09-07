@@ -85,8 +85,8 @@ public class ModelConstantsTests
         Assert.True(ModelConstants.PasswordMinLength <= ModelConstants.PasswordMaxLength);
     }
 
-    // PasswordComplexityPattern/PhoneNumberPattern/DisplayNameContentPattern/DescriptionContentPattern
-    // are exercised through the real model classes that use them in ChangePasswordModelInputTests,
+    // PasswordComplexityPattern/DisplayNameContentPattern/DescriptionContentPattern are exercised
+    // through the real model classes that use them in ChangePasswordModelInputTests,
     // SetPasswordModelInputTests, IndexModelInputTests, EventTests, ParticipantTests,
     // EventSignInViewModelTests, IndexViewModelTests, EventUpdateDetailsViewModelTests, and
     // EventSettingsTests (per CODING_CONVENTIONS.md's guidance to test DataAnnotations-validated

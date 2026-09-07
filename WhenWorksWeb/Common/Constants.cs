@@ -87,11 +87,6 @@ public static class ModelConstants
     // unobtrusive regex adapter doesn't set it).
     public const string PasswordComplexityPattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).+$";
 
-    // The regular expression pattern for validating phone numbers in E.164-style format: an
-    // optional leading '+' followed by 7-15 digits and nothing else (no spaces, dashes,
-    // parentheses, or letters).
-    public const string PhoneNumberPattern = @"^\+?[0-9]{7,15}$";
-
     // How far from today (in either direction) a user-supplied date is allowed to be, shared by
     // every date a participant/organizer can post directly (calendar availability toggles, final
     // dates). A generous bound (nobody is planning 50 years out) that still catches an

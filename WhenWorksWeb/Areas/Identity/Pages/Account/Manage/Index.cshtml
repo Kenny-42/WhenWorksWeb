@@ -5,8 +5,8 @@
     ViewData["ActivePage"] = ManageNavPages.Index;
 }
 
-<!-- Profile page: username (read-only), phone, and the same
-     display name / color pair collected at registration. -->
+<!-- Profile page: username (read-only) and the same display name / color pair
+     collected at registration. -->
 <h2 class="h4 font-display text-on-gradient mb-2">@ViewData["Title"]</h2>
 <hr class="account-divider w-100 mb-3" />
 <partial name="_StatusMessage" for="StatusMessage" />
@@ -22,16 +22,6 @@
                style="width: 100%; max-width: 16rem;"
                placeholder="Username"
                disabled />
-    </div>
-
-    <!-- Phone number -->
-    <div>
-        <label asp-for="Input.PhoneNumber" class="text-on-gradient fw-bold mb-1 d-block"></label>
-        <input asp-for="Input.PhoneNumber"
-               class="form-control input-pill input-pill-yellow mx-auto"
-               style="width: 100%; max-width: 16rem;"
-               placeholder="000-000-0000" />
-        <span asp-validation-for="Input.PhoneNumber" class="text-danger d-block mt-1"></span>
     </div>
 
     <!-- Display name -->
