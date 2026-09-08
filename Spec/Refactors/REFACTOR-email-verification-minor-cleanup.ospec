@@ -1,0 +1,119 @@
+A batch of small, unrelated cleanup items found while reviewing #94 (email verification) — each
+too minor to justify its own file, so they're tracked together here. Unlike the grouped-file
+convention for a single staged initiative, these entries aren't ordered or dependent on each
+other; they're just being scheduled and shipped together.
+
+---
+
+## Reject blank Brevo/config secrets, not just missing ones
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`Program.cs` and `BrevoEmailSender.cs` both guard required configuration values with
+`config[...] ?? throw ...`, which only catches a missing key — an empty string passes through
+silently.
+
+### Motivation
+`??` only fires on `null`. If `Brevo:ApiKey` or `Brevo:SenderEmail` is set to `""` (e.g. an
+unset environment variable exported blank, or a config layer overriding it with an empty value),
+the app starts up normally instead of failing fast, then sends every Brevo request with a blank
+`api-key` header or a blank "from" address. Since `BrevoEmailSender.SendEmailAsync` swallows send
+failures as a logged warning rather than throwing, this fails completely silently in
+production — with `RequireConfirmedAccount = true`, every new registrant would be permanently
+stuck waiting for a confirmation email that never arrives, with nothing but a log line to explain
+why.
+
+### Proposed Changes
+Replace both `?? throw` checks with a blank-string-aware guard (e.g.
+`string.IsNullOrWhiteSpace(...)` before assignment, throwing the same
+`InvalidOperationException` message) in:
+- `WhenWorksWeb/Program.cs`'s `Brevo:ApiKey` read.
+- `WhenWorksWeb/Services/BrevoEmailSender.cs`'s `Brevo:SenderEmail` read.
+
+### Acceptance Criteria
+- An empty-string `Brevo:ApiKey` throws at startup instead of silently starting the app.
+- An empty-string `Brevo:SenderEmail` throws at `BrevoEmailSender` construction instead of
+  silently sending mail with a blank "from" address.
+- A missing (`null`) value for either still throws exactly as it does today.
+
+### Out of Scope
+- `Authentication:Google:ClientId`/`ClientSecret` in `Program.cs` — not reported as having this
+  gap; revisit separately if desired.
+
+---
+
+## Correct misleading comment on ExternalLogin's IsNotAllowed fallback
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+The comment on `ExternalLogin.cshtml.cs`'s `OnGetCallbackAsync` `IsNotAllowed` branch describes
+it as a rare fallback that "shouldn't be reachable" — but it's actually the expected outcome the
+very next time someone whose confirmation-form email didn't match the provider's claim signs in
+again via Google.
+
+### Motivation
+A future contributor reading "shouldn't be reachable... kept as a safe fallback" could
+reasonably conclude this branch is dead code and remove it, silently breaking sign-in for every
+account created via that path until its email gets confirmed.
+
+### Proposed Changes
+Reword the comment at `ExternalLogin.cshtml.cs`'s `IsNotAllowed` branch to state plainly that
+this is the normal, expected path for any account created via the email-mismatch branch of
+`OnPostConfirmationAsync`, reached on every sign-in attempt until that account's email is
+confirmed.
+
+### Acceptance Criteria
+- The comment no longer characterizes this branch as unreachable or a rare fallback.
+
+### Out of Scope
+- No behavior change — comment wording only.
+
+---
+
+## Harden and simplify BrevoEmailSenderTests
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`BrevoEmailSenderTests.cs` is missing coverage for an empty-string `Brevo:SenderEmail`
+(only `null` is tested, so the fix above wouldn't be caught by regression if it slipped), and
+defines three near-identical private `HttpMessageHandler` subclasses that differ only in what
+their `SendAsync` override does.
+
+### Motivation
+`Constructor_WithoutSenderEmailConfigured_Throws` only exercises the `null` case, leaving the
+blank-string gap (see the fail-fast fix above) untested. Separately, `StubHttpMessageHandler`,
+`ThrowingHttpMessageHandler`, and `TimingOutHttpMessageHandler` each exist solely to return a
+canned response, throw `HttpRequestException`, or throw `TaskCanceledException` from the same
+single overridden method — a future fourth failure mode currently means writing a fourth whole
+class instead of one more lambda.
+
+### Proposed Changes
+1. Add a test case constructing `BrevoEmailSender` with `Brevo:SenderEmail` set to `""`,
+   asserting it throws the same way the `null` case does.
+2. Collapse the three `HttpMessageHandler` subclasses into one reusable
+   `DelegateHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)`,
+   with each existing test passing the appropriate lambda instead of a dedicated class.
+
+### Acceptance Criteria
+- An empty-string `Brevo:SenderEmail` is covered by a test asserting construction throws.
+- The three single-purpose `HttpMessageHandler` subclasses are replaced by one delegate-based
+  handler; all existing test cases pass using it.
+
+### Out of Scope
+- Any change to `BrevoEmailSender`'s production code beyond what the fail-fast fix above already
+  covers.

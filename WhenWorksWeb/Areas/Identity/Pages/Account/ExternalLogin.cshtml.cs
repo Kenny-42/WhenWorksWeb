@@ -2,6 +2,7 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -28,18 +29,21 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
         private readonly IUserStore<ApplicationUser> _userStore;
         private readonly IUserEmailStore<ApplicationUser> _emailStore;
         private readonly ILogger<ExternalLoginModel> _logger;
+        private readonly EmailConfirmationLinkSender _confirmationLinkSender;
 
         public ExternalLoginModel(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
             IUserStore<ApplicationUser> userStore,
-            ILogger<ExternalLoginModel> logger)
+            ILogger<ExternalLoginModel> logger,
+            EmailConfirmationLinkSender confirmationLinkSender)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _userStore = userStore;
             _emailStore = GetEmailStore();
             _logger = logger;
+            _confirmationLinkSender = confirmationLinkSender;
         }
 
         /// <summary>
@@ -174,6 +178,28 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             {
                 return RedirectToPage("./Lockout");
             }
+            if (result.IsNotAllowed)
+            {
+                // This is the normal, expected outcome for any account created via
+                // OnPostConfirmationAsync's email-mismatch branch below -- reached on every sign-in
+                // attempt via this provider until that account's email is confirmed. It's also
+                // reached for a linked account whose email was later unconfirmed via Manage/Email.
+                // Redirecting here (rather than falling through to the "no account linked yet"
+                // branch) avoids trying to create a duplicate account, which would fail with a
+                // confusing "username already taken" error instead of this actionable redirect.
+                var unconfirmedUser = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+                if (unconfirmedUser == null)
+                {
+                    // Narrow race: the account was deleted/unlinked between ExternalLoginSignInAsync
+                    // succeeding internally and this re-lookup. Surface a generic error instead of
+                    // redirecting to RegisterConfirmation with a null email, which that page would
+                    // otherwise treat as a missing parameter -- see
+                    // Spec/Refactors/REFACTOR-email-verification-review-cleanup.ospec.
+                    ErrorMessage = "Something went wrong. Please try again.";
+                    return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+                }
+                return RedirectToPage("./RegisterConfirmation", new { email = unconfirmedUser.Email });
+            }
 
             // No local account is linked to this external identity yet — collect the app's required custom
             // fields (DisplayName, Color) and finish creating the account on the confirmation form below.
@@ -181,7 +207,7 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             ProviderDisplayName = info.ProviderDisplayName;
             Input = new InputModel
             {
-                Email = info.Principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+                Email = info.Principal.FindFirst(ClaimTypes.Email)?.Value,
                 Color = ModelConstants.DefaultParticipantColor
             };
             return Page();
@@ -190,7 +216,9 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
         /// <summary>
         /// Handles the confirmation form's POST for a first-time external identity: creates the
         /// <see cref="ApplicationUser"/> with the submitted <see cref="ApplicationUser.DisplayName"/>/
-        /// <see cref="ApplicationUser.Color"/>, links the external login to it, and signs the user in.
+        /// <see cref="ApplicationUser.Color"/>, links the external login to it, and either signs the
+        /// user in directly (when the submitted email matches the provider's verified claim) or sends
+        /// a normal confirmation-email link and redirects to RegisterConfirmation (when it doesn't).
         /// </summary>
         public async Task<IActionResult> OnPostConfirmationAsync(string returnUrl = null)
         {
@@ -226,6 +254,37 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 await _userStore.SetUserNameAsync(user, Input.UserName, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
 
+                // The external provider (Google) has verified ownership of whatever address it handed
+                // back in info.Principal's email claim -- but only when it also says so via the
+                // standard OIDC "email_verified" claim (mapped in Program.cs's AddGoogle setup); a
+                // provider's "email" claim alone doesn't prove that address was ever confirmed with
+                // Google itself. That verified claim is what can stand in for the confirmation-email
+                // link a local registration requires. It does NOT extend to whatever the user typed
+                // into Input.Email: that field is freely editable on the confirmation form
+                // (ExternalLogin.cshtml), so trusting it unconditionally would let anyone who owns
+                // *some* Google account claim EmailConfirmed=true on an address they don't own, just
+                // by editing the field before submitting. Only mark the address confirmed when it's
+                // exactly the one the provider vouched for, and the provider says that address is
+                // itself verified.
+                //
+                // Compared case-insensitively against bool.TrueString: Program.cs's MapJsonKey(...,
+                // ClaimValueTypes.Boolean) populates this claim via JsonKeyClaimAction, which stores a
+                // JSON boolean's value as JsonElement.ToString() -- .NET's capitalized "True"/"False",
+                // not the lowercase JSON literal spelling. A lowercase-only comparison here can never
+                // match a claim actually produced this way -- see
+                // Spec/Bugs/BUGS-email-verification-review-findings.ospec.
+                var providerVerifiedEmail = info.Principal.FindFirst(ClaimTypes.Email)?.Value;
+                var providerConfirmsEmailVerified = string.Equals(
+                    info.Principal.FindFirst("email_verified")?.Value, bool.TrueString, StringComparison.OrdinalIgnoreCase);
+                var emailIsProviderVerified = providerVerifiedEmail is not null
+                    && providerConfirmsEmailVerified
+                    && string.Equals(providerVerifiedEmail, Input.Email, StringComparison.OrdinalIgnoreCase);
+
+                if (emailIsProviderVerified)
+                {
+                    await _emailStore.SetEmailConfirmedAsync(user, true, CancellationToken.None);
+                }
+
                 var result = await _userManager.CreateAsync(user);
                 if (result.Succeeded)
                 {
@@ -233,8 +292,24 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                     if (result.Succeeded)
                     {
                         _logger.LogInformation("User created an account using {Name} provider.", info.LoginProvider);
-                        await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
-                        return LocalRedirect(returnUrl);
+
+                        if (emailIsProviderVerified)
+                        {
+                            // EmailConfirmed is already true above, so RequireConfirmedAccount won't
+                            // block this -- see Spec/Features/FEATURES-email-verification.ospec.
+                            await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
+                            return LocalRedirect(returnUrl);
+                        }
+
+                        // Input.Email didn't match the provider's claim (or the provider didn't supply
+                        // one), so ownership is unverified: send the same confirmation-email link
+                        // Register.cshtml.cs sends for a local account, and land on
+                        // RegisterConfirmation instead of establishing a session for an unconfirmed
+                        // address -- SignInAsync above bypasses RequireConfirmedAccount entirely, so
+                        // it must never be called for an account that isn't actually confirmed.
+                        await _confirmationLinkSender.SendAsync(user, HttpContext, returnUrl);
+
+                        return RedirectToPage("./RegisterConfirmation", new { email = Input.Email });
                     }
                 }
                 foreach (var error in result.Errors)

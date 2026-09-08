@@ -23,16 +23,32 @@ public static class PageModelTestContext
     /// Attaches a fresh <see cref="PageContext"/> to <paramref name="pageModel"/>, with the given
     /// <paramref name="user"/> (or anonymous, if null) set as the current principal.
     /// </summary>
-    public static void AttachContext(PageModel pageModel, ApplicationUser? user = null)
+    /// <param name="requestServices">
+    /// Overrides the minimal, isolated <see cref="IServiceProvider"/> normally built for
+    /// <see cref="HttpContext.RequestServices"/>. Pass the real app's request-scoped provider (e.g. from
+    /// <c>CustomWebApplicationFactory.Services.CreateScope()</c>) when the handler under test needs more
+    /// than logging/TempData -- e.g. <c>SignInManager.SignInAsync</c>'s cookie authentication, which
+    /// resolves data protection and the authentication service from <c>RequestServices</c>.
+    /// </param>
+    public static void AttachContext(PageModel pageModel, ApplicationUser? user = null, IServiceProvider? requestServices = null)
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton<ITempDataProvider, NoOpTempDataProvider>();
-        services.AddSingleton<ITempDataDictionaryFactory, TempDataDictionaryFactory>();
+        IServiceProvider resolvedRequestServices;
+        if (requestServices is null)
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<ITempDataProvider, NoOpTempDataProvider>();
+            services.AddSingleton<ITempDataDictionaryFactory, TempDataDictionaryFactory>();
+            resolvedRequestServices = services.BuildServiceProvider();
+        }
+        else
+        {
+            resolvedRequestServices = requestServices;
+        }
 
         var httpContext = new DefaultHttpContext
         {
-            RequestServices = services.BuildServiceProvider()
+            RequestServices = resolvedRequestServices
         };
         httpContext.User = user is null
             ? new ClaimsPrincipal(new ClaimsIdentity())
@@ -46,6 +62,9 @@ public static class PageModelTestContext
         var viewData = new ViewDataDictionary(metadataProvider, modelState);
 
         pageModel.PageContext = new PageContext(actionContext) { ViewData = viewData };
+
+        // Url.Page needs an IUrlHelper -- see StubUrlHelper's remarks for why a stub is enough here.
+        pageModel.Url = new StubUrlHelper(actionContext);
     }
 
     /// <summary>

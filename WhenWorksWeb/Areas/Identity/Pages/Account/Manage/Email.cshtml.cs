@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using WhenWorksWeb.Models;
+using WhenWorksWeb.Services;
 
 namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
 {
@@ -21,15 +22,18 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
+        private readonly EmailConfirmationLinkSender _confirmationLinkSender;
 
         public EmailModel(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            EmailConfirmationLinkSender confirmationLinkSender)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _confirmationLinkSender = confirmationLinkSender;
         }
 
         /// <summary>
@@ -136,6 +140,13 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
                     return Page();
                 }
 
+                // Left as its own inline token/URL/send sequence rather than delegating to
+                // EmailConfirmationLinkSender -- that service is specifically for the initial
+                // ConfirmEmail flow (GenerateEmailConfirmationTokenAsync + the /Account/ConfirmEmail
+                // page). This is a different token type and target page
+                // (GenerateChangeEmailTokenAsync + /Account/ConfirmEmailChange), so it isn't the
+                // fourth un-migrated copy REFACTOR-email-verification-review-cleanup.ospec was about;
+                // there's nothing here for that service to consolidate.
                 var userId = await _userManager.GetUserIdAsync(user);
                 var code = await _userManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -171,19 +182,11 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            var userId = await _userManager.GetUserIdAsync(user);
-            var email = await _userManager.GetEmailAsync(user);
-            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-            var callbackUrl = Url.Page(
-                "/Account/ConfirmEmail",
-                pageHandler: null,
-                values: new { area = "Identity", userId = userId, code = code },
-                protocol: Request.Scheme);
-            await _emailSender.SendEmailAsync(
-                email,
-                "Confirm your email",
-                $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+            // Delegates to the same generate-token/build-callback-URL/send sequence
+            // Register.cshtml.cs, ResendEmailConfirmation.cshtml.cs, and ExternalLogin.cshtml.cs use,
+            // rather than an independent inline copy -- see EmailConfirmationLinkSender and
+            // Spec/Refactors/REFACTOR-email-verification-review-cleanup.ospec.
+            await _confirmationLinkSender.SendAsync(user, HttpContext);
 
             StatusMessage = "Verification email sent. Please check your email.";
             return RedirectToPage();

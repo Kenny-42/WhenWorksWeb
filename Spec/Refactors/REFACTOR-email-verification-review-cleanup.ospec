@@ -1,0 +1,229 @@
+A batch of small, unrelated cleanup items found during PR review of #94 (email verification) —
+each too minor to justify its own file, so they're tracked together here. Unlike the grouped-file
+convention for a single staged initiative, these entries aren't ordered or dependent on each
+other; they're just being scheduled and fixed together on the same branch. Security-relevant
+findings from the same review are tracked separately in
+`Spec/Bugs/BUGS-email-verification-review-findings.ospec`.
+
+---
+
+## Brevo:ApiKey fail-fast check doesn't actually run at startup
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+The `Brevo:ApiKey` validation in `Program.cs` lives inside the `configureClient` delegate passed
+to `AddHttpClient<BrevoEmailSender>`, which .NET's typed-client factory only invokes lazily, on
+the first `HttpClient` creation for that typed client — not during application startup, despite
+the surrounding comment implying startup-time validation.
+
+### Motivation
+A deploy with a missing or blank `Brevo:ApiKey` currently starts up successfully with no error.
+The `InvalidOperationException` only fires the first time a real request resolves
+`BrevoEmailSender` — e.g. the first user registration in production — surfacing as an unhandled
+exception on that request instead of a controlled startup failure, and silently breaking every
+registration until someone notices. This also re-reads the config value and re-mutates the
+default request headers on every `HttpClient` handed out for this typed client, not just once.
+
+### Proposed Changes
+Move the `Brevo:ApiKey` read and validation out of the `configureClient` delegate and into
+`Program.cs`'s top-level setup code (before/alongside the `AddHttpClient<BrevoEmailSender>` call),
+so it runs unconditionally during startup. Pass the validated key into the client configuration
+from that already-validated value rather than re-reading configuration inside the delegate.
+
+### Acceptance Criteria
+- A missing or blank `Brevo:ApiKey` throws during application startup, before the app begins
+  accepting requests — not on the first email send.
+- The configuration read and header setup happen once, not on every `HttpClient` resolution.
+
+### Out of Scope
+- Any other configuration value's fail-fast timing — scoped to `Brevo:ApiKey` only.
+
+---
+
+## Manage/Email.cshtml.cs still hand-rolls its own confirmation-email sequence
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`Email.cshtml.cs`'s `OnPostSendVerificationEmailAsync` still inlines its own copy of
+"generate confirmation token → base64url-encode → build `ConfirmEmail` callback URL → send" —
+the exact sequence `EmailConfirmationLinkSender` was extracted to consolidate — leaving a fourth,
+un-migrated copy alongside `Register.cshtml.cs`, `ResendEmailConfirmation.cshtml.cs`, and
+`ExternalLogin.cshtml.cs`, which were all migrated to the shared service.
+
+### Motivation
+`REFACTOR-signin-manager-and-confirmation-email.ospec`'s stated goal was removing duplicated
+copies of this sequence so a future change to the confirmation-link shape (URL format, subject
+line, token encoding) only has to be made in one place. This call site is untouched, so a future
+change to `EmailConfirmationLinkSender` can silently miss it, leaving the "Resend verification
+email" button on the Manage/Email page inconsistent with the other three flows — and this drift
+wouldn't be caught by `EmailConfirmationLinkSenderTests`, since this code path doesn't go through
+that class at all.
+
+### Proposed Changes
+Update `Email.cshtml.cs`'s `OnPostSendVerificationEmailAsync` to call
+`EmailConfirmationLinkSender.SendAsync` (injecting it the same way `Register.cshtml.cs` and
+`ResendEmailConfirmation.cshtml.cs` do) instead of its own inline token/URL/send sequence.
+
+### Acceptance Criteria
+- `OnPostSendVerificationEmailAsync` calls `EmailConfirmationLinkSender.SendAsync` rather than
+  reimplementing the sequence inline.
+- `EmailConfirmationLinkSender` is the single place confirmation-email links are generated and
+  sent, across all four call sites (`Register`, `ResendEmailConfirmation`, `ExternalLogin`,
+  `Manage/Email`).
+- Existing behavior of the "Resend verification email" button is unchanged from the user's
+  perspective (same email content, same redirect).
+
+### Out of Scope
+- `ForgotPassword.cshtml.cs`'s password-reset email — a different email/flow, not a copy of the
+  confirmation-link sequence.
+
+---
+
+## Stale doc comment references a page that no longer exists
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ExternalLogin.cshtml.cs`'s XML doc comment on `OnPostConfirmationAsync` says the email-mismatch
+path "sends a normal confirmation-email link and redirects to ConfirmEmailRequired," but the
+actual code redirects to `./RegisterConfirmation` — `ConfirmEmailRequired` was consolidated away
+as part of `BUGS-registration-confirmation-redirect.ospec` and doesn't exist in this repo.
+
+### Motivation
+A future contributor reading the doc comment to understand the redirect target, or grepping for
+`ConfirmEmailRequired` while modifying this flow, gets pointed at a page that's gone — wasting
+time or risking it being reintroduced as a duplicate of `RegisterConfirmation`, the exact
+"two pages saying the same thing" problem the original consolidation was meant to eliminate.
+
+### Proposed Changes
+Update the doc comment on `OnPostConfirmationAsync` in `ExternalLogin.cshtml.cs` to say it
+redirects to `RegisterConfirmation`, matching the actual code.
+
+### Acceptance Criteria
+- The doc comment no longer mentions `ConfirmEmailRequired`.
+
+### Out of Scope
+- No behavior change — comment wording only.
+
+---
+
+## Redundant fully-qualified ClaimTypes.Email reference
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ExternalLogin.cshtml.cs` line ~200 still fully-qualifies
+`System.Security.Claims.ClaimTypes.Email`, even though this same file now has a
+`using System.Security.Claims;` (added for the `email_verified` claim work) and already uses the
+unqualified `ClaimTypes.Email` elsewhere for the same lookup.
+
+### Motivation
+Minor inconsistency within one file; harmless but easy to clean up while already touching this
+file, and keeps the codebase consistent for anyone scanning it.
+
+### Proposed Changes
+Replace the fully-qualified reference with the unqualified `ClaimTypes.Email`, matching the rest
+of the file.
+
+### Acceptance Criteria
+- No fully-qualified `System.Security.Claims.ClaimTypes` reference remains in
+  `ExternalLogin.cshtml.cs`.
+
+### Out of Scope
+- No behavior change — reference qualification only.
+
+---
+
+## Silent bounce to home page on a concurrent-mutation race in IsNotAllowed branches
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`Login.cshtml.cs`'s and `ExternalLogin.cshtml.cs`'s `IsNotAllowed` branches each re-look-up the
+user (by name / by external login, respectively) after sign-in already succeeded internally, in
+order to get the email for the `RegisterConfirmation` redirect, and pass the result straight into
+`RedirectToPage("./RegisterConfirmation", new { email = user?.Email })` with no null guard. If
+that second lookup doesn't find the same account (e.g. deleted or renamed between the two calls),
+`email` comes through `null`, and `RegisterConfirmationModel.OnGetAsync` silently redirects to
+`/Index` with no error message or logging.
+
+### Motivation
+A narrow, low-likelihood race, but a nameable one with no test coverage: a user whose credentials
+were just verified correct gets silently bounced to the homepage with zero explanation instead of
+any error message — a dropped error path relative to how explicitly other failure cases in these
+same two files are signaled.
+
+### Proposed Changes
+In both `Login.cshtml.cs`'s and `ExternalLogin.cshtml.cs`'s `IsNotAllowed` branches, guard against
+a `null` result from the re-lookup: if the user can't be found, show a generic error (e.g. via
+`ModelState`/`TempData`) instead of redirecting to `RegisterConfirmation` with a null email.
+`RegisterConfirmationModel.OnGetAsync` should likewise treat a missing/empty `email` query
+parameter as an explicit error case rather than a silent redirect, so a caller reaching it any
+other way (not just this race) fails visibly.
+
+### Acceptance Criteria
+- If the post-sign-in user re-lookup fails to find an account in either `Login.cshtml.cs` or
+  `ExternalLogin.cshtml.cs`, the user sees a generic error rather than being silently redirected
+  to `/Index`.
+- `RegisterConfirmationModel.OnGetAsync` with a missing/empty `email` parameter surfaces an
+  explicit error rather than silently redirecting to `/Index`.
+
+### Out of Scope
+- Actually preventing the race (e.g. via a transaction) — out of scope; this only covers making
+  the failure visible instead of silent.
+
+---
+
+## Dropped debug log line on wrong-password sign-in attempts
+
+### Status
+Done.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ApplicationSignInManager.CheckPasswordSignInAsync`'s wrong-password branch drops the base
+`SignInManager`'s `Logger.LogDebug(EventIds.InvalidPassword, "User failed to provide the correct
+password.")` call, and `Login.cshtml.cs` doesn't log anything on the generic `Failed` result
+either — so this diagnostic signal is gone entirely, not just relocated.
+
+### Motivation
+An operator investigating a brute-force or credential-stuffing pattern against a specific account
+by grepping logs for Identity's own "failed to provide the correct password" line will find
+nothing from this app for wrong-password attempts, losing a signal the stock framework provides
+by default.
+
+### Proposed Changes
+Reproduce the base `SignInManager`'s debug-log call in `ApplicationSignInManager`'s wrong-password
+branch (`Logger.LogDebug(EventIds.InvalidPassword, ...)` or equivalent), so wrong-password
+attempts are logged the same way they would be without this override.
+
+### Acceptance Criteria
+- A wrong-password sign-in attempt produces the same debug-level log entry the base
+  `SignInManager` would produce, via `ApplicationSignInManager`.
+
+### Out of Scope
+- Any change to what `Login.cshtml.cs` itself logs on the generic `Failed` path.

@@ -17,8 +17,12 @@ public static class IdentityConfiguration
     /// <param name="options">The Identity options to configure, typically supplied by <c>AddIdentity</c>.</param>
     public static void Configure(IdentityOptions options)
     {
-        // Sign in settings
-        options.SignIn.RequireConfirmedAccount = false;
+        // Sign in settings. Requires a confirmed email before sign-in is allowed -- enforceable now
+        // that BrevoEmailSender actually delivers confirmation links (see
+        // Spec/Features/FEATURES-email-verification.ospec). Login.cshtml.cs's OnPostAsync handles
+        // the resulting SignInResult.IsNotAllowed outcome with a message pointing to resend
+        // confirmation.
+        options.SignIn.RequireConfirmedAccount = true;
 
         // Password settings. Kept in sync with ModelConstants.PasswordMinLength/
         // PasswordComplexityPattern, which the Manage/ChangePassword and Manage/SetPassword pages

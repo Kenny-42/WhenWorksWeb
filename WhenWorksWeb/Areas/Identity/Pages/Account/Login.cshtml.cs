@@ -21,11 +21,13 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
     public class LoginModel : PageModel
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<LoginModel> _logger;
 
-        public LoginModel(SignInManager<ApplicationUser> signInManager, ILogger<LoginModel> logger)
+        public LoginModel(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, ILogger<LoginModel> logger)
         {
             _signInManager = signInManager;
+            _userManager = userManager;
             _logger = logger;
         }
 
@@ -109,8 +111,12 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
 
             if (ModelState.IsValid)
             {
-                // This doesn't count login failures towards account lockout
-                // To enable password failures to trigger account lockout, set lockoutOnFailure: true
+                // PasswordSignInAsync resolves the username internally (UserManager.FindByNameAsync)
+                // and calls CheckPasswordSignInAsync -- overridden by ApplicationSignInManager (this
+                // app's registered SignInManager, see Models/ApplicationSignInManager.cs) to verify
+                // the password BEFORE consulting lockout/confirmation status, so a wrong password can
+                // never disclose that an account exists and is locked out or unconfirmed. This doesn't
+                // count login failures towards account lockout; to enable that, set lockoutOnFailure: true.
                 var result = await _signInManager.PasswordSignInAsync(Input.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
@@ -126,11 +132,28 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                     _logger.LogWarning("User account locked out.");
                     return RedirectToPage("./Lockout");
                 }
-                else
+                if (result.IsNotAllowed)
                 {
-                    ModelState.AddModelError(string.Empty, "Invalid login attempt.");
-                    return Page();
+                    // With RequireConfirmedAccount = true and a password already verified by
+                    // ApplicationSignInManager's overridden ordering, this means the account's email
+                    // isn't confirmed yet. Re-looking the user up here discloses nothing new -- the
+                    // password was already proven correct to reach this branch.
+                    var user = await _userManager.FindByNameAsync(Input.UserName);
+                    if (user == null)
+                    {
+                        // Narrow race: the account was deleted/renamed between PasswordSignInAsync
+                        // succeeding internally and this re-lookup. Surface a generic error instead of
+                        // redirecting to RegisterConfirmation with a null email, which that page would
+                        // otherwise treat as a missing parameter -- see
+                        // Spec/Refactors/REFACTOR-email-verification-review-cleanup.ospec.
+                        ModelState.AddModelError(string.Empty, "Something went wrong. Please try again.");
+                        return Page();
+                    }
+                    return RedirectToPage("./RegisterConfirmation", new { email = user.Email });
                 }
+
+                ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+                return Page();
             }
 
             // If we got this far, something failed, redisplay form

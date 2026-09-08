@@ -1,0 +1,85 @@
+## Centralize Login's sign-in ordering in a SignInManager override, and de-duplicate confirmation-email sending
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+#94's username-enumeration fix in `Login.cshtml.cs` hand-rolls a partial reimplementation of
+`SignInManager<TUser>.CheckPasswordSignInAsync`/`PreSignInCheck`'s internal ordering directly in
+the page handler, instead of through the subclassing extension point Identity provides for
+exactly this. That reimplementation is incomplete (lockout is still disclosed before the
+password is verified, unlike confirmation status), hashes the password twice per successful
+login, and depends on undocumented internal Identity ordering with no compiler-enforced link to
+the framework code it mirrors. Separately, the confirmation-email-sending sequence (generate
+token → base64url-encode → build callback URL → send email) is now duplicated across
+`Register.cshtml.cs`, `ResendEmailConfirmation.cshtml.cs`, and `ExternalLogin.cshtml.cs`.
+
+### Motivation
+Moving the sign-in reordering into a `SignInManager` subclass override is the idiomatic way
+ASP.NET Core Identity expects this kind of customization to be made — it centralizes the
+ordering in the one virtual method designed for it, applies uniformly to every caller (not just
+this one page), and lets `Login.cshtml.cs` shrink back down to close to its original scaffolded
+shape. It also closes the current fix's gaps as a side effect: gating lockout disclosure behind
+a correct password (matching how confirmation status is already gated) and hashing the password
+only once instead of twice.
+
+Extracting the confirmation-email-sending sequence into one shared service removes three
+independent copies that would otherwise have to be kept in sync by hand.
+
+### Proposed Changes
+1. Add `ApplicationSignInManager : SignInManager<ApplicationUser>` (proposed location:
+   `Models/ApplicationSignInManager.cs`, alongside `IdentityConfiguration.cs`, since this is
+   Identity composition rather than a general-purpose `Services/` utility — confirm this
+   placement during implementation if a better fit turns up) overriding
+   `CheckPasswordSignInAsync`:
+   - If `CheckPasswordAsync` fails, return `SignInResult.Failed` immediately — no lockout or
+     confirmation state is consulted or disclosed for a wrong password.
+   - If it succeeds, run `PreSignInCheck` (confirmation, then lockout, matching the framework's
+     own ordering) and return whatever it produces; otherwise reset the lockout counter and
+     return `SignInResult.Success`.
+   - Confirm the exact base-class method/member names and accessibility (e.g. `PreSignInCheck`,
+     `ResetLockout`) against the installed Identity package version before implementing, since
+     these are framework internals not guaranteed stable across versions.
+2. Register it via the Identity builder's sign-in-manager registration in `Program.cs` (e.g.
+   `.AddSignInManager<ApplicationSignInManager>()` — confirm the exact extension method name
+   against the installed package version) rather than a manual `AddScoped` mapping, so it
+   participates in Identity's builder chain the same way the rest of `Program.cs`'s Identity
+   setup does.
+3. Simplify `Login.cshtml.cs`'s `OnPostAsync` back down to a single
+   `_signInManager.PasswordSignInAsync(Input.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false)`
+   call (the framework resolves the username internally), removing the manual
+   `FindByNameAsync`/`IsLockedOutAsync`/`CheckPasswordAsync` pre-checks entirely, and switching on
+   the returned `SignInResult` the same way it does today.
+4. Add `Services/EmailConfirmationLinkSender.cs` — a small, single-purpose scoped service
+   (matching the existing `UniqueCodeGenerator`/`EventDateCleanupService` pattern) that generates
+   the confirmation token, encodes it, builds the `ConfirmEmail` callback URL, and sends the
+   email. Register it in `Program.cs`.
+5. Update `Register.cshtml.cs`, `ResendEmailConfirmation.cshtml.cs`, and `ExternalLogin.cshtml.cs`
+   to call this service instead of each carrying their own copy of the sequence.
+
+### Acceptance Criteria
+- A wrong password never reveals lockout or confirmation status — the response is always the
+  same generic "Invalid login attempt," regardless of the account's state.
+- A correct password against a locked-out account still redirects to `./Lockout`.
+- A correct password against an unconfirmed account still redirects to the confirmation-required
+  page (see `Spec/Bugs/BUGS-registration-confirmation-redirect.ospec`).
+- The password is hashed at most once per login attempt.
+- `Login.cshtml.cs` contains no manual `CheckPasswordAsync`/`IsLockedOutAsync` calls.
+- `EmailConfirmationLinkSender` is the single place confirmation-email links are generated and
+  sent; `Register.cshtml.cs`, `ResendEmailConfirmation.cshtml.cs`, and `ExternalLogin.cshtml.cs`
+  all call it instead of duplicating the sequence.
+- A new test covers a locked-out **and** unconfirmed account together: a wrong password returns
+  the generic invalid message (not a redirect to `./Lockout`), and a correct password produces
+  whichever result the framework's `PreSignInCheck` ordering resolves to first (confirmation
+  before lockout).
+
+### Out of Scope
+- Any change to lockout-counting behavior (`AccessFailedAsync`, `lockoutOnFailure` threshold
+  policy) — deferred to a future issue.
+- `ExternalLoginSignInAsync`'s ordering (used by `ExternalLogin.cshtml.cs`) — left untouched.
+  It never calls `CheckPasswordSignInAsync`, since there's no password to guess in an external
+  login (completing the provider's OAuth handshake already proves account ownership), so the
+  oracle this refactor closes doesn't apply there.
