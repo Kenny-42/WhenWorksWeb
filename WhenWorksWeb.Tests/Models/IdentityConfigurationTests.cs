@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity;
+using WhenWorksWeb.Models;
 using WhenWorksWeb.Tests.Fixtures;
 using WhenWorksWeb.Tests.TestData;
 
@@ -42,5 +44,23 @@ public class IdentityConfigurationTests : SqliteDbContextFixture
         var result = await userManager.CreateAsync(user, "Str0ng!Pass");
 
         Assert.True(result.Succeeded);
+    }
+
+    /// <summary>
+    /// Pins <see cref="IdentityOptions.SignIn.RequireConfirmedAccount"/> to <see langword="true"/> --
+    /// the setting behind Login.cshtml.cs's <c>IsNotAllowed</c> branch and this feature's whole point
+    /// (see Spec/Features/FEATURES-email-verification.ospec). A silent revert to <see
+    /// langword="false"/> would let unconfirmed accounts sign in with no test catching it, since
+    /// nothing else in the suite reads this option. See <c>LoginTests</c> for the corresponding
+    /// end-to-end behavior (an unconfirmed account is actually blocked at sign-in).
+    /// </summary>
+    [Fact]
+    public void Configure_RequiresConfirmedAccountBeforeSignIn()
+    {
+        var options = new IdentityOptions();
+
+        IdentityConfiguration.Configure(options);
+
+        Assert.True(options.SignIn.RequireConfirmedAccount);
     }
 }

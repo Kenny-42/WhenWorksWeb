@@ -1,0 +1,59 @@
+## Set up email verification for account registration
+
+### Status
+Not started.
+
+### GitHub Issue
+#94
+
+### Summary
+Registration and account email changes currently go through the scaffolded Identity
+confirmation flow, but it's non-functional: `RequireConfirmedAccount` is `false` in
+`IdentityConfiguration.cs`, and no real `IEmailSender` is registered in `Program.cs`, so
+Identity's default sender is a no-op — confirmation links are never actually delivered. Set up
+a real email sender and turn on confirmation enforcement so users must verify their email
+before signing in.
+
+### Motivation
+Without a working `IEmailSender`, email confirmation links, resend-confirmation, and
+change-email reconfirmation are all silently broken, and `RequireConfirmedAccount` is left off
+to avoid locking every user out. Wiring up a real sender closes that gap and lets confirmation
+enforcement actually be turned on.
+
+### Proposed Changes
+1. Add a Brevo-backed `IEmailSender` implementation, calling Brevo's transactional email REST
+   API via `HttpClient` (no additional NuGet SDK needed — a plain HTTP call), and register it in
+   `Program.cs`.
+2. Store the Brevo API key via configuration/user-secrets locally, and an environment variable
+   in production — never committed to source.
+3. Set `IdentityOptions.SignIn.RequireConfirmedAccount = true` in `IdentityConfiguration.cs`.
+4. `Register.cshtml.cs`'s existing confirmation-email flow sends a real email; unconfirmed users
+   are blocked at sign-in with a clear message pointing them to resend confirmation.
+5. Verify `ResendEmailConfirmation.cshtml.cs` sends a working confirmation email end-to-end
+   (currently unverified since no sender exists).
+6. `Manage/Email.cshtml.cs` requires confirming the new address before it replaces the account's
+   email of record.
+
+Brevo was chosen over SendGrid/Twilio for a generous free tier at this app's current scale and
+to keep costs at zero for now. The REST API was chosen over SMTP relay for the long term:
+HTTPS avoids the outbound SMTP port restrictions some hosts impose, the API returns structured
+delivery feedback instead of just a connection-level accept/reject, it leaves room to grow into
+templates/webhooks/batch sending later, and auth is a single API key header rather than
+separate SMTP credentials/TLS config.
+
+### Acceptance Criteria
+- Registering an account sends a real confirmation email via Brevo; following the link
+  confirms the account and allows sign-in.
+- An unconfirmed account is blocked at sign-in with a clear message pointing to resend
+  confirmation.
+- `ResendEmailConfirmation` sends a working confirmation email end-to-end.
+- Changing email under `Manage/Email` requires confirming the new address before it replaces
+  the account's email of record.
+- `IdentityOptions.SignIn.RequireConfirmedAccount` is `true`.
+- The Brevo API key is not committed to source; it's read from user-secrets locally and an
+  environment variable in production.
+
+### Out of Scope
+- `ForgotPassword.cshtml.cs`'s password-reset email — it shares the same `IEmailSender` and
+  will start working as a side effect once the sender is wired up, but its behavior isn't part
+  of this feature's acceptance criteria.

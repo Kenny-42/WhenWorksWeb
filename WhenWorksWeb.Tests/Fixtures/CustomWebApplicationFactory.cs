@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ namespace WhenWorksWeb.Tests.Fixtures;
 /// same rationale and collation-registration requirement as <see cref="SqliteDbContextFixture"/> (see
 /// CODING_CONVENTIONS.md's "Collation differs by field on purpose"), just wired through DI service
 /// replacement instead of constructing the context directly, since here the whole app builds it.
+/// <c>IEmailSender</c> is likewise swapped for <see cref="TestEmailSender"/> (see <see cref="EmailSender"/>)
+/// so tests never need a real <c>Brevo:ApiKey</c> and never make a real network call.
 /// </summary>
 /// <remarks>
 /// <c>Program</c> is accessible from the test project despite being an implicitly-internal top-level-statement
@@ -74,8 +77,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
                 options.DefaultForbidScheme = IdentityConstants.ApplicationScheme;
             }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+
+            // Program.cs's AddHttpClient<BrevoEmailSender> throws InvalidOperationException the first
+            // time it's resolved if "Brevo:ApiKey" isn't configured -- true here, since this factory
+            // supplies no override for it. Rather than fabricate a fake key just to let a real
+            // BrevoEmailSender construct (which would then try real HTTP calls to Brevo's API from the
+            // test process), replace IEmailSender's registration outright with TestEmailSender: no
+            // BrevoEmailSender is ever constructed, no Brevo:ApiKey is needed, no network call happens,
+            // and any test can inspect what was "sent" via EmailSender below.
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender, TestEmailSender>();
         });
     }
+
+    /// <summary>
+    /// The <see cref="TestEmailSender"/> registered in place of <c>BrevoEmailSender</c> above, for
+    /// tests to inspect which confirmation/reset/change-email links were sent during a request.
+    /// </summary>
+    public TestEmailSender EmailSender => (TestEmailSender)Services.GetRequiredService<IEmailSender>();
 
     protected override void Dispose(bool disposing)
     {
