@@ -1,13 +1,14 @@
-// Covers event-best-bets.js's pure ranking/formatting/date-math logic only -- see
-// FEATURES-vitest-js-test-coverage.ospec Step 2. renderBestBetsList/renderFinalDatesList's
-// rendered markup is Step 3's job, not this file's.
+// Covers event-best-bets.js's pure ranking/formatting/date-math logic (see
+// FEATURES-vitest-js-test-coverage.ospec Step 2) and renderBestBetsList/renderFinalDatesList's
+// rendered markup (Step 3) -- one test file per source file, per this initiative's mirrored-path
+// convention.
 //
 // parseDateOnly/formatDateOnly/addDay aren't exposed on window.WWBestBets (only the six
 // functions the IIFE assigns to it are), so they're exercised indirectly through
 // computeFinalDateAvailability/getFinalDateKeys -- both walk a date range day-by-day using
 // those helpers, so a skipped/duplicated/misaligned day surfaces in those functions' own
 // results without needing to export anything just for testing.
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadScript } from './helpers/loadScript.js';
 
 let WWBestBets;
@@ -185,5 +186,195 @@ describe('getFinalDateKeys', () => {
             '2026-03-08',
             '2026-03-09',
         ]);
+    });
+});
+
+describe('renderBestBetsList', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+    });
+
+    it('renders one row per ranked entry, up to the limit', () => {
+        const datesByKey = {
+            '2026-01-01': [1],
+            '2026-01-02': [1, 2],
+            '2026-01-03': [1, 2, 3],
+        };
+        const participantsById = {
+            1: { displayName: 'A', color: 'ff0000' },
+            2: { displayName: 'B', color: '00ff00' },
+            3: { displayName: 'C', color: '0000ff' },
+        };
+
+        WWBestBets.renderBestBetsList(container, datesByKey, participantsById, 3);
+
+        expect(container.querySelectorAll('.ww-best-bet-row').length).toBe(3);
+    });
+
+    it('honors an overridden limit when rendering', () => {
+        const datesByKey = {
+            '2026-01-01': [1],
+            '2026-01-02': [1, 2],
+            '2026-01-03': [1, 2, 3],
+        };
+        const participantsById = {
+            1: { displayName: 'A', color: 'ff0000' },
+            2: { displayName: 'B', color: '00ff00' },
+            3: { displayName: 'C', color: '0000ff' },
+        };
+
+        WWBestBets.renderBestBetsList(container, datesByKey, participantsById, 3, { limit: 1 });
+
+        expect(container.querySelectorAll('.ww-best-bet-row').length).toBe(1);
+    });
+
+    it('renders the empty-state row when there are no ranked entries', () => {
+        WWBestBets.renderBestBetsList(container, {}, {}, 0);
+
+        const rows = container.querySelectorAll('.ww-best-bet-row');
+        expect(rows).toHaveLength(1);
+        expect(rows[0].classList.contains('ww-best-bet-empty')).toBe(true);
+
+        const message = rows[0].querySelector('p.text-muted.mb-0');
+        expect(message).not.toBeNull();
+        expect(message.textContent).toBe('The best date will appear once your group starts picking.');
+    });
+
+    it('uses options.emptyText in place of the default empty-state copy', () => {
+        WWBestBets.renderBestBetsList(container, {}, {}, 0, { emptyText: 'Nothing yet.' });
+
+        expect(container.querySelector('p.text-muted.mb-0').textContent).toBe('Nothing yet.');
+    });
+
+    it('renders a plain, non-interactive div row when options.onSelect is not supplied', () => {
+        const datesByKey = { '2026-01-01': [1] };
+        const participantsById = { 1: { displayName: 'A', color: 'ff0000' } };
+
+        WWBestBets.renderBestBetsList(container, datesByKey, participantsById, 1);
+
+        const row = container.querySelector('.ww-best-bet-row');
+        expect(row.tagName).toBe('DIV');
+        expect(row.classList.contains('ww-best-bet-row-button')).toBe(false);
+    });
+
+    it('renders a clickable button row that invokes options.onSelect with the row\'s date when supplied', () => {
+        const datesByKey = { '2026-01-01': [1] };
+        const participantsById = { 1: { displayName: 'A', color: 'ff0000' } };
+        const onSelect = vi.fn();
+
+        WWBestBets.renderBestBetsList(container, datesByKey, participantsById, 1, { onSelect });
+
+        const row = container.querySelector('.ww-best-bet-row');
+        expect(row.tagName).toBe('BUTTON');
+        expect(row.classList.contains('ww-best-bet-row-button')).toBe(true);
+        expect(row.type).toBe('button');
+
+        row.click();
+        expect(onSelect).toHaveBeenCalledExactlyOnceWith('2026-01-01');
+    });
+
+    it('renders one trailing dot per participant available on the row\'s date', () => {
+        const datesByKey = { '2026-01-01': [1, 2, 3] };
+        const participantsById = {
+            1: { displayName: 'A', color: 'ff0000' },
+            2: { displayName: 'B', color: '00ff00' },
+            3: { displayName: 'C', color: '0000ff' },
+        };
+
+        WWBestBets.renderBestBetsList(container, datesByKey, participantsById, 3);
+
+        const dots = container.querySelectorAll('.ww-best-bet-dots .ww-best-bet-dot');
+        expect(dots).toHaveLength(3);
+        expect(Array.from(dots).map((dot) => dot.style.backgroundColor)).toEqual([
+            'rgb(255, 0, 0)',
+            'rgb(0, 255, 0)',
+            'rgb(0, 0, 255)',
+        ]);
+    });
+});
+
+describe('renderFinalDatesList', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+    });
+
+    it('renders one row per final date entry', () => {
+        const finalDates = [
+            { startDate: '2026-01-01', endDate: null },
+            { startDate: '2026-02-10', endDate: '2026-02-12' },
+        ];
+
+        WWBestBets.renderFinalDatesList(container, finalDates, {}, {}, 0);
+
+        expect(container.querySelectorAll('.ww-best-bet-row')).toHaveLength(2);
+    });
+
+    it('renders a single-day entry with one count line and no en-dash range in the label', () => {
+        const finalDates = [{ startDate: '2026-01-01', endDate: null }];
+        const datesByKey = { '2026-01-01': [1, 2] };
+
+        WWBestBets.renderFinalDatesList(container, finalDates, datesByKey, {}, 2);
+
+        const row = container.querySelector('.ww-best-bet-row');
+        expect(row.querySelector('.ww-best-bet-date').textContent).toBe('Jan 1');
+        expect(row.querySelectorAll('.ww-best-bet-count')).toHaveLength(1);
+        expect(row.querySelector('.ww-best-bet-count').textContent).toBe('2 of 2 available');
+    });
+
+    it('renders a range entry with both every-day and some-days count lines and an en-dash label', () => {
+        const finalDates = [{ startDate: '2026-01-01', endDate: '2026-01-02' }];
+        const datesByKey = {
+            '2026-01-01': [1, 2],
+            '2026-01-02': [2, 3],
+        };
+
+        WWBestBets.renderFinalDatesList(container, finalDates, datesByKey, {}, 3);
+
+        const row = container.querySelector('.ww-best-bet-row');
+        expect(row.querySelector('.ww-best-bet-date').textContent).toBe('Jan 1 – Jan 2');
+
+        const counts = row.querySelectorAll('.ww-best-bet-count');
+        expect(counts).toHaveLength(2);
+        expect(counts[0].textContent).toBe('1 of 3 available every day');
+        expect(counts[1].textContent).toBe('3 of 3 available some days');
+    });
+
+    it('appends dots directly to the row when options.renderRemoveControl is not supplied', () => {
+        const finalDates = [{ startDate: '2026-01-01', endDate: null }];
+        const datesByKey = { '2026-01-01': [1] };
+        const participantsById = { 1: { displayName: 'A', color: 'ff0000' } };
+
+        WWBestBets.renderFinalDatesList(container, finalDates, datesByKey, participantsById, 1);
+
+        const row = container.querySelector('.ww-best-bet-row');
+        expect(row.querySelector('.ww-final-date-row-trailing')).toBeNull();
+        expect(row.querySelector(':scope > .ww-best-bet-dots')).not.toBeNull();
+    });
+
+    it('wraps dots and the supplied remove control together in a trailing group when options.renderRemoveControl is supplied', () => {
+        const finalDates = [{ startDate: '2026-01-01', endDate: null }];
+        const datesByKey = { '2026-01-01': [1] };
+        const participantsById = { 1: { displayName: 'A', color: 'ff0000' } };
+        const renderRemoveControl = vi.fn((finalDate) => {
+            const form = document.createElement('form');
+            form.className = 'ww-remove-control';
+            form.dataset.date = finalDate.startDate;
+            return form;
+        });
+
+        WWBestBets.renderFinalDatesList(container, finalDates, datesByKey, participantsById, 1, {
+            renderRemoveControl,
+        });
+
+        const row = container.querySelector('.ww-best-bet-row');
+        const trailing = row.querySelector(':scope > .ww-final-date-row-trailing');
+        expect(trailing).not.toBeNull();
+        expect(trailing.querySelector('.ww-best-bet-dots')).not.toBeNull();
+        expect(trailing.querySelector('.ww-remove-control')).not.toBeNull();
+        expect(renderRemoveControl).toHaveBeenCalledExactlyOnceWith(finalDates[0]);
     });
 });
