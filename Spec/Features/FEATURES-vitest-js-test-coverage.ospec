@@ -184,7 +184,7 @@ Step 1.
 ## Step 5: Extract ww-color-utils.js and ww-grapheme-validator.js out of site.js, then add unit tests
 
 ### Status
-Not started.
+Done.
 
 ### GitHub Issue
 #93

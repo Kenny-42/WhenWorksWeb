@@ -91,6 +91,8 @@
     <!-- Shared scripts: jQuery, Bootstrap bundle, site-wide JS, then any per-view Scripts section -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/ww-color-utils.js" asp-append-version="true"></script>
+    <script src="~/js/ww-grapheme-validator.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
