@@ -1,0 +1,160 @@
+A batch of security-relevant bugs found during PR review of #94 (email verification) — each
+too small to justify its own file, so they're tracked together here. Unlike the grouped-file
+convention for a single staged initiative, these entries aren't ordered or dependent on each
+other; they're just being scheduled and fixed together on the same branch.
+
+---
+
+## email_verified claim comparison never matches, so Google auto-confirm silently never fires
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ExternalLogin.cshtml.cs`'s `OnPostConfirmationAsync` compares the `email_verified` claim
+against the lowercase literal `"true"`, but ASP.NET Core's `JsonKeyClaimAction` (used by
+`Program.cs`'s `MapJsonKey("email_verified", ..., ClaimValueTypes.Boolean)`) stores a JSON
+boolean claim value via `JsonElement.ToString()`, which returns the capitalized
+`bool.TrueString`/`bool.FalseString` (`"True"`/`"False"`) for `JsonValueKind.True`/`False` — not
+lowercase `"true"`/`"false"`.
+
+### Reported Behavior
+Not user-reported — found during review of #94, after the fix in
+`BUGS-external-login-email-verification-claim.ospec` was implemented. The comparison
+`info.Principal.FindFirst("email_verified")?.Value == "true"` can never be true for a claim
+populated through `MapJsonKey`, so `emailIsProviderVerified` is always `false`.
+
+### Expected Behavior
+A first-time Google sign-in where Google's `email_verified` claim is `true` gets
+`EmailConfirmed = true` and is signed in directly, matching the acceptance criteria of
+`BUGS-external-login-email-verification-claim.ospec`.
+
+### Root Cause
+`JsonKeyClaimAction.Run` (in `Microsoft.AspNetCore.Authentication.OAuth`) converts the mapped
+`JsonElement` to a claim string via `.ToString()`. For a JSON boolean, `JsonElement.ToString()`
+returns `.NET`'s `bool.TrueString`/`FalseString` (`"True"`/`"False"`), not the lowercase JSON
+literal spelling. The existing check in `ExternalLogin.cshtml.cs` was written and tested against
+a hand-constructed claim (`new Claim("email_verified", "true")` in
+`ExternalLoginConfirmationTests.cs`), which never exercises the real `MapJsonKey` conversion
+path, so the mismatch went uncaught.
+
+### Proposed Fix
+Change the comparison in `ExternalLogin.cshtml.cs`'s `OnPostConfirmationAsync` to compare
+case-insensitively, e.g.
+`string.Equals(info.Principal.FindFirst("email_verified")?.Value, bool.TrueString, StringComparison.OrdinalIgnoreCase)`
+or `StringComparison.OrdinalIgnoreCase` against `"true"`. Also update
+`ExternalLoginConfirmationTests.cs`'s claim construction to use the capitalized form
+(`bool.TrueString`/`bool.FalseString`) so the test actually reflects what `MapJsonKey` produces,
+rather than a value that happens to never occur in production.
+
+### Acceptance Criteria
+- A first-time Google sign-in whose `Input.Email` matches the provider's `Email` claim, and whose
+  `email_verified` claim is the real (capitalized) `MapJsonKey`-produced `"True"`, gets
+  `EmailConfirmed = true` and is signed in directly.
+- `ExternalLoginConfirmationTests.cs` constructs its `email_verified` claim value the same way
+  `JsonKeyClaimAction` actually produces it, not a hand-typed lowercase string.
+
+### Out of Scope
+- Any other external provider — same scope note as the original claim-checking fix.
+
+---
+
+## RegisterConfirmation page is an unauthenticated account-existence oracle
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`RegisterConfirmationModel.OnGetAsync` looks up a user by an unauthenticated `email`
+query-string parameter and returns `NotFound()` when no account matches, `Page()` (200) when one
+does — letting anyone probe the endpoint to learn whether a given email address has a
+registered account.
+
+### Reported Behavior
+Not user-reported — found during review of #94. `GET /Identity/Account/RegisterConfirmation?email=<address>`
+returns a 404 for an unregistered address and a 200 for a registered one, with no rate limiting
+or authentication.
+
+### Expected Behavior
+The page's response does not disclose whether the given email address has a registered account,
+consistent with the anti-enumeration behavior this same feature already provides elsewhere
+(`ApplicationSignInManager`'s password-before-status ordering, `ResendEmailConfirmation.cshtml.cs`
+showing an identical message regardless of account existence).
+
+### Root Cause
+`OnGetAsync` was written to look up the user purely to render a nicer message (e.g. confirming
+which address the confirmation email was sent to), without considering that the presence/absence
+of that lookup result is itself observable through the response's HTTP status code.
+
+### Proposed Fix
+Make `OnGetAsync` return the same `Page()` result (200) regardless of whether
+`FindByEmailAsync(email)` finds a user, the same way `ResendEmailConfirmation.cshtml.cs` already
+does. If the page needs to display the submitted email back to the user, echo the query-string
+value directly rather than a value sourced from the lookup, so no branch of the response depends
+on whether the account exists.
+
+### Acceptance Criteria
+- `GET /Identity/Account/RegisterConfirmation?email=<address>` returns the same status code
+  (200) whether or not `<address>` has a registered account.
+- The page's rendered content does not otherwise reveal whether the account exists.
+- A new test covers both the existing-account and non-existing-account cases and asserts they
+  produce indistinguishable responses.
+
+### Out of Scope
+- Rate limiting the endpoint — the response-shape fix removes the signal being probed for; rate
+  limiting is a separate, broader concern not scoped to this page.
+
+---
+
+## ApplicationSignInManager resets lockout before 2FA is verified
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ApplicationSignInManager.CheckPasswordSignInAsync`'s success path unconditionally calls
+`ResetLockout(user)`, but the base `SignInManager<TUser>.CheckPasswordSignInCoreAsync` only
+resets the lockout counter when two-factor authentication is disabled or already remembered on
+the current device, deferring the reset until the second factor is verified.
+
+### Reported Behavior
+Not user-reported — found during review of #94. For an account with 2FA enabled and not
+remembered on the signing-in device, a correct password immediately resets the failed-access
+counter via this override, before any second-factor challenge is issued or verified.
+
+### Expected Behavior
+The failed-access-attempt counter is only reset once sign-in is actually complete — i.e. either
+2FA is disabled for the account, or the 2FA client is already remembered — matching the base
+`SignInManager`'s own ordering, which this class's doc comments claim to preserve.
+
+### Root Cause
+The override calls `ResetLockout(user)` directly after a successful password check, without
+reproducing the base implementation's guard
+(`alwaysLockout || !await IsTwoFactorEnabledAsync(user) || await IsTwoFactorClientRememberedAsync(user)`)
+that determines whether resetting at this point is actually correct.
+
+### Proposed Fix
+Reproduce the base `SignInManager`'s guard before calling `ResetLockout(user)` in
+`ApplicationSignInManager.CheckPasswordSignInAsync`, so the reset is deferred exactly as it is in
+the framework for a 2FA-enabled, not-yet-remembered account.
+
+### Acceptance Criteria
+- A correct password against a 2FA-enabled account that isn't remembered on the current device
+  does not reset the failed-access counter until the second factor is verified.
+- A correct password against an account with 2FA disabled (or already remembered) still resets
+  the counter immediately, as today.
+- A new test in `ApplicationSignInManagerTests.cs` covers a 2FA-enabled, not-remembered account
+  with a correct password and asserts the lockout counter is left untouched.
+
+### Out of Scope
+- Any change to the wrong-password/lockout-triggering path — only the success-path reset timing
+  is in scope here.

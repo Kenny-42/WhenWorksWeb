@@ -1,0 +1,75 @@
+## Registration crashes when redirecting to account confirmation
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`RegisterModel.OnPostAsync` redirects to a Razor Page (`RegisterConfirmation`) that was never
+scaffolded in this project, so every successful registration now throws once
+`RequireConfirmedAccount` is `true` (see `Spec/Features/FEATURES-email-verification.ospec`, #94).
+Fixing the redirect is also the right moment to consolidate two pages that now say effectively
+the same thing to a user in different flows.
+
+### Reported Behavior
+Registering a new account with correct, valid input throws
+`InvalidOperationException: No page named 'RegisterConfirmation' matches the supplied values`
+instead of completing.
+
+### Expected Behavior
+After a successful registration, the user lands on a real confirmation page telling them to
+check their email, with no server error. A login or external-login attempt against an
+unconfirmed account lands on that same page.
+
+### Root Cause
+`Register.cshtml.cs`'s stock scaffolded branch —
+`if (_userManager.Options.SignIn.RequireConfirmedAccount) return RedirectToPage("RegisterConfirmation", ...)`
+— was dead code while `RequireConfirmedAccount` was `false`. #94 flipped that flag to `true`
+without noticing `RegisterConfirmation.cshtml`/`.cshtml.cs` had never been scaffolded/kept in
+this repo, so the branch now executes and fails to resolve.
+
+Separately, #94 already built `ConfirmEmailRequired.cshtml` — a hand-written page serving the
+same "you must confirm before you can log in" purpose for `Login.cshtml.cs` and
+`ExternalLogin.cshtml.cs`'s `IsNotAllowed` branches — so there are now two different pages that
+would tell a user the same thing in different flows.
+
+### Proposed Fix
+Consolidate to one page, using the stock scaffolded `RegisterConfirmation` page rather than the
+hand-built one (chosen so the app leans on Identity's own scaffolding instead of a
+parallel custom page):
+1. Scaffold `RegisterConfirmation.cshtml`/`.cshtml.cs` for real.
+2. The stock template defaults `DisplayConfirmAccountLink = true`, which prints the raw
+   confirmation link directly on the page instead of requiring the user to open their email.
+   This must be set `false` outright — not merely gated to `Development` — since confirming by
+   actually clicking the emailed link is a hard requirement here, not a testing convenience to
+   preserve.
+3. Add the same "Resend email confirmation" link `ConfirmEmailRequired.cshtml` currently has.
+4. Delete `ConfirmEmailRequired.cshtml`/`.cshtml.cs`.
+5. Update `Login.cshtml.cs`'s `IsNotAllowed` branch to redirect to `RegisterConfirmation`
+   (passing the account's known email) instead of `ConfirmEmailRequired`.
+6. Update `ExternalLogin.cshtml.cs`'s `OnGetCallbackAsync` `IsNotAllowed` branch and
+   `OnPostConfirmationAsync`'s unverified-email branch the same way.
+
+### Acceptance Criteria
+- Registering a new account with `RequireConfirmedAccount = true` succeeds and lands on
+  `RegisterConfirmation` with no server error.
+- `RegisterConfirmation` never displays a raw confirmation link or otherwise lets an account be
+  confirmed without the user actually opening the email.
+- `RegisterConfirmation` offers a "resend confirmation" link.
+- Login with an unconfirmed account (correct password) redirects to `RegisterConfirmation`.
+- External-login (Google) sign-in against an account whose email isn't confirmed redirects to
+  `RegisterConfirmation`.
+- `ExternalLogin.cshtml.cs`'s email-mismatch-on-confirmation path redirects to
+  `RegisterConfirmation`.
+- `ConfirmEmailRequired.cshtml`/`.cshtml.cs` no longer exists.
+- A new end-to-end test drives `RegisterModel.OnPostAsync` with `RequireConfirmedAccount = true`
+  and asserts a successful redirect to `RegisterConfirmation` — this is the test that would have
+  caught the original crash.
+
+### Out of Scope
+- The confirmation-email-sending logic itself (token generation, callback URL shape) — covered by
+  `Spec/Refactors/REFACTOR-signin-manager-and-confirmation-email.ospec`'s `EmailConfirmationLinkSender`
+  extraction.
+- Lockout-related behavior changes — deferred to a future issue.
