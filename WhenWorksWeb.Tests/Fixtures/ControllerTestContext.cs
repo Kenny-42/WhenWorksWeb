@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using WhenWorksWeb.Models;
@@ -49,10 +48,7 @@ public static class ControllerTestContext
         var actionContext = new ActionContext(httpContext, new RouteData(), new ControllerActionDescriptor());
         controller.ControllerContext = new ControllerContext(actionContext);
 
-        // Url.RouteUrl/Url.Action need an IUrlHelper. Building a fully route-aware one requires a real endpoint
-        // pipeline (that's what the WebApplicationFactory-based Tier 3 tests are for) — this stub returns a
-        // predictable, inspectable value instead, since URL generation is framework plumbing, not the business
-        // logic these tests are checking.
+        // Url.RouteUrl/Url.Action need an IUrlHelper -- see StubUrlHelper's remarks for why a stub is enough here.
         controller.Url = new StubUrlHelper(actionContext);
 
         return httpContext;
@@ -80,24 +76,5 @@ public static class ControllerTestContext
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Minimal <see cref="IUrlHelper"/> that returns a deterministic, inspectable URL instead of performing
-    /// real route resolution (see the remark on <see cref="AttachContext"/> for why).
-    /// </summary>
-    private sealed class StubUrlHelper(ActionContext actionContext) : IUrlHelper
-    {
-        public ActionContext ActionContext { get; } = actionContext;
-
-        public string? Action(UrlActionContext urlActionContext) => $"/stub-action/{urlActionContext.Action}/{urlActionContext.Controller}";
-
-        public string? Content(string? contentPath) => contentPath;
-
-        public bool IsLocalUrl(string? url) => true;
-
-        public string? Link(string? routeName, object? values) => $"/stub-link/{routeName}";
-
-        public string? RouteUrl(UrlRouteContext routeContext) => $"/stub-route/{routeContext.RouteName}";
     }
 }
