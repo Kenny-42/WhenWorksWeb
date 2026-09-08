@@ -1,0 +1,33 @@
+@page
+@model LockoutModel
+@{
+    ViewData["Title"] = "Account locked";
+}
+
+<!-- Lockout page -->
+<div class="text-center mb-5">
+    <h1 class="ww-hero-title font-display mb-4">ACCOUNT LOCKED</h1>
+    <div class="row justify-content-center">
+        <div class="col-md-5 mx-auto">
+            <div class="ww-account-card ww-account-card-yellow">
+                @if (Model.TimeRemaining is { } timeRemaining)
+                {
+                    // Already rounded up to a whole minute by LockoutModel.OnGetAsync -- no need to
+                    // re-ceil here, just read it back.
+                    var minutes = (int)timeRemaining.TotalMinutes;
+                    <p class="text-on-gradient fs-5 mb-0">
+                        This account has been locked due to too many failed login attempts.
+                        Try again in @minutes minute@(minutes == 1 ? "" : "s").
+                    </p>
+                }
+                else
+                {
+                    <p class="text-on-gradient fs-5 mb-0">
+                        This account has been locked due to too many failed login attempts.
+                        Please try again in a few minutes.
+                    </p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

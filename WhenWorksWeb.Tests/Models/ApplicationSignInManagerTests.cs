@@ -200,4 +200,77 @@ public class ApplicationSignInManagerTests : IClassFixture<CustomWebApplicationF
             Assert.Equal(0, await userManager.GetAccessFailedCountAsync(user));
         }
     }
+
+    /// <summary>
+    /// The branch Login.cshtml.cs now actually exercises (see
+    /// Spec/Features/FEATURES-enforce-account-lockout.ospec): with <c>lockoutOnFailure: true</c>, a
+    /// single wrong password increments <c>AccessFailedCount</c> by one and, since that's below
+    /// <c>IdentityConfiguration.Configure</c>'s 5-attempt threshold, still returns
+    /// <see cref="SignInResult.Failed"/> rather than locking the account out.
+    /// </summary>
+    [Fact]
+    public async Task CheckPasswordSignInAsync_WithWrongPasswordAndLockoutOnFailureTrue_IncrementsAccessFailedCountBelowThreshold()
+    {
+        var (signInManager, user, scope) = await CreateUserAndSignInManagerAsync("lockoutonfailuretrueuser", emailConfirmed: true);
+        using (scope)
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            var result = await signInManager.CheckPasswordSignInAsync(user, "definitely-the-wrong-password", lockoutOnFailure: true);
+
+            Assert.Same(SignInResult.Failed, result);
+            Assert.False(result.IsLockedOut);
+            Assert.Equal(1, await userManager.GetAccessFailedCountAsync(user));
+        }
+    }
+
+    /// <summary>
+    /// The threshold crossing: the 5th wrong password (4 already recorded, matching
+    /// <c>IdentityOptions.Lockout.MaxFailedAccessAttempts</c>) locks the account out and the same
+    /// call reports it, rather than requiring a separate lookup.
+    /// </summary>
+    [Fact]
+    public async Task CheckPasswordSignInAsync_WithWrongPasswordReachingMaxFailedAccessAttempts_LocksOutAccount()
+    {
+        var (signInManager, user, scope) = await CreateUserAndSignInManagerAsync("lockoutthresholduser", emailConfirmed: true);
+        using (scope)
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var maxAttempts = userManager.Options.Lockout.MaxFailedAccessAttempts;
+            for (var i = 0; i < maxAttempts - 1; i++)
+            {
+                await userManager.AccessFailedAsync(user);
+            }
+            Assert.Equal(maxAttempts - 1, await userManager.GetAccessFailedCountAsync(user));
+            Assert.False(await userManager.IsLockedOutAsync(user));
+
+            var result = await signInManager.CheckPasswordSignInAsync(user, "definitely-the-wrong-password", lockoutOnFailure: true);
+
+            Assert.True(result.IsLockedOut);
+            Assert.True(await userManager.IsLockedOutAsync(user));
+        }
+    }
+
+    /// <summary>
+    /// A correct password with <c>lockoutOnFailure: true</c> still resets the counter accumulated by
+    /// prior wrong attempts, exactly as the <c>lockoutOnFailure: false</c> case above -- the reset
+    /// path doesn't depend on the parameter that controls whether failures are counted.
+    /// </summary>
+    [Fact]
+    public async Task CheckPasswordSignInAsync_WithCorrectPasswordAfterFailedAttemptsAndLockoutOnFailureTrue_ResetsAccessFailedCount()
+    {
+        var (signInManager, user, scope) = await CreateUserAndSignInManagerAsync("lockoutresetuser", emailConfirmed: true);
+        using (scope)
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            await userManager.AccessFailedAsync(user);
+            await userManager.AccessFailedAsync(user);
+            Assert.Equal(2, await userManager.GetAccessFailedCountAsync(user));
+
+            var result = await signInManager.CheckPasswordSignInAsync(user, Password, lockoutOnFailure: true);
+
+            Assert.True(result.Succeeded);
+            Assert.Equal(0, await userManager.GetAccessFailedCountAsync(user));
+        }
+    }
 }

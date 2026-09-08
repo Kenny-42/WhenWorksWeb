@@ -1,0 +1,34 @@
+## Enforce Account Lockout on Repeated Failed Logins
+
+### Status
+Implemented.
+
+### GitHub Issue
+#109
+
+### Summary
+Lockout is already configured and implemented (5-attempt policy in `IdentityConfiguration.cs`, correct `lockoutOnFailure` branch in `ApplicationSignInManager`), but never turned on: `Login.cshtml.cs` passes `lockoutOnFailure: false`, and the `Lockout` page it redirects to doesn't exist. This activates both.
+
+### Motivation
+Without enforcement, the existing lockout policy and `ApplicationSignInManager` branch are dead code, and repeated wrong passwords never actually lock an account.
+
+### Proposed Changes
+1. Flip `lockoutOnFailure` to `true` in `Login.cshtml.cs`.
+2. Add the missing `Areas/Identity/Pages/Account/Lockout.cshtml(.cs)`, showing time remaining until `LockoutEnd`.
+3. Add an explicit `IsLockedOutAsync` check in `LoginWithRecoveryCode.cshtml.cs` before redeeming a code -- `SignInManager.TwoFactorRecoveryCodeSignInAsync` never consults lockout on its own (see Out of Scope), so without this a still-locked-out account could sign in with a valid recovery code, bypassing the lockout this feature enforces everywhere else.
+4. Extend tests (see Acceptance Criteria).
+
+### Acceptance Criteria
+- `Login.cshtml.cs` passes `lockoutOnFailure: true`.
+- 5 failed attempts locks the account per existing policy; a correct password after that still fails until `LockoutEnd` passes, then succeeds and resets the counter.
+- The `Lockout` page shows time remaining until `LockoutEnd`.
+- A locked-out account is rejected at the `LoginWithRecoveryCode` stage even with a valid recovery code, redirecting to `Lockout` instead of signing in.
+- `ApplicationSignInManagerTests.cs` covers the `lockoutOnFailure: true` branch (increment, threshold, lockout, reset).
+- `LoginTests.cs` covers the full flow: lockout after 5 attempts, still blocked pre-expiry, succeeds post-expiry.
+- `LoginWith2faTests.cs` covers a wrong TOTP code crossing the threshold mid-2FA-challenge and locking the account out.
+- `LoginWithRecoveryCodeTests.cs` covers the explicit lockout check added above: a valid code against a locked-out account redirects to `Lockout` rather than signing in, and an unlocked account still gets the ordinary invalid-code message.
+
+### Out of Scope
+- Changes to the TOTP path's own lockout behavior -- `TwoFactorAuthenticatorSignInAsync` already counts failures toward lockout by default (it runs `PreSignInCheck`, same as the password path). `TwoFactorRecoveryCodeSignInAsync` does not (by design, per its own "we don't protect against brute force attacks since codes are expected to be random" comment) and is not itself changed; see Proposed Changes above for the explicit check added around it instead.
+- Changes to the lockout policy values (5 attempts / 5 minutes).
+- Schema/migration changes — `AccessFailedCount`/`LockoutEnd` already exist on `ApplicationUser`.
