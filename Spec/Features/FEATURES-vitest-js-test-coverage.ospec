@@ -240,7 +240,7 @@ per CLAUDE.md's decision-making boundaries — see this spec's intro.
 ## Step 6: Add js-tests.yml CI workflow
 
 ### Status
-Not started.
+Done.
 
 ### GitHub Issue
 #93
