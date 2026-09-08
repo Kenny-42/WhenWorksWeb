@@ -14,11 +14,11 @@ namespace WhenWorksWeb.Tests.Areas.Identity.Pages.Account.Manage;
 /// <c>FindByEmailAsync</c>'s lookup.
 /// </summary>
 /// <remarks>
-/// <see cref="EmailModel"/>'s <c>SignInManager</c>/<c>IEmailSender</c> dependencies are passed
-/// <see langword="null"/>! here because the scenarios covered (a rejected duplicate, and the
-/// "unchanged" no-op) never reach the branch that sends a confirmation email or calls
-/// <c>Url.Page</c> -- only the successful email-change branch does, and that branch is unchanged
-/// scaffolding out of scope for this spec (see its Scope section).
+/// <see cref="EmailModel"/>'s <c>SignInManager</c>/<c>IEmailSender</c>/<c>EmailConfirmationLinkSender</c>
+/// dependencies are passed <see langword="null"/>! here because the scenarios covered (a rejected
+/// duplicate, and the "unchanged" no-op) never reach the branch that sends a confirmation email or
+/// calls <c>Url.Page</c> -- only the successful email-change branch does, and that branch is
+/// unchanged scaffolding out of scope for this spec (see its Scope section).
 /// </remarks>
 public class EmailModelTests : SqliteDbContextFixture
 {
@@ -33,7 +33,7 @@ public class EmailModelTests : SqliteDbContextFixture
         var currentUser = new ApplicationUserBuilder().WithUserName("currentuser").WithEmail("current@example.com").Build();
         await userManager.CreateAsync(currentUser);
 
-        var pageModel = new EmailModel(userManager, null!, null!)
+        var pageModel = new EmailModel(userManager, null!, null!, null!)
         {
             Input = new EmailModel.InputModel { NewEmail = "taken@example.com" }
         };
@@ -59,7 +59,7 @@ public class EmailModelTests : SqliteDbContextFixture
         var currentUser = new ApplicationUserBuilder().WithUserName("currentuser").WithEmail("current@example.com").Build();
         await userManager.CreateAsync(currentUser);
 
-        var pageModel = new EmailModel(userManager, null!, null!)
+        var pageModel = new EmailModel(userManager, null!, null!, null!)
         {
             Input = new EmailModel.InputModel { NewEmail = "current@example.com" }
         };
