@@ -1,7 +1,9 @@
 ## Set up email verification for account registration
 
 ### Status
-Not started.
+Implemented. `ConfirmEmail`/`ConfirmEmailChange` were the last unfinished piece (see
+Spec/Bugs/BUGS-missing-email-confirmation-pages.ospec, Issue #105) — every acceptance criterion below
+is now met end-to-end.
 
 ### GitHub Issue
 #94

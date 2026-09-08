@@ -1,0 +1,52 @@
+## Email confirmation links are dead — ConfirmEmail/ConfirmEmailChange pages missing
+
+### Status
+Fixed.
+
+### GitHub Issue
+#105
+
+### Summary
+`/Account/ConfirmEmail` and `/Account/ConfirmEmailChange` were never scaffolded. With
+`RequireConfirmedAccount = true` (set by #94), new local accounts can never confirm and
+can never sign in; email-change confirmation links are equally dead.
+
+### Reported Behavior
+Found during an account-management audit, not user-reported. No code calls
+`UserManager.ConfirmEmailAsync`/`ConfirmEmailChangeAsync`, and no such page exists under
+`Areas/Identity/Pages/Account/`.
+
+### Expected Behavior
+Following a registration or email-change confirmation link actually confirms the account
+or applies the new email.
+
+### Root Cause
+- `Services/EmailConfirmationLinkSender.cs:54-59` builds a callback to
+  `page: "/Account/ConfirmEmail"` (used by Register, ResendEmailConfirmation,
+  ExternalLogin, and `Manage/Email.cshtml.cs`'s `OnPostSendVerificationEmailAsync`).
+- `Manage/Email.cshtml.cs:153-157` (`OnPostChangeEmailAsync`) builds a callback to
+  `"/Account/ConfirmEmailChange"`.
+- Neither page was scaffolded when #94 wired up email verification, and no handler calls
+  the corresponding `UserManager` confirm methods.
+- Uncaught because `EmailModelTests.cs` never exercises the email-sending branch, and
+  `RegisterTests.cs` never follows the actual emailed link.
+
+### Proposed Fix
+1. Scaffold `Areas/Identity/Pages/Account/ConfirmEmail.cshtml(.cs)` — decode `code`, call
+   `ConfirmEmailAsync`, show success/failure.
+2. Scaffold `ConfirmEmailChange.cshtml(.cs)` similarly — `ChangeEmailAsync` +
+   `RefreshSignInAsync`.
+3. Keep both in the generator's default style, per CODING_CONVENTIONS.md.
+4. Update `Spec/Features/FEATURES-email-verification.ospec`'s Status to match reality.
+5. Add tests following the real confirm links (registration confirm, email-change confirm,
+   and an invalid/tampered-token failure case) rather than stopping at token generation.
+
+### Acceptance Criteria
+- Following a registration confirmation link confirms the account and allows sign-in.
+- Following an email-change confirmation link applies the new email.
+- An invalid/expired token fails gracefully, not with an unhandled exception.
+- `FEATURES-email-verification.ospec` Status reflects reality.
+- Tests cover the actual confirm-link flow for both cases.
+
+### Out of Scope
+- `DeletePersonalData.cshtml.cs` cascade/orphan behavior — separate discussion.
