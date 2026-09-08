@@ -28,12 +28,14 @@ public class ApplicationUser : IdentityUser
     /// This allows users to have a more personalized and friendly name shown in the application, especially in event-related contexts.
     /// The maximum length is set to 16 characters to ensure concise display names.
     /// </summary>
+    [PersonalData]
     [StringLength(DisplayNameMaxLength, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 16 characters.")]
     public string DisplayName { get; set; } = "Nickname";
 
     /// <summary>
     /// Stores a hexadecimal color code (without the '#' symbol) that represents the user's preferred personal color for use in events.
     /// </summary>
+    [PersonalData]
     [RegularExpression(HexColorPattern, ErrorMessage = "Color must be a valid 6-character hexadecimal value.")]
     [StringLength(HexColorLength, MinimumLength = HexColorLength, ErrorMessage = "Color must be exactly 6 characters.")]
     public string Color { get; set; } = ModelConstants.DefaultParticipantColor;
@@ -41,12 +43,14 @@ public class ApplicationUser : IdentityUser
     /// <summary>
     /// Gets or sets the date and time when the user account was created.
     /// </summary>
+    [PersonalData]
     public required DateTime CreatedAt { get; set; }
 
     /// <summary>
     /// Stores the last time the user was active in the application, such as logging in or performing any action.
     /// This can be used for features like showing online status or for analytics purposes.
     /// </summary>
+    [PersonalData]
     public required DateTime LastActiveAt { get; set; }
 
     /// <summary>

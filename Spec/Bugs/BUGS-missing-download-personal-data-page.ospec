@@ -1,0 +1,48 @@
+## Download Data button 404s — DownloadPersonalData page never scaffolded
+
+### Status
+Implemented.
+
+### GitHub Issue
+#107
+
+### Summary
+`PersonalData.cshtml`'s "Download Data" button posts to `DownloadPersonalData`, a Razor
+page that was never scaffolded. Clicking it always 404s.
+
+### Reported Behavior
+Found during an audit of the delete-personal-data/delete-account flow, not user-reported.
+`PersonalData.cshtml:8-11` and `ManageNavPages.cs:38,86` already anticipate this page
+(comment + unused nav-class helper) but no `DownloadPersonalData.cshtml(.cs)` exists under
+`Areas/Identity/Pages/Account/Manage/`.
+
+### Expected Behavior
+Clicking Download Data downloads a file containing the user's stored personal data.
+
+### Root Cause
+- `PersonalData.cshtml:20` renders `<form asp-page="DownloadPersonalData" method="post">`.
+- No matching page model exists, so the form 404s on submit.
+- Same class of gap as `BUGS-missing-email-confirmation-pages.ospec` — a page anticipated
+  by the default Identity scaffolding that was never added in this repo's pass.
+- Note: none of `ApplicationUser`'s custom properties (`DisplayName`, `Color`, `CreatedAt`,
+  `LastActiveAt`) are marked `[PersonalData]`, so the default scaffolded implementation
+  (which reflects over `[PersonalData]`-attributed properties) would only report base
+  `IdentityUser` fields (username, email, phone) unless that's addressed too — worth a
+  decision before implementing, not assumed here.
+
+### Proposed Fix
+1. Scaffold `Areas/Identity/Pages/Account/Manage/DownloadPersonalData.cshtml(.cs)` in the
+   generator's default style (reflect over `[PersonalData]`-attributed properties, serialize
+   to JSON, return as a file download), matching CODING_CONVENTIONS.md.
+2. Decide, with the developer, whether `ApplicationUser.DisplayName` (and any other custom
+   field) should be marked `[PersonalData]` so it's actually included in the export.
+3. Add tests exercising the actual download (not just that the button exists).
+
+### Acceptance Criteria
+- Clicking Download Data returns a file, not a 404.
+- The exported data includes at least the base Identity personal-data fields.
+- Tests cover the download flow.
+
+### Out of Scope
+- The separate missing-page gap already tracked in
+  `Spec/Bugs/BUGS-missing-email-confirmation-pages.ospec`.
