@@ -1,0 +1,51 @@
+## External login trusts the email claim without checking email_verified
+
+### Status
+Fixed.
+
+### GitHub Issue
+None yet.
+
+### Summary
+`ExternalLogin.cshtml.cs` marks a new account's email confirmed based only on whether the
+submitted form value matches the provider's `Email` claim — it never checks the standard OIDC
+`email_verified` claim, which is what Google actually provides to answer that exact question.
+
+### Reported Behavior
+Not user-reported — found during review of #94. `Program.cs`'s `AddGoogle` registration doesn't
+map or request the `email_verified` claim at all, so it isn't available on `info.Principal`, and
+`OnPostConfirmationAsync`'s `emailIsProviderVerified` check relies purely on a string comparison
+between the `Email` claim and `Input.Email`.
+
+### Expected Behavior
+`EmailConfirmed` is only set `true` for a first-time Google sign-in when Google's own
+`email_verified` claim confirms it — not merely because the claim value happens to equal what
+the user typed into the editable confirmation-form field.
+
+### Root Cause
+Matching `Email` claim to `Input.Email` proves the user didn't retype a different address on the
+form, but it does not prove the address itself is verified — that's a separate fact Google
+reports via `email_verified`, which this code never requests or reads.
+
+### Proposed Fix
+1. In `Program.cs`'s `AddGoogle` options, add
+   `options.ClaimActions.MapJsonKey("email_verified", "email_verified", ClaimValueTypes.Boolean);`
+   so the claim is actually surfaced on `info.Principal`.
+2. In `ExternalLogin.cshtml.cs`'s `OnPostConfirmationAsync`, require
+   `info.Principal.FindFirst("email_verified")?.Value == "true"` in addition to the existing
+   `Email`-claim-equals-`Input.Email` check before setting `EmailConfirmed = true`.
+
+Not building a general multi-provider verification-policy abstraction for this now — Google is
+the only external provider in use today.
+
+### Acceptance Criteria
+- `info.Principal` carries an `email_verified` claim after a Google sign-in.
+- A first-time Google sign-in whose `Input.Email` matches the provider's `Email` claim, and whose
+  `email_verified` claim is `true`, gets `EmailConfirmed = true` and is signed in directly.
+- A first-time Google sign-in whose `email_verified` claim is `false` or missing gets a
+  confirmation email and lands on the confirmation-required page, even when `Input.Email`
+  matches the provider's `Email` claim exactly.
+
+### Out of Scope
+- Any other external provider — not in use today; a shared/reusable verification-policy helper
+  is deferred until a second provider is actually added.
