@@ -1,0 +1,12 @@
+@page
+@model DownloadPersonalDataModel
+@{
+    ViewData["Title"] = "Download Your Data";
+    ViewData["ActivePage"] = ManageNavPages.PersonalData;
+}
+
+<!-- The Download Data button on PersonalData.cshtml posts directly here; this page's own
+     markup is only ever seen if a user navigates to it by GET, which the stock Identity
+     scaffolding doesn't guard against either. -->
+<h2 class="h4 font-display text-on-gradient mb-2">@ViewData["Title"]</h2>
+<hr class="account-divider w-100 mb-3" />

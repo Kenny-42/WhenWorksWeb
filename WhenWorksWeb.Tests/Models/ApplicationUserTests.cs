@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+using Microsoft.AspNetCore.Identity;
 using WhenWorksWeb.Common;
 using WhenWorksWeb.Models;
 
@@ -87,5 +89,21 @@ public class ApplicationUserTests
         var user = new ApplicationUser { CreatedAt = DateTime.UtcNow, LastActiveAt = DateTime.UtcNow };
 
         Assert.True(IsDisplayNameValid(user.DisplayName));
+    }
+
+    // Added by Spec/Bugs/BUGS-missing-download-personal-data-page.ospec (Issue #107):
+    // DownloadPersonalDataModel exports whichever ApplicationUser properties carry
+    // [PersonalData], reflecting over the attribute rather than a hardcoded field list -- these
+    // guard the actual export contract against a property losing its attribute unnoticed.
+    [Theory]
+    [InlineData(nameof(ApplicationUser.DisplayName))]
+    [InlineData(nameof(ApplicationUser.Color))]
+    [InlineData(nameof(ApplicationUser.CreatedAt))]
+    [InlineData(nameof(ApplicationUser.LastActiveAt))]
+    public void PersonalDataProperty_IsAttributedForExport(string propertyName)
+    {
+        var property = typeof(ApplicationUser).GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance)!;
+
+        Assert.True(Attribute.IsDefined(property, typeof(PersonalDataAttribute)));
     }
 }
