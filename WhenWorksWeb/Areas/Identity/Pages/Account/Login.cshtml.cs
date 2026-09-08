@@ -58,6 +58,19 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
         public string ErrorMessage { get; set; }
 
         /// <summary>
+        /// Carries the username through to Lockout.cshtml.cs's <c>OnGetAsync</c> so it can look up
+        /// and display the account's remaining lockout time. TempData rather than a query-string
+        /// route value: it isn't reflected in the URL (browser history, server access logs, Referer
+        /// headers), it's read exactly once by the next request, and it matches this page's own
+        /// existing <see cref="ErrorMessage"/> pattern. Safe to disclose here because this branch is
+        /// only reached after <see cref="ApplicationSignInManager.CheckPasswordSignInAsync"/> has
+        /// already verified the password is correct -- see that class's remarks on the
+        /// username-enumeration oracle this ordering closes.
+        /// </summary>
+        [TempData]
+        public string LockedOutUserName { get; set; }
+
+        /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
@@ -115,9 +128,10 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 // and calls CheckPasswordSignInAsync -- overridden by ApplicationSignInManager (this
                 // app's registered SignInManager, see Models/ApplicationSignInManager.cs) to verify
                 // the password BEFORE consulting lockout/confirmation status, so a wrong password can
-                // never disclose that an account exists and is locked out or unconfirmed. This doesn't
-                // count login failures towards account lockout; to enable that, set lockoutOnFailure: true.
-                var result = await _signInManager.PasswordSignInAsync(Input.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+                // never disclose that an account exists and is locked out or unconfirmed.
+                // lockoutOnFailure: true activates the 5-attempt policy configured in
+                // IdentityConfiguration.cs -- see Spec/Features/FEATURES-enforce-account-lockout.ospec.
+                var result = await _signInManager.PasswordSignInAsync(Input.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: true);
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User logged in.");
@@ -130,6 +144,7 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 if (result.IsLockedOut)
                 {
                     _logger.LogWarning("User account locked out.");
+                    LockedOutUserName = Input.UserName;
                     return RedirectToPage("./Lockout");
                 }
                 if (result.IsNotAllowed)

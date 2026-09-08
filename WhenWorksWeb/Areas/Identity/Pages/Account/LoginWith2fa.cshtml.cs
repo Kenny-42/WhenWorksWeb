@@ -41,6 +41,16 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
 
         public string ReturnUrl { get; set; }
 
+        /// <summary>
+        /// Carries the username through to Lockout.cshtml.cs's <c>OnGetAsync</c> so it can display
+        /// the account's remaining lockout time -- see Login.cshtml.cs's identically-named property
+        /// for the full rationale (TempData, not a query-string route value). Safe here for the same
+        /// reason: this branch is only reached after the password (and now the 2FA code) attempt has
+        /// already identified the account via <see cref="GetTwoFactorAuthenticationUserAsync"/>.
+        /// </summary>
+        [TempData]
+        public string LockedOutUserName { get; set; }
+
         public class InputModel
         {
             [Required(ErrorMessage = "The verification code is required.")]
@@ -96,6 +106,7 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
             else if (result.IsLockedOut)
             {
                 _logger.LogWarning("User with ID '{UserId}' account locked out.", userId);
+                LockedOutUserName = await _userManager.GetUserNameAsync(user);
                 return RedirectToPage("./Lockout");
             }
             else

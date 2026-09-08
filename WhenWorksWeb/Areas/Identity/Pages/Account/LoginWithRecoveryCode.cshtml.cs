@@ -39,6 +39,16 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
 
         public string ReturnUrl { get; set; }
 
+        /// <summary>
+        /// Carries the username through to Lockout.cshtml.cs's <c>OnGetAsync</c> so it can display
+        /// the account's remaining lockout time -- see Login.cshtml.cs's identically-named property
+        /// for the full rationale (TempData, not a query-string route value). Safe here for the same
+        /// reason: this branch is only reached after the account has already been identified via
+        /// <see cref="GetTwoFactorAuthenticationUserAsync"/>.
+        /// </summary>
+        [TempData]
+        public string LockedOutUserName { get; set; }
+
         public class InputModel
         {
             [Required(ErrorMessage = "The recovery code is required.")]
@@ -75,25 +85,37 @@ namespace WhenWorksWeb.Areas.Identity.Pages.Account
                 throw new InvalidOperationException("Unable to load two-factor authentication user.");
             }
 
+            var userId = await _userManager.GetUserIdAsync(user);
+
+            // Unlike TwoFactorAuthenticatorSignInAsync (which runs PreSignInCheck, and so already
+            // catches this), the base SignInManager.TwoFactorRecoveryCodeSignInAsync never consults
+            // lockout at all -- by design, per its own "we don't protect against brute force attacks
+            // since codes are expected to be random" comment. Without this check, a still-locked-out
+            // account could sign in with a valid recovery code despite the lockout redirects everywhere
+            // else on this flow, and a wrong code would never count towards it either. Checked before
+            // attempting redemption so a locked-out user's recovery code isn't burned for nothing.
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                _logger.LogWarning("User with ID '{UserId}' account locked out.", userId);
+                LockedOutUserName = await _userManager.GetUserNameAsync(user);
+                return RedirectToPage("./Lockout");
+            }
+
             // Strip whitespace some users incidentally include when copying a code such as
             // "abcde-12345" -- redemption itself doesn't care about the hyphen either way.
             var recoveryCode = Input.RecoveryCode.Replace(" ", string.Empty);
 
             var result = await _signInManager.TwoFactorRecoveryCodeSignInAsync(recoveryCode);
 
-            var userId = await _userManager.GetUserIdAsync(user);
-
             if (result.Succeeded)
             {
                 _logger.LogInformation("User with ID '{UserId}' logged in with a recovery code.", userId);
                 return LocalRedirect(returnUrl ?? Url.Content("~/"));
             }
-            if (result.IsLockedOut)
-            {
-                _logger.LogWarning("User with ID '{UserId}' account locked out.", userId);
-                return RedirectToPage("./Lockout");
-            }
 
+            // No result.IsLockedOut branch here (unlike Login.cshtml.cs/LoginWith2fa.cshtml.cs): per
+            // the remarks above, TwoFactorRecoveryCodeSignInAsync itself never returns IsLockedOut --
+            // the explicit check before redemption is what covers that case for this page instead.
             _logger.LogWarning("Invalid recovery code entered for user with ID '{UserId}'.", userId);
             ModelState.AddModelError(string.Empty, "Invalid recovery code entered.");
             return Page();
