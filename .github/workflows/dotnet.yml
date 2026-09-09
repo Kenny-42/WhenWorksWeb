@@ -31,3 +31,11 @@ jobs:
 
     - name: Test
       run: dotnet test tests/dotnet-unit/WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj --configuration Release --no-build --verbosity normal
+      env:
+        # Program.cs reads and validates Brevo:ApiKey as top-level startup code, before
+        # CustomWebApplicationFactory's ConfigureWebHost override (which swaps IEmailSender for
+        # TestEmailSender) ever gets a chance to run -- so every test that boots the app via
+        # WebApplicationFactory needs SOME value here just to get past that check, real or not.
+        # This never reaches Brevo's API: TestEmailSender still replaces IEmailSender before any
+        # HTTP call would be made. Locally this is satisfied by a real key in user secrets instead.
+        Brevo__ApiKey: test-placeholder-not-a-real-key
