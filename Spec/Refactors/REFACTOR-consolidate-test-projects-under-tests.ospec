@@ -1,0 +1,42 @@
+## Consolidate test projects under tests/
+
+### Status
+Implemented.
+
+### GitHub Issue
+#112
+
+### Summary
+`WhenWorksWeb.Tests` lives at the repo root while `tests/js-unit` holds the JS suite. Move the
+xUnit project under `tests/` so all test projects live in one place, and fix a related CI gap
+found along the way.
+
+### Motivation
+With two test suites now in place (and a UI test project planned later), keeping only one of
+them under `tests/` is inconsistent and makes the repo root more cluttered than it needs to be.
+Separately, `.github/workflows/dotnet.yml` currently runs `dotnet test` against
+`WhenWorksWeb/WhenWorksWeb.csproj` (the app project) rather than the test project, so CI has
+never actually run the xUnit suite — worth correcting while touching this workflow's paths
+anyway.
+
+### Proposed Changes
+- Move `WhenWorksWeb.Tests/` to `tests/dotnet-unit/WhenWorksWeb.Tests/`, keeping the `.csproj`/
+  project/assembly name `WhenWorksWeb.Tests` unchanged — only the folder location moves.
+- Update `WhenWorksWeb.slnx`'s project path.
+- Update `WhenWorksWeb.Tests.csproj`'s `<ProjectReference>` to `WhenWorksWeb/WhenWorksWeb.csproj`
+  for the new relative depth.
+- Update `.claude/hooks/run-affected-tests.ps1`'s `$testProject` path.
+- Update `CODING_CONVENTIONS.md`'s Testing Conventions section's path references.
+- Fix `.github/workflows/dotnet.yml` to run `dotnet test` against the relocated
+  `WhenWorksWeb.Tests.csproj` instead of the app project.
+
+### Acceptance Criteria
+- `dotnet build` and `dotnet test` succeed from the repo root via `WhenWorksWeb.slnx`.
+- `.claude/hooks/run-affected-tests.ps1` still locates and runs the test project correctly.
+- CODING_CONVENTIONS.md's test file paths are accurate.
+- CI's `.NET` workflow actually executes the xUnit suite (not just builds the app project).
+
+### Out of Scope
+- The future UI test project and its naming — deferred to a separate issue.
+- Any change to `WhenWorksWeb.Tests`'s project/assembly name, internal folder structure, or test
+  content.

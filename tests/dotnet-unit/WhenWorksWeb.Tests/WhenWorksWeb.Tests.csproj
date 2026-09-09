@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WhenWorksWeb\WhenWorksWeb.csproj" />
+    <ProjectReference Include="..\..\..\WhenWorksWeb\WhenWorksWeb.csproj" />
   </ItemGroup>
 
 </Project>

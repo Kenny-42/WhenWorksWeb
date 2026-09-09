@@ -24,10 +24,25 @@ jobs:
         dotnet-version: 10.0.x
         
     - name: Restore
-      run: dotnet restore WhenWorksWeb/WhenWorksWeb.csproj
-      
+      run: dotnet restore tests/dotnet-unit/WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj
+
     - name: Build
-      run: dotnet build WhenWorksWeb/WhenWorksWeb.csproj --configuration Release --no-restore
-      
+      run: dotnet build tests/dotnet-unit/WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj --configuration Release --no-restore
+
     - name: Test
-      run: dotnet test WhenWorksWeb/WhenWorksWeb.csproj --configuration Release --no-build --verbosity normal
+      run: dotnet test tests/dotnet-unit/WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj --configuration Release --no-build --verbosity normal
+      env:
+        # Program.cs reads and validates Brevo:ApiKey as top-level startup code, before
+        # CustomWebApplicationFactory's ConfigureWebHost override (which swaps IEmailSender for
+        # TestEmailSender) ever gets a chance to run -- so every test that boots the app via
+        # WebApplicationFactory needs SOME value here just to get past that check, real or not.
+        # This never reaches Brevo's API: TestEmailSender still replaces IEmailSender before any
+        # HTTP call would be made. Locally this is satisfied by a real key in user secrets instead.
+        Brevo__ApiKey: test-placeholder-not-a-real-key
+        # Same story for Google external login (see Program.cs's AddGoogle call): its ClientId/
+        # ClientSecret are only read lazily, the first time the Google auth handler is initialized
+        # for a request, which is why missing values surfaced as InternalServerError partway through
+        # the Identity test run rather than at startup. No test drives the real Google OAuth flow,
+        # so placeholders are enough. Locally this is satisfied by real values in user secrets instead.
+        Authentication__Google__ClientId: test-placeholder-not-a-real-client-id
+        Authentication__Google__ClientSecret: test-placeholder-not-a-real-client-secret
