@@ -16,7 +16,7 @@ $repoRoot = Resolve-Path (Join-Path (Join-Path $PSScriptRoot '..') '..')
 Set-Location $repoRoot
 
 $stateFile = Join-Path $repoRoot '.claude/hooks/test-hook-state.json'
-$testProject = 'WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj'
+$testProject = 'tests/dotnet-unit/WhenWorksWeb.Tests/WhenWorksWeb.Tests.csproj'
 $watchDirs = @('WhenWorksWeb/Controllers', 'WhenWorksWeb/Services', 'WhenWorksWeb/Models')
 
 function Write-HookMessage([string]$message) {
@@ -72,7 +72,7 @@ try {
         $leaf = [System.IO.Path]::GetFileNameWithoutExtension($file)   # e.g. EventsController.SignIn
         $baseName = $leaf.Split('.')[0]                                # e.g. EventsController
         $sourceDirName = Split-Path (Split-Path $file -Parent) -Leaf   # Controllers / Services / Models
-        $testDir = Join-Path $repoRoot "WhenWorksWeb.Tests/$sourceDirName"
+        $testDir = Join-Path $repoRoot "tests/dotnet-unit/WhenWorksWeb.Tests/$sourceDirName"
 
         if (Test-Path $testDir) {
             Get-ChildItem -Path $testDir -Filter "$baseName*Tests.cs" -File -ErrorAction SilentlyContinue |
