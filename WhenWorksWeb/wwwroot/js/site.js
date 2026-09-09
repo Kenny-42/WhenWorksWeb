@@ -82,21 +82,14 @@
       var radius = blob.radius * maxDimension;
 
       var gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      gradient.addColorStop(0, hexToRgba(blob.color, CENTER_ALPHA));
+      gradient.addColorStop(0, WWColorUtils.hexToRgba(blob.color, CENTER_ALPHA));
       // A radial gradient can't fade straight to "transparent" from a color and keep the
       // hue through the fade (the browser interpolates through transparent black) — an
       // explicit transparent copy of the same color avoids muddying toward gray.
-      gradient.addColorStop(1, hexToRgba(blob.color, 0));
+      gradient.addColorStop(1, WWColorUtils.hexToRgba(blob.color, 0));
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, cssWidth, cssHeight);
     }
-  }
-
-  function hexToRgba(hex, alpha) {
-    var r = parseInt(hex.slice(1, 3), 16);
-    var g = parseInt(hex.slice(3, 5), 16);
-    var b = parseInt(hex.slice(5, 7), 16);
-    return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
   }
 
   var reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -188,72 +181,6 @@
   var DEFAULT_SPOTLIGHT_B = 155;
   var lastColorTarget = null;
 
-  // rgb (0-255 each) -> hsl (h in degrees, s/l in percent). Standard conversion, used
-  // only by boostSaturation below.
-  function rgbToHsl(r, g, b) {
-    r /= 255;
-    g /= 255;
-    b /= 255;
-    var max = Math.max(r, g, b);
-    var min = Math.min(r, g, b);
-    var h = 0;
-    var s = 0;
-    var l = (max + min) / 2;
-
-    if (max !== min) {
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-        case g: h = (b - r) / d + 2; break;
-        default: h = (r - g) / d + 4; break;
-      }
-      h /= 6;
-    }
-
-    return [h * 360, s * 100, l * 100];
-  }
-
-  // hsl -> rgb, the inverse of rgbToHsl above.
-  function hslToRgb(h, s, l) {
-    h /= 360;
-    s /= 100;
-    l /= 100;
-
-    if (s === 0) {
-      var gray = Math.round(l * 255);
-      return [gray, gray, gray];
-    }
-
-    var hue2rgb = function (p, q, t) {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-
-    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    var p = 2 * l - q;
-
-    return [
-      Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
-      Math.round(hue2rgb(p, q, h) * 255),
-      Math.round(hue2rgb(p, q, h - 1 / 3) * 255)
-    ];
-  }
-
-  // Pushes a color noticeably more vivid than its source — the feature cards' own accent
-  // tokens are deliberately soft/pastel to fit the page, but the spotlight reusing that
-  // exact color read as dull rather than glowing.
-  function boostSaturation(r, g, b) {
-    var hsl = rgbToHsl(r, g, b);
-    var boostedS = Math.min(100, hsl[1] + 80);
-    var vividL = Math.min(64, Math.max(48, hsl[2]));
-    return hslToRgb(hsl[0], boostedS, vividL);
-  }
-
   function updateSpotlightColor(target) {
     // Recomputed only when the hovered element changes, not on every mousemove —
     // getComputedStyle is comparatively expensive at mousemove frequency.
@@ -278,7 +205,7 @@
     });
 
     var rgb = isValidRgbTriplet
-      ? boostSaturation(channels[0], channels[1], channels[2])
+      ? WWColorUtils.boostSaturation(channels[0], channels[1], channels[2])
       : [DEFAULT_SPOTLIGHT_R, DEFAULT_SPOTLIGHT_G, DEFAULT_SPOTLIGHT_B];
 
     spotlight.style.setProperty("--spotlight-r", rgb[0]);
@@ -305,36 +232,18 @@
   var GLOW_FULL_INTENSITY_DISTANCE = GLOW_PROXIMITY_RADIUS * 0.45;
   var GLOW_FADE_OUT_DISTANCE = GLOW_PROXIMITY_RADIUS * 0.9;
 
-  // Exact distance from a point to the nearest point ON a rect's boundary (0 if inside) —
-  // clamping the point to the rect per axis, then measuring from that clamped point.
-  // Used instead of a "distance to center minus half the larger dimension" approximation,
-  // which under/over-counted the real gap for non-square elements (e.g. a wide, short
-  // capsule), producing inconsistent glow between same-distance neighbors of different
-  // shapes.
-  function distanceToRectEdge(rect, x, y) {
-    var dx = Math.max(rect.left - x, 0, x - rect.right);
-    var dy = Math.max(rect.top - y, 0, y - rect.bottom);
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  // Smoothstep (3t² - 2t³) rather than a linear ramp for the fade between the two
-  // distance thresholds — eases in/out at both ends instead of a constant rate.
-  function smoothstep(t) {
-    return t * t * (3 - 2 * t);
-  }
-
   // Updates --glow-intensity on every glow target based on the given viewport point.
   function updateGlowTargets(clientX, clientY) {
     glowTargets.forEach(function (target) {
       var rect = target.getBoundingClientRect();
-      var distanceToEdge = distanceToRectEdge(rect, clientX, clientY);
+      var distanceToEdge = WWColorUtils.distanceToRectEdge(rect, clientX, clientY);
 
       var intensity = 0;
       if (distanceToEdge <= GLOW_FULL_INTENSITY_DISTANCE) {
         intensity = 1;
       } else if (distanceToEdge <= GLOW_FADE_OUT_DISTANCE) {
         var t = (GLOW_FADE_OUT_DISTANCE - distanceToEdge) / (GLOW_FADE_OUT_DISTANCE - GLOW_FULL_INTENSITY_DISTANCE);
-        intensity = smoothstep(t);
+        intensity = WWColorUtils.smoothstep(t);
       }
 
       target.style.setProperty("--glow-intensity", intensity.toString());
@@ -750,7 +659,10 @@
 // halves (the rule itself and the adapter that reads data-val-grapheme off the input) are
 // registered by hand here. A no-op if jQuery Validate isn't loaded on the current page —
 // only pages with @Html.AntiForgeryToken()-style forms plus _ValidationScriptsPartial pull
-// it in.
+// it in. The actual single-grapheme check is pure logic that lives in
+// ww-grapheme-validator.js (window.WWGraphemeValidator) so it's reachable from a test; this
+// IIFE keeps only the jQuery-Validate-specific wiring — the "is this field optional and
+// currently empty" check and the rule/adapter registration itself.
 (function () {
   "use strict";
 
@@ -767,40 +679,7 @@
       return true;
     }
 
-    // Same control/zero-width rejection ModelConstants.DisplayNameContentPattern encodes
-    // server-side, restated here in JS syntax (see that constant's own comment for why it's
-    // a separate ASCII-escape-only pattern rather than shared verbatim with the server).
-    // Built from a RegExp constructor (rather than a /.../ literal containing the raw
-    // characters) so the zero-width codepoints stay as visible, greppable \u escapes in
-    // source instead of invisible bytes an editor could silently mangle.
-    //
-    // Run against the ZWJ-stripped value, not the raw one -- matching SingleGraphemeAttribute
-    // server-side: U+200D (zero-width joiner) is blocked as invisible junk everywhere else,
-    // but it's also the actual joiner a compound emoji sequence (e.g. the family emoji:
-    // man+ZWJ+woman+ZWJ+girl+ZWJ+boy) is built from, so a legitimate ZWJ emoji must not fail
-    // this check just because the raw string contains ZWJ. Stripping first still catches a
-    // value that's ZWJ characters and nothing else (the stripped text is then empty, failing
-    // \S) while still allowing ZWJ as an interior joiner between real content.
-    var controlOrZeroWidthPattern = new RegExp("[\\x00-\\x1F\\x7F-\\x9F\\u200B\\u200C\\u200D\\u200E\\u200F\\uFEFF]");
-    var withoutJoiners = value.split(String.fromCharCode(0x200d)).join("");
-    if (controlOrZeroWidthPattern.test(withoutJoiners) || !/\S/.test(withoutJoiners)) {
-      return false;
-    }
-
-    var graphemeCount;
-    if (window.Intl && window.Intl.Segmenter) {
-      var segmenter = new window.Intl.Segmenter(undefined, { granularity: "grapheme" });
-      graphemeCount = Array.from(segmenter.segment(value)).length;
-    } else {
-      // Fallback for a browser without Intl.Segmenter: counts Unicode code points (correct
-      // for a plain single-codepoint emoji, but can undercount a multi-codepoint sequence
-      // like a ZWJ family emoji as more than one grapheme). The server-side check via
-      // StringInfo.GetTextElementEnumerator is the real, accurate enforcement either way —
-      // this is only a best-effort head start on showing the error before submit.
-      graphemeCount = Array.from(value).length;
-    }
-
-    return graphemeCount === 1;
+    return WWGraphemeValidator.isSingleGrapheme(value);
   }, "Must be a single emoji character.");
 
   $.validator.unobtrusive.adapters.addBool("grapheme");

@@ -1,0 +1,271 @@
+# Vitest JS Test Coverage
+
+This file tracks the six staged steps of setting up JS test infrastructure for
+WhenWorksWeb, kept together in one file rather than split across `Spec/Features/`
+because they're staged parts of a single initiative — GitHub issue #93 — rather than
+independent items (see CLAUDE.md's Specs section for when grouped entries like this are
+appropriate vs. one file per item). This file is scoped to these six steps only.
+
+No automated coverage exists for `wwwroot/js/` today. The goal is a Vitest + jsdom test
+runner covering the pure/testable logic in `event-best-bets.js`, `event-live-sync.js`,
+and select functions in `site.js`, so regressions there are caught automatically instead
+of by manual clicking. Everything lives at the repo root (not nested in `WhenWorksWeb/`),
+independent of the existing `dotnet.yml` CI workflow and any future `WhenWorksWeb.Tests`
+xUnit project.
+
+Cross-cutting decisions that apply to every step below: Vitest is the only build tooling
+added (no bundler, no separate lint/format tooling as part of this initiative);
+`package-lock.json` is committed (npm) and `node_modules/` is gitignored; CI (Step 6)
+pins Node 22 (current LTS). Test files mirror `wwwroot/js/` filenames one-to-one under
+`tests/js/` (e.g. `tests/js/event-best-bets.test.js`), matching the mirrored-path
+convention already used on the .NET test side.
+
+**Loading mechanism:** none of `event-best-bets.js`/`event-live-sync.js`/`site.js` (nor
+the two new modules in Step 5) use ES module syntax — each is a plain IIFE assigning to
+a `window.WW*` global, and none of their source is changed to accommodate testing. Tests
+instead read each file's source text and evaluate it against jsdom's `window` (e.g. via
+`vm`/`new Function`) in a shared test-setup helper, then read the resulting global off
+that `window` — no `module.exports` tail or other change to any source file.
+
+The steps are staged in dependency order: Step 1 blocks every other step. Steps 2 and 3
+cover `event-best-bets.js` and can land in either order relative to each other, but both
+before Step 6. Step 5's extraction (pulling pure helpers out of `site.js` into
+`ww-color-utils.js`/`ww-grapheme-validator.js`) is a structural change to `site.js`,
+greenlit as scoped below (see Step 5) as of this spec's creation. Step 6 (CI workflow)
+depends on the earlier steps existing so there's something for it to run.
+
+---
+
+## Step 1: Scaffold package.json/vitest.config.js/tests/js/
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Create the root-level `package.json` and `vitest.config.js`, and the `tests/js/`
+directory, so every later step has somewhere to add tests.
+
+### Motivation
+No JS test tooling exists in the repo yet. Every other step needs somewhere to live, so
+this is the foundational step: get an empty, correctly-configured Vitest setup running
+before any test content is added.
+
+### Proposed Changes
+- Root-level `package.json` declaring Vitest as the only dependency, plus a `test`
+  script (`vitest run`).
+- Root-level `vitest.config.js` with `environment: 'jsdom'`.
+- `tests/js/` directory at the repo root, empty to start.
+- `.gitignore` updated at the repo root for `node_modules/` (if not already covered).
+- `package-lock.json` committed.
+
+### Acceptance Criteria
+- `npx vitest run` passes with zero tests.
+- `node_modules/` is gitignored; `package-lock.json` is committed.
+
+### Out of Scope
+- Any actual test content (Steps 2-5).
+- The CI workflow (Step 6).
+
+---
+
+## Step 2: Unit tests for event-best-bets.js's pure logic
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Unit-test the pure ranking/formatting/date-math functions in `event-best-bets.js`.
+
+### Motivation
+`event-best-bets.js` is the shared "best bets" date ranking used by both the
+Availability and Settings tabs; its pure logic is the cheapest, highest-value coverage
+to add first.
+
+### Proposed Changes
+- Tests import the module via its existing `window.WWBestBets` global.
+- `computeTopDates` — ranking by participant count descending, tie-break by earliest
+  date, `limit` cap (default and overridden), exclusion of zero-participant entries.
+- `formatDateLabel` — label formatting.
+- `computeFinalDateAvailability` — union ("any day") and intersection ("every day")
+  participant sets across a final date's range, including the single-day collapse case.
+- `getFinalDateKeys` — every key covered by a set of final date ranges.
+- Date helpers `parseDateOnly`/`formatDateOnly`/`addDay`, including a case whose range
+  spans a DST transition.
+
+### Acceptance Criteria
+- `npx vitest run` passes for all new tests, with no DOM/rendering involved.
+
+### Out of Scope
+- `renderBestBetsList`/`renderFinalDatesList` (Step 3).
+
+### Dependencies
+Step 1.
+
+---
+
+## Step 3: jsdom tests for event-best-bets.js's rendering functions
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Test `renderBestBetsList`/`renderFinalDatesList`'s rendered markup under jsdom.
+
+### Motivation
+These two functions are what actually keeps the Availability and Settings tabs' "best
+bets"/"final dates" UI in sync from one source of truth; asserting on rendered structure
+(not just the data Step 2 already covers) catches regressions in the DOM output itself.
+
+### Proposed Changes
+- `renderBestBetsList` — row count for a given ranking, empty-state markup, the
+  `options.onSelect` button-vs-div row variant, and the trailing dots structure.
+- `renderFinalDatesList` — row count, single-day vs. range row content, and the
+  trailing-controls structure both with and without `options.renderRemoveControl`
+  supplied.
+
+### Acceptance Criteria
+- `npx vitest run` passes for all new tests, asserting against rendered DOM structure
+  (element counts, classes, trailing-controls nesting), not just the underlying data.
+
+### Out of Scope
+- The pure logic these functions call into (already covered by Step 2).
+
+### Dependencies
+Step 1.
+
+---
+
+## Step 4: Unit tests for event-live-sync.js
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Unit-test `event-live-sync.js`'s `fetchSnapshot` and `connect` against mocked
+`fetch`/`signalR`.
+
+### Motivation
+`event-live-sync.js` is the shared SignalR connection helper added since #93 was
+originally filed (used by both the Availability and Finalize tabs); it didn't exist when
+this issue's original scope was written and has no coverage today.
+
+### Proposed Changes
+- Tests import the module via its existing `window.WWLiveSync` global.
+- `fetchSnapshot` — parses and returns the JSON body on a successful response; rejects
+  when the response isn't ok. Tested against a mocked `fetch`.
+- `connect` — joins the event's group on start, rejoins on `onreconnected`, and calls
+  the optional `onReconnected` handler on reconnect. Tested against a mocked `signalR`
+  global (a stub `HubConnectionBuilder`/`HubConnection`), not a real SignalR connection.
+
+### Acceptance Criteria
+- `npx vitest run` passes for all new tests, with no real network or SignalR connection
+  involved.
+
+### Out of Scope
+- Any change to `event-live-sync.js`'s own module shape or behavior.
+
+### Dependencies
+Step 1.
+
+---
+
+## Step 5: Extract ww-color-utils.js and ww-grapheme-validator.js out of site.js, then add unit tests
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Extract the pure color/geometry helpers and the single-emoji validation logic currently
+trapped inside no-export IIFEs in `site.js` into two small new shared modules, matching
+`event-best-bets.js`/`event-live-sync.js`'s existing pattern, then unit-test both.
+
+### Motivation
+`site.js` has grown to include real pure logic beyond its original animation/DOM-wiring
+scope — color math and the grapheme-count validation rule mirroring
+`SingleGraphemeAttribute`'s server-side check — but none of it is currently reachable
+from a test since it lives inside unexported IIFEs.
+
+### Proposed Changes
+- **`wwwroot/js/ww-color-utils.js`** (`window.WWColorUtils`) — `hexToRgba`,
+  `rgbToHsl`/`hslToRgb`, `boostSaturation`, `distanceToRectEdge`, `smoothstep`, moved out
+  of `site.js`'s canvas and spotlight IIFEs.
+- **`wwwroot/js/ww-grapheme-validator.js`** (`window.WWGraphemeValidator`) — the
+  single-emoji validation logic only (control/zero-width rejection, ZWJ-joined
+  sequences, single-vs-multi-codepoint counting), kept framework-agnostic with no
+  jQuery dependency. `site.js`'s IIFE keeps the `if (!window.jQuery || ...) return;`
+  page-detection guard and the `$.validator.addMethod`/`unobtrusive.adapters.addBool`
+  registration itself, calling into this module only for the pure check — matching how
+  `event-best-bets.js`/`event-live-sync.js` already leave page-specific wiring to their
+  callers rather than owning it.
+- `site.js` updated to reference both new globals instead of defining the logic inline;
+  the RAF animation loop, mouse-tracking/DOM-glow wiring, and confetti spawning stay in
+  `site.js` unchanged.
+- `tests/js/` unit tests for both new modules directly.
+
+### Acceptance Criteria
+- `ww-color-utils.js` and `ww-grapheme-validator.js` exist as standalone files loaded by
+  the same views `site.js` already is, each exposing one `window.WW*` global.
+- `site.js`'s visible behavior (blob animation, spotlight/glow, confetti, emoji
+  validation) is unchanged after the extraction.
+- `npx vitest run` passes for new unit tests covering both modules' pure logic.
+
+### Out of Scope
+- The RAF animation loop, mouse-tracking/DOM-glow wiring, and confetti spawning — no
+  real logic beyond driving the DOM, stay in `site.js` and untested.
+- Any other refactor of `site.js`'s remaining IIFEs.
+
+### Dependencies
+Step 1. The extraction itself is a structural change to `site.js`; scope (which
+functions move, and that the validator module excludes the jQuery Validate
+registration) was confirmed separately from approval of this spec entry as a whole,
+per CLAUDE.md's decision-making boundaries — see this spec's intro.
+
+---
+
+## Step 6: Add js-tests.yml CI workflow
+
+### Status
+Done.
+
+### GitHub Issue
+#93
+
+### Summary
+Add a GitHub Actions workflow that installs dependencies and runs the Vitest suite on
+push/PR to `master`.
+
+### Motivation
+Closes the loop on this initiative — tests that only run when someone remembers to run
+them locally don't reliably catch regressions.
+
+### Proposed Changes
+- New `.github/workflows/js-tests.yml`: `actions/setup-node@v4` pinned to Node 22
+  (current LTS), `npm ci`, `vitest run`.
+- Same push/PR triggers on `master` as `dotnet.yml`, as an independent workflow (not
+  merged into `dotnet.yml`).
+
+### Acceptance Criteria
+- The workflow runs and passes on a push/PR to `master` touching the JS test suite.
+- The workflow is independent of `dotnet.yml` (a failure/change in one doesn't affect
+  the other's triggers).
+
+### Out of Scope
+- Any change to `dotnet.yml` itself.
+
+### Dependencies
+Steps 1-5 (there must be a passing suite for the workflow to run).
