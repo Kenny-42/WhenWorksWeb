@@ -2,9 +2,10 @@
 // FEATURES-vitest-js-test-coverage.ospec Step 5) -- one test file per source file, per this
 // initiative's mirrored-path convention.
 //
-// isSingleGrapheme doesn't treat an empty value as valid -- that "optional field" decision is
-// jQuery-Validate-specific and lives in site.js's own IIFE, not in this module -- so no test
-// here covers an empty string.
+// isSingleGrapheme's optional-field short-circuit ("is this field empty and not required?")
+// is jQuery-Validate-specific and lives in site.js's own IIFE, not in this module -- so that
+// decision isn't tested here. isSingleGrapheme itself still rejects an empty string on its own
+// terms (zero graphemes, not one), which the empty-string test below covers directly.
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadScript } from './helpers/loadScript.js';
 
@@ -40,6 +41,10 @@ describe('isSingleGrapheme', () => {
 
     it('rejects a value containing a control character', () => {
         expect(WWGraphemeValidator.isSingleGrapheme('')).toBe(false);
+    });
+
+    it('rejects an empty string', () => {
+        expect(WWGraphemeValidator.isSingleGrapheme('')).toBe(false);
     });
 
     it('rejects a value that is only zero-width characters', () => {

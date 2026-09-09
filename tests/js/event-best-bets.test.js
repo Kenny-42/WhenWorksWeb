@@ -293,6 +293,15 @@ describe('renderBestBetsList', () => {
             'rgb(0, 0, 255)',
         ]);
     });
+
+    it('falls back to a default gray dot for a participant id missing from participantsById', () => {
+        const datesByKey = { '2026-01-01': [1] };
+
+        WWBestBets.renderBestBetsList(container, datesByKey, {}, 1);
+
+        const dot = container.querySelector('.ww-best-bet-dots .ww-best-bet-dot');
+        expect(dot.style.backgroundColor).toBe('rgb(204, 204, 204)');
+    });
 });
 
 describe('renderFinalDatesList', () => {

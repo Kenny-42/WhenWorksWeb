@@ -39,7 +39,7 @@ depends on the earlier steps existing so there's something for it to run.
 ## Step 1: Scaffold package.json/vitest.config.js/tests/js/
 
 ### Status
-Not started.
+Done.
 
 ### GitHub Issue
 #93
@@ -74,7 +74,7 @@ before any test content is added.
 ## Step 2: Unit tests for event-best-bets.js's pure logic
 
 ### Status
-Not started.
+Done.
 
 ### GitHub Issue
 #93

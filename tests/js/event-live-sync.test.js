@@ -95,4 +95,26 @@ describe('connect', () => {
     it('does not require an onReconnected handler to be provided', () => {
         expect(() => WWLiveSync.connect('ABC123', {})).not.toThrow();
     });
+
+    it('wires the optional onAvailabilityChanged/onFinalDatesChanged handlers to their broadcasts', () => {
+        const onAvailabilityChanged = vi.fn();
+        const onFinalDatesChanged = vi.fn();
+
+        WWLiveSync.connect('ABC123', { onAvailabilityChanged, onFinalDatesChanged });
+
+        expect(connectionStub.on).toHaveBeenCalledWith('AvailabilityChanged', onAvailabilityChanged);
+        expect(connectionStub.on).toHaveBeenCalledWith('FinalDatesChanged', onFinalDatesChanged);
+    });
+
+    it('does not subscribe to a broadcast whose handler was not provided', () => {
+        WWLiveSync.connect('ABC123', {});
+
+        expect(connectionStub.on).not.toHaveBeenCalled();
+    });
+
+    it('returns the live connection', () => {
+        const result = WWLiveSync.connect('ABC123', {});
+
+        expect(result).toBe(connectionStub);
+    });
 });
